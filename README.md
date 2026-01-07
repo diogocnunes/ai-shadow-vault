@@ -13,7 +13,7 @@ By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this
 
 1. **Clone & Setup:**
    ```bash
-   git clone [https://github.com/diogocnunes/ai-shadow-vault.git](https://github.com/diogocnunes/ai-shadow-vault.git) ~/.ai-shadow-vault
+   git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
    mkdir -p ~/.gemini-vault
    ```
 2. **ZSH Integration:** Add this to your `~/.zshrc`:
