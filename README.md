@@ -31,6 +31,14 @@ The provided templates in `templates/AGENTS.md` and `templates/GEMINI.md` are pr
 
 **However, these are just samples.** You can (and should) modify them freely to match your specific stack (Node.js, Python, Go, React, etc.). The AI will follow whatever rules you define in your local Vault.
 
+## 🛡️ Safety First: Global Git Protection
+The `vault-init.sh` script automatically configures a global git exclusion ruleset. It creates or updates your `~/.gitignore_global` to include:
+- `.opencode-context.md`
+- `AGENTS.md`
+- `.opencode.json`
+
+This ensures that even if a symlink is created locally, it will **never** be detected or committed by Git, keeping your AI instructions private and your repository clean.
+
 ## 🤖 AI & LLM Compatibility
 
 This system was built and extensively tested using **Google Gemini** (via OpenCode and gemini-cli).
@@ -57,6 +65,12 @@ Run `vault-check` at any time to verify the integrity of your symlinks and the s
 
 ### Example Output:
 ![Vault Check Example](assets/images/vault-check-example.png)
+
+## 💻 System Compatibility
+- **macOS:** Native support (Tested on macOS Sequoia/Sonoma with ZSH).
+- **Linux:** Fully supported (Ubuntu, Fedora, etc. - requires ZSH).
+- **Windows:** Supported via **WSL2** (Windows Subsystem for Linux). Native PowerShell/CMD execution is not recommended due to symbolic link permission restrictions.
+
 
 ## ⚖️ License
 MIT
