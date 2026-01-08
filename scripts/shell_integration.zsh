@@ -31,3 +31,6 @@ function set_gemini_context() {
         ln -sf "$common_config" "$json_config"
     fi
 }
+
+# --- ALIASES ---
+alias vault-init="~/.ai-shadow-vault/bin/vault-init.sh"

@@ -21,9 +21,9 @@ By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this
     source ~/.ai-shadow-vault/scripts/shell_integration.zsh
     ```
 3. **Initialize a Project:**
-    ```bash
-    cd your-project-folder
-    ~/.ai-shadow-vault/bin/vault-init.sh
+   Navigate to your project folder and simply run:
+   ```bash
+   vault-init
     ```
 ## 📋 Customization & Stack Agnostic
 
