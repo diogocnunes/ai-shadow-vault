@@ -91,5 +91,5 @@ function vault-check() {
 }
 
 # --- ALIASES ---
-# Shortcut for initializing a new project vault
 alias vault-init="~/.ai-shadow-vault/bin/vault-init.sh"
+alias vault-update="~/.ai-shadow-vault/bin/vault-update.sh"
