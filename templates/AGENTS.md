@@ -11,5 +11,5 @@
 - **Frontend:** Use Vue 3 Composition API (`<script setup>`) and TailwindCSS.
 
 ## AI Interaction Rules
-- Consult `.opencode-context.md` for project architecture.
+- Consult `GEMINI.md` for project architecture.
 - Follow `AGENTS.md` for coding style and patterns.

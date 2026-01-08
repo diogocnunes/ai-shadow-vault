@@ -33,7 +33,7 @@ The provided templates in `templates/AGENTS.md` and `templates/GEMINI.md` are pr
 
 ## 🛡️ Safety First: Global Git Protection
 The `vault-init.sh` script automatically configures a global git exclusion ruleset. It creates or updates your `~/.gitignore_global` to include:
-- `.opencode-context.md`
+- `GEMINI.md`
 - `AGENTS.md`
 - `.opencode.json`
 

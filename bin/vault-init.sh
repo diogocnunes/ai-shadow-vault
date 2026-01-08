@@ -19,22 +19,18 @@ echo "✅ Vault directory created at: $PROJECT_VAULT"
 
 # 3. Global Git Safety Net
 echo "🔒 Configuring Global Git Safety Net..."
-
 GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
-# Files to exclude globally
-FILES_TO_IGNORE=(".opencode-context.md" "AGENTS.md" ".opencode.json")
+# Added GEMINI.md to the ignore list
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "^$file$" "$GLOBAL_IGNORE"; then
         echo "$file" >> "$GLOBAL_IGNORE"
-        echo "   + Added $file to $GLOBAL_IGNORE"
     fi
 done
 
-# Force Git to use the global ignore file
 git config --global core.excludesfile "$GLOBAL_IGNORE"
-
-echo "✅ Global Git Safety Net active. Context files will never be committed."
+echo "✅ Global Git Safety Net updated."
 echo "📝 Edit your context files in the vault to start coding with AI."

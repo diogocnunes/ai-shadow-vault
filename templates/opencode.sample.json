@@ -4,7 +4,7 @@
     "build": {
       "mode": "primary",
       "model": "google/gemini-3-flash",
-      "prompt": "Build agent. Execute tasks based on .opencode-context.md and AGENTS.md.",
+      "prompt": "Build agent. Execute tasks based on GEMINI.md and AGENTS.md.",
       "tools": { "write": true, "edit": true, "bash": true }
     },
     "arquiteto": {
