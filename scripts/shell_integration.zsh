@@ -15,11 +15,27 @@ function set_gemini_context() {
     local md_agents="./AGENTS.md"
     local json_config="./.opencode.json"
 
+    # Laravel Boost files
+    local mcp_config="./.mcp.json"
+    local claude_md="./CLAUDE.md"
+    local boost_config="./boost.json"
+
     # Cleanup existing symlinks (including legacy names)
     [[ -L "$md_context" ]] && rm "$md_context"
     [[ -L "$md_context_legacy" ]] && rm "$md_context_legacy"
     [[ -L "$md_agents" ]] && rm "$md_agents"
     [[ -L "$json_config" ]] && rm "$json_config"
+
+    # Cleanup Laravel Boost files (real files, not symlinks)
+    # These are auto-generated and should not exist in the working directory
+    # as Shadow Vault takes precedence for context injection
+    [[ -f "$mcp_config" ]] && rm "$mcp_config"
+    [[ -f "$claude_md" ]] && rm "$claude_md"
+    [[ -f "$boost_config" ]] && rm "$boost_config"
+
+    # AGENTS.md can be created by Laravel Boost as a real file
+    # Remove it if it exists as a real file (not a symlink) to avoid conflicts
+    [[ -f "$md_agents" && ! -L "$md_agents" ]] && rm "$md_agents"
 
     # 1. Link coding guidelines
     if [[ -f "$vault_path/AGENTS.md" ]]; then
