@@ -31,11 +31,33 @@ The provided templates in `templates/AGENTS.md` and `templates/GEMINI.md` are pr
 
 **However, these are just samples.** You can (and should) modify them freely to match your specific stack (Node.js, Python, Go, React, etc.). The AI will follow whatever rules you define in your local Vault.
 
+## 🚀 Laravel Boost Support
+When running `vault-init` on a Laravel project, the script automatically detects it by checking for `composer.json` and the Laravel framework dependency.
+
+If a Laravel project is detected, you'll be prompted to install **Laravel Boost**, a powerful tool that enhances AI-assisted development in Laravel applications.
+
+**What happens when you choose to install:**
+1. Runs `composer require laravel/boost --dev`
+2. Executes `php artisan boost:install` to configure Laravel Boost
+3. Automatically adds Laravel Boost files to your global `.gitignore`
+
+**Protected Laravel Boost files:**
+- `.mcp.json` - MCP server configuration
+- `CLAUDE.md` - AI guidelines for Claude
+- `boost.json` - Boost configuration
+- `.ai/` - Custom guidelines directory
+
+Just like the Shadow Vault files, these are automatically excluded from Git to keep your repository clean while maintaining full AI context capabilities.
+
 ## 🛡️ Safety First: Global Git Protection
 The `vault-init.sh` script automatically configures a global git exclusion ruleset. It creates or updates your `~/.gitignore_global` to include:
 - `GEMINI.md`
 - `AGENTS.md`
 - `.opencode.json`
+- `.mcp.json`
+- `CLAUDE.md`
+- `boost.json`
+- `.ai/`
 
 This ensures that even if a symlink is created locally, it will **never** be detected or committed by Git, keeping your AI instructions private and your repository clean.
 
@@ -54,9 +76,9 @@ To maximize performance while keeping costs near zero, this setup prioritizes th
 1. **Enable Paid Tier (Level 1):** Go to [Google AI Studio](https://aistudio.google.com/) and switch your plan to **Pay-as-you-go**. This removes the "Free Tier" rate limits (20 requests/min), enabling smooth `/init` commands without interruptions.
 
 2. **Set Hard Quotas (The "Kill Switch"):** In the [Google Cloud Console](https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas), edit your **"Paid Tier"** quotas to prevent unexpected costs:
-    - **Gemini Flash:** Set to **500** requests per day.
-    - **Gemini Pro:** Set to **200** requests per day.
-    - These limits ensure that even in a "loop" scenario, you won't spend more than a few cents per day.
+   - **Gemini Flash:** Set to **500** requests per day.
+   - **Gemini Pro:** Set to **200** requests per day.
+   - These limits ensure that even in a "loop" scenario, you won't spend more than a few cents per day.
 
 3. **Budget Alerts:** Set a monthly budget alert of **$5.00** in Google Cloud Billing to receive immediate email notifications of any spending.
 
