@@ -18,13 +18,45 @@ cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot
 
 echo "✅ Vault directory created at: $PROJECT_VAULT"
 
-# 3. Global Git Safety Net
+# 3. Laravel Boost Detection & Installation
+if [ -f "composer.json" ]; then
+    # Check if Laravel is in the dependencies
+    if grep -q '"laravel/framework"' composer.json; then
+        echo ""
+        echo "🔍 Laravel project detected!"
+        echo -n "Would you like to install Laravel Boost? (y/n): "
+        read -r response
+
+        if [[ "$response" =~ ^[Yy]$ ]]; then
+            echo "📦 Installing Laravel Boost..."
+
+            # Install Laravel Boost via composer
+            if composer require laravel/boost --dev; then
+                echo "✅ Laravel Boost package installed."
+
+                # Run the Boost installer
+                echo "🚀 Running Laravel Boost installer..."
+                if php artisan boost:install; then
+                    echo "✅ Laravel Boost installed successfully!"
+                else
+                    echo "⚠️  Laravel Boost installer failed. Please check the errors above."
+                fi
+            else
+                echo "⚠️  Failed to install Laravel Boost package. Please check the errors above."
+            fi
+        else
+            echo "⏭️  Skipping Laravel Boost installation."
+        fi
+    fi
+fi
+
+# 4. Global Git Safety Net
 echo "🔒 Configuring Global Git Safety Net..."
 GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
-# Adicionado copilot-instructions.md à lista de ignorados
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" "copilot-instructions.md")
+# Added GEMINI.md to the ignore list (+ Laravel Boost files)
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai/" "copilot-instructions.md")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$GLOBAL_IGNORE"; then

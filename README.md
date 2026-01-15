@@ -41,11 +41,33 @@ The Vault maps specific files to the expected standards of each AI tool. When yo
 
 > **Note:** For GitHub Copilot, the tool automatically manages the `./.github/` directory for you, ensuring the instructions are placed exactly where the Copilot engine looks for them.
 
+## 🚀 Laravel Boost Support
+When running `vault-init` on a Laravel project, the script automatically detects it by checking for `composer.json` and the Laravel framework dependency.
+
+If a Laravel project is detected, you'll be prompted to install **Laravel Boost**, a powerful tool that enhances AI-assisted development in Laravel applications.
+
+**What happens when you choose to install:**
+1. Runs `composer require laravel/boost --dev`
+2. Executes `php artisan boost:install` to configure Laravel Boost
+3. Automatically adds Laravel Boost files to your global `.gitignore`
+
+**Protected Laravel Boost files:**
+- `.mcp.json` - MCP server configuration
+- `CLAUDE.md` - AI guidelines for Claude
+- `boost.json` - Boost configuration
+- `.ai/` - Custom guidelines directory
+
+Just like the Shadow Vault files, these are automatically excluded from Git to keep your repository clean while maintaining full AI context capabilities.
+
 ## 🛡️ Safety First: Global Git Protection
 The `vault-init.sh` script automatically configures a global git exclusion ruleset. It ensures that your private AI instructions **never** leak into production or team commits. It updates your `~/.gitignore_global` to include:
 - `GEMINI.md`
 - `AGENTS.md`
 - `.opencode.json`
+- `.mcp.json`
+- `CLAUDE.md`
+- `boost.json`
+- `.ai/`
 - `copilot-instructions.md`
 
 This ensures that even if a symlink is created locally, it will **never** be detected, staged, or committed by Git, keeping your AI instructions private and your repository clean.
@@ -54,9 +76,16 @@ This ensures that even if a symlink is created locally, it will **never** be det
 
 To maximize performance while keeping costs near zero, this setup prioritizes the **Gemini Flash** model for operational tasks (Build/Plan) and reserves **Gemini Pro** for complex architectural decisions.
 
-1. **Enable Paid Tier:** Switch to **Pay-as-you-go** in [Google AI Studio](https://aistudio.google.com/) to remove rate limits.
-2. **Set Hard Quotas:** In the Google Cloud Console, limit Flash to ~500 requests/day and Pro to ~200 requests/day to prevent surprises.
-3. **Budget Alerts:** Set a **$5.00** monthly alert to receive immediate notifications of any spending.
+### How to configure "Safety Brakes":
+
+1. **Enable Paid Tier (Level 1):** Go to [Google AI Studio](https://aistudio.google.com/) and switch your plan to **Pay-as-you-go**. This removes the "Free Tier" rate limits (20 requests/min), enabling smooth `/init` commands without interruptions.
+
+2. **Set Hard Quotas (The "Kill Switch"):** In the [Google Cloud Console](https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas), edit your **"Paid Tier"** quotas to prevent unexpected costs:
+   - **Gemini Flash:** Set to **500** requests per day.
+   - **Gemini Pro:** Set to **200** requests per day.
+   - These limits ensure that even in a "loop" scenario, you won't spend more than a few cents per day.
+
+3. **Budget Alerts:** Set a monthly budget alert of **$5.00** in Google Cloud Billing to receive immediate email notifications of any spending.
 
 ## 📊 Monitoring
 Run `vault-check` at any time to verify the integrity of your symlinks and the status of your context files across all projects in the Vault.
