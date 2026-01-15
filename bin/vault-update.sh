@@ -26,7 +26,7 @@ fi
 # 2. Se houver atualizações, mostrar o que mudou (Release Notes)
 echo -e "${YELLOW}🎁 New update found! What's new:${NC}"
 echo "------------------------------------------"
-git --no-pager log HEAD..origin/main --oneline --pretty=format:"%C(yellow)▶ %s %C(reset)(%cr)"
+GIT_PAGER=cat git log HEAD..origin/main --oneline --pretty=format:"%C(yellow)▶ %s %C(reset)(%cr)"
 echo -e "\n------------------------------------------"
 
 # 3. Fazer o pull
