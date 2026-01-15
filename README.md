@@ -7,15 +7,15 @@
 ## 🚀 The Concept
 This project solves the "Context Dilemma": How to give AI deep project knowledge without committing sensitive `.md` files to your team's repository or polluting your `.gitignore`.
 
-By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this tool automatically injects context via symbolic links whenever you enter a project folder. It now supports **Gemini, OpenCode, Claude, and GitHub Copilot** seamlessly.
+By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this tool automatically injects context via symbolic links whenever you enter a project folder. It now provides **Universal AI Support**, seamlessly integrating with **Gemini, Claude, Cursor, Windsurf, GitHub Copilot, and Cody/Junie**.
 
 ## 🛠️ Installation
 
 1. **Clone & Setup:**
    ```bash
-   git clone [https://github.com/diogocnunes/ai-shadow-vault.git](https://github.com/diogocnunes/ai-shadow-vault.git) ~/.ai-shadow-vault
+   git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
    mkdir -p ~/.gemini-vault
-   ```   
+   ```
 
 2. **ZSH Integration:** Add this line to your `~/.zshrc`:
     ```bash
@@ -34,15 +34,20 @@ The Vault maps specific files to the expected standards of each AI tool. When yo
 
 | File in Vault | Symlink Target | Primary AI / Tool |
 | :--- | :--- | :--- |
-| `GEMINI.md` | `./GEMINI.md` | Google Gemini / gemini-cli |
-| `AGENTS.md` | `./AGENTS.md` | Claude / OpenCode / Custom Agents |
+| `GEMINI.md` | `./GEMINI.md` | Google Gemini |
+| `CLAUDE.md` | `./CLAUDE.md` | Anthropic Claude |
+| `AGENTS.md` | `./AGENTS.md` | Custom AI Agents |
+| `.cursorrules` | `./.cursorrules` | **Cursor Editor** |
+| `.windsurfrules` | `./.windsurfrules` | **Windsurf (Codeium)** |
 | `copilot-instructions.md` | `./.github/copilot-instructions.md` | **GitHub Copilot** |
+| `cody-context.json` | `./.cody/context.json` | **Cody / Junie** |
+| `cody-ignore` | `./.cody/ignore` | **Cody / Junie** |
 | `opencode.json` | `./.opencode.json` | OpenCode Engine |
 
-> **Note:** For GitHub Copilot, the tool automatically manages the `./.github/` directory for you, ensuring the instructions are placed exactly where the Copilot engine looks for them.
+> **Note:** For tools like GitHub Copilot and Cody, the tool automatically manages the necessary subdirectories (`./.github/` or `./.cody/`) for you.
 
 ## 🚀 Laravel Boost Support
-When running `vault-init` on a Laravel project, the script automatically detects it by checking for `composer.json` and the Laravel framework dependency.
+When running `vault-init` on a Laravel project, the script automatically detects it by checking for `composer.json` and the Laravel framework dependency. This feature was contributed by **@cristianovalenca**.
 
 If a Laravel project is detected, you'll be prompted to install **Laravel Boost**, a powerful tool that enhances AI-assisted development in Laravel applications.
 
@@ -53,7 +58,7 @@ If a Laravel project is detected, you'll be prompted to install **Laravel Boost*
 
 **Protected Laravel Boost files:**
 - `.mcp.json` - MCP server configuration
-- `CLAUDE.md` - AI guidelines for Claude
+- `CLAUDE.md` - AI guidelines for Claude (Universal support added by **@maclevison**)
 - `boost.json` - Boost configuration
 - `.ai/` - Custom guidelines directory
 
@@ -69,6 +74,12 @@ The `vault-init.sh` script automatically configures a global git exclusion rules
 - `boost.json`
 - `.ai/`
 - `copilot-instructions.md`
+- `.cursorrules`
+- `.windsurfrules`
+- `cody-context.json`
+- `cody-ignore`
+- `.github/`
+- `.cody/`
 
 This ensures that even if a symlink is created locally, it will **never** be detected, staged, or committed by Git, keeping your AI instructions private and your repository clean.
 

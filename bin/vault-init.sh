@@ -13,8 +13,13 @@ mkdir -p "$PROJECT_VAULT"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
 cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-# Novo: Suporte ao Copilot
+# Novo: Suporte ao Copilot e Universal AI
 cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
+cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+cp -n "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
+cp -n "$SCRIPT_DIR/../templates/.windsurfrules" "$PROJECT_VAULT/.windsurfrules"
+cp -n "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
+cp -n "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
 
 echo "✅ Vault directory created at: $PROJECT_VAULT"
 
@@ -55,8 +60,8 @@ echo "🔒 Configuring Global Git Safety Net..."
 GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
-# Added GEMINI.md to the ignore list (+ Laravel Boost files)
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai/" "copilot-instructions.md")
+# Added GEMINI.md to the ignore list (+ Laravel Boost and Universal AI files)
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$GLOBAL_IGNORE"; then
