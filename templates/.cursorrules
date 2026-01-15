@@ -1,0 +1,12 @@
+{
+  "name": "{Project Name}",
+  "rules": [
+    "Follow the project's established coding patterns.",
+    "Prioritize readability and maintainability.",
+    "Always check for existing utility functions before implementing new ones."
+  ],
+  "preferences": {
+    "indentation": "space",
+    "tabSize": 2
+  }
+}

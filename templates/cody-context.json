@@ -1,0 +1,17 @@
+{
+  "name": "{Project Name}",
+  "contextPriority": [
+    {
+      "path": "src/**",
+      "priority": "high"
+    },
+    {
+      "path": "docs/**",
+      "priority": "medium"
+    },
+    {
+      "path": "tests/**",
+      "priority": "high"
+    }
+  ]
+}
