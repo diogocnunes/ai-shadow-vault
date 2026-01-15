@@ -13,41 +13,58 @@ function set_gemini_context() {
     local md_agents="./AGENTS.md"
     local json_config="./.opencode.json"
     local copilot_dest="./.github/copilot-instructions.md"
+    local claude_md="./CLAUDE.md"
+    local cursor_rules="./.cursorrules"
+    local windsurf_rules="./.windsurfrules"
+    local cody_context="./.cody/context.json"
+    local cody_ignore="./.cody/ignore"
 
     # Laravel Boost files
     local mcp_config="./.mcp.json"
-    local claude_md="./CLAUDE.md"
     local boost_config="./boost.json"
 
-    # Cleanup existing symlinks (including legacy names)
+    # Cleanup existing symlinks (Universal AI)
     [[ -L "$md_context" ]] && rm "$md_context"
     [[ -L "$md_agents" ]] && rm "$md_agents"
     [[ -L "$json_config" ]] && rm "$json_config"
     [[ -L "$copilot_dest" ]] && rm "$copilot_dest"
+    [[ -L "$claude_md" ]] && rm "$claude_md"
+    [[ -L "$cursor_rules" ]] && rm "$cursor_rules"
+    [[ -L "$windsurf_rules" ]] && rm "$windsurf_rules"
+    [[ -L "$cody_context" ]] && rm "$cody_context"
+    [[ -L "$cody_ignore" ]] && rm "$cody_ignore"
 
     # Cleanup Laravel Boost files (real files, not symlinks)
-    # These are auto-generated and should not exist in the working directory
-    # as Shadow Vault takes precedence for context injection
     [[ -f "$mcp_config" ]] && rm "$mcp_config"
-    [[ -f "$claude_md" ]] && rm "$claude_md"
+    [[ -f "$claude_md" && ! -L "$claude_md" ]] && rm "$claude_md"
     [[ -f "$boost_config" ]] && rm "$boost_config"
 
     # AGENTS.md can be created by Laravel Boost as a real file
-    # Remove it if it exists as a real file (not a symlink) to avoid conflicts
     [[ -f "$md_agents" && ! -L "$md_agents" ]] && rm "$md_agents"
 
     # 1. Link coding guidelines
-    if [[ -f "$vault_path/AGENTS.md" ]]; then
-        ln -sf "$vault_path/AGENTS.md" "$md_agents"
-    fi
+    [[ -f "$vault_path/AGENTS.md" ]] && ln -sf "$vault_path/AGENTS.md" "$md_agents"
+    [[ -f "$vault_path/GEMINI.md" ]] && ln -sf "$vault_path/GEMINI.md" "$md_context"
+    [[ -f "$vault_path/CLAUDE.md" ]] && ln -sf "$vault_path/CLAUDE.md" "$claude_md"
 
-    # 3. Link Copilot Instructions (Special Case: needs .github folder)
+    # 2. Link Editor Rules
+    [[ -f "$vault_path/.cursorrules" ]] && ln -sf "$vault_path/.cursorrules" "$cursor_rules"
+    [[ -f "$vault_path/.windsurfrules" ]] && ln -sf "$vault_path/.windsurfrules" "$windsurf_rules"
+
+    # 3. Link Copilot (Special Case: needs .github folder)
     if [[ -f "$vault_path/copilot-instructions.md" ]]; then
         mkdir -p "./.github"
         ln -sf "$vault_path/copilot-instructions.md" "$copilot_dest"
     fi
 
-    # 4. Link JSON Config
+    # 4. Link Cody/Junie (Special Case: needs .cody folder)
+    if [[ -f "$vault_path/cody-context.json" || -f "$vault_path/cody-ignore" ]]; then
+        mkdir -p "./.cody"
+        [[ -f "$vault_path/cody-context.json" ]] && ln -sf "$vault_path/cody-context.json" "$cody_context"
+        [[ -f "$vault_path/cody-ignore" ]] && ln -sf "$vault_path/cody-ignore" "$cody_ignore"
+    fi
+
+    # 5. Link JSON Config
     local common_config="$HOME/.gemini-vault/laravel_nova_stack.json"
     if [[ -f "$vault_path/opencode.json" ]]; then
         ln -sf "$vault_path/opencode.json" "$json_config"
@@ -67,16 +84,28 @@ function vault-check() {
         local project_name=$(basename "$project_path")
         echo "📁 Project: \033[1;34m$project_name\033[0m"
 
-        # Check AGENTS
-        [[ -f "$project_path/AGENTS.md" ]] && echo "  ✅ AGENTS.md" || echo "  ❌ AGENTS.md (MISSING)"
-
-        # Check GEMINI
-        [[ -f "$project_path/GEMINI.md" ]] && echo "  ✅ GEMINI.md" || echo "  ⚠️  GEMINI.md (Empty)"
-
-        # Check COPILOT
-        [[ -f "$project_path/copilot-instructions.md" ]] && echo "  ✅ Copilot Instructions" || echo "  ℹ️  Copilot (Not Configured)"
+        # Check files and display status
+        check_vault_file "$project_path/AGENTS.md" "AGENTS.md"
+        check_vault_file "$project_path/GEMINI.md" "GEMINI.md"
+        check_vault_file "$project_path/CLAUDE.md" "CLAUDE.md"
+        check_vault_file "$project_path/.cursorrules" ".cursorrules"
+        check_vault_file "$project_path/.windsurfrules" ".windsurfrules"
+        check_vault_file "$project_path/copilot-instructions.md" "Copilot Instructions"
+        check_vault_file "$project_path/cody-context.json" "Cody Context"
+        check_vault_file "$project_path/cody-ignore" "Cody Ignore"
 
         echo ""
     done
     echo "------------------------------------------"
+}
+
+function check_vault_file() {
+    local file_path=$1
+    local label=$2
+    if [[ -f "$file_path" ]]; then
+        local size=$(du -h "$file_path" | cut -f1)
+        echo "  ✅ $label ($size)"
+    else
+        echo "  ❌ $label (MISSING)"
+    fi
 }
