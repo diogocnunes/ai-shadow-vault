@@ -9,11 +9,12 @@ echo "🛡️  Initializing AI Shadow Vault for: $PROJECT_NAME"
 # 1. Create Vault structure
 mkdir -p "$PROJECT_VAULT"
 
-# 2. Copy templates if they don't exist in the project vault
-# Note: Assumes script is in bin/ and templates are in ../templates/
+# 2. Copy templates if they don't exist
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
 cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+# Novo: Suporte ao Copilot
+cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
 
 echo "✅ Vault directory created at: $PROJECT_VAULT"
 
@@ -55,14 +56,13 @@ GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
 # Added GEMINI.md to the ignore list (+ Laravel Boost files)
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai/")
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai/" "copilot-instructions.md")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
-    if ! grep -q "^$file$" "$GLOBAL_IGNORE"; then
-        echo "$file" >> "$GLOBAL_IGNORE"
+    if ! grep -q "$file" "$GLOBAL_IGNORE"; then
+        echo "**/$file" >> "$GLOBAL_IGNORE"
     fi
 done
 
 git config --global core.excludesfile "$GLOBAL_IGNORE"
 echo "✅ Global Git Safety Net updated."
-echo "📝 Edit your context files in the vault to start coding with AI."
