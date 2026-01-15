@@ -7,70 +7,76 @@
 ## 🚀 The Concept
 This project solves the "Context Dilemma": How to give AI deep project knowledge without committing sensitive `.md` files to your team's repository or polluting your `.gitignore`.
 
-By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this tool automatically injects context via symbolic links whenever you enter a project folder.
+By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this tool automatically injects context via symbolic links whenever you enter a project folder. It now supports **Gemini, OpenCode, Claude, and GitHub Copilot** seamlessly.
 
 ## 🛠️ Installation
 
 1. **Clone & Setup:**
    ```bash
-   git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
+   git clone [https://github.com/diogocnunes/ai-shadow-vault.git](https://github.com/diogocnunes/ai-shadow-vault.git) ~/.ai-shadow-vault
    mkdir -p ~/.gemini-vault
-   ```
-2. **ZSH Integration:** Add this to your `~/.zshrc`:
+   ```   
+
+2. **ZSH Integration:** Add this line to your `~/.zshrc`:
     ```bash
     source ~/.ai-shadow-vault/scripts/shell_integration.zsh
     ```
+
 3. **Initialize a Project:**
    Navigate to your project folder and simply run:
    ```bash
    vault-init
-    ```
-## 📋 Customization & Stack Agnostic
+   ```
 
-The provided templates in `templates/AGENTS.md` and `templates/GEMINI.md` are pre-configured for a modern **Laravel 11 / PHP 8.3 / Nova 4** stack.
+## 🤖 Multi-AI Strategy (How it works)
 
-**However, these are just samples.** You can (and should) modify them freely to match your specific stack (Node.js, Python, Go, React, etc.). The AI will follow whatever rules you define in your local Vault.
+The Vault maps specific files to the expected standards of each AI tool. When you enter a directory, the shell script creates the following symlinks:
+
+| File in Vault | Symlink Target | Primary AI / Tool |
+| :--- | :--- | :--- |
+| `GEMINI.md` | `./GEMINI.md` | Google Gemini / gemini-cli |
+| `AGENTS.md` | `./AGENTS.md` | Claude / OpenCode / Custom Agents |
+| `copilot-instructions.md` | `./.github/copilot-instructions.md` | **GitHub Copilot** |
+| `opencode.json` | `./.opencode.json` | OpenCode Engine |
+
+> **Note:** For GitHub Copilot, the tool automatically manages the `./.github/` directory for you, ensuring the instructions are placed exactly where the Copilot engine looks for them.
 
 ## 🛡️ Safety First: Global Git Protection
-The `vault-init.sh` script automatically configures a global git exclusion ruleset. It creates or updates your `~/.gitignore_global` to include:
+The `vault-init.sh` script automatically configures a global git exclusion ruleset. It ensures that your private AI instructions **never** leak into production or team commits. It updates your `~/.gitignore_global` to include:
 - `GEMINI.md`
 - `AGENTS.md`
 - `.opencode.json`
+- `copilot-instructions.md`
 
-This ensures that even if a symlink is created locally, it will **never** be detected or committed by Git, keeping your AI instructions private and your repository clean.
-
-## 🤖 AI & LLM Compatibility
-
-This system was built and extensively tested using **Google Gemini** (via OpenCode and gemini-cli).
-
-* **Open to Contributions:** If you implement this workflow with other LLMs (OpenAI, Anthropic, etc.) and discover specific optimizations or configuration tweaks, feel free to open a PR and share your findings!
+This ensures that even if a symlink is created locally, it will **never** be detected, staged, or committed by Git, keeping your AI instructions private and your repository clean.
 
 ## 💰 Cost Optimization (Gemini Flash + Paid Tier)
 
 To maximize performance while keeping costs near zero, this setup prioritizes the **Gemini Flash** model for operational tasks (Build/Plan) and reserves **Gemini Pro** for complex architectural decisions.
 
-### How to configure "Safety Brakes":
-
-1. **Enable Paid Tier (Level 1):** Go to [Google AI Studio](https://aistudio.google.com/) and switch your plan to **Pay-as-you-go**. This removes the "Free Tier" rate limits (20 requests/min), enabling smooth `/init` commands without interruptions.
-
-2. **Set Hard Quotas (The "Kill Switch"):** In the [Google Cloud Console](https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas), edit your **"Paid Tier"** quotas to prevent unexpected costs:
-    - **Gemini Flash:** Set to **500** requests per day.
-    - **Gemini Pro:** Set to **200** requests per day.
-    - These limits ensure that even in a "loop" scenario, you won't spend more than a few cents per day.
-
-3. **Budget Alerts:** Set a monthly budget alert of **$5.00** in Google Cloud Billing to receive immediate email notifications of any spending.
+1. **Enable Paid Tier:** Switch to **Pay-as-you-go** in [Google AI Studio](https://aistudio.google.com/) to remove rate limits.
+2. **Set Hard Quotas:** In the Google Cloud Console, limit Flash to ~500 requests/day and Pro to ~200 requests/day to prevent surprises.
+3. **Budget Alerts:** Set a **$5.00** monthly alert to receive immediate notifications of any spending.
 
 ## 📊 Monitoring
-Run `vault-check` at any time to verify the integrity of your symlinks and the size of your context files. This tool ensures your "Shadow Context" is always active and properly linked.
+Run `vault-check` at any time to verify the integrity of your symlinks and the status of your context files across all projects in the Vault.
 
 ### Example Output:
-![Vault Check Example](assets/images/vault-check-example.png)
+```text
+🔍 Starting AI Shadow Vault Health Check...
+------------------------------------------
+📁 Project: my-laravel-app
+  ✅ AGENTS.md (OK) (1.2K)
+  ✅ GEMINI.md (800B)
+  ✅ Copilot Instructions (1.5K)
+  ℹ️  opencode.json (Using Global Config)
 
-## 💻 System Compatibility
-- **macOS:** Native support (Tested on macOS Sequoia/Sonoma with ZSH).
-- **Linux:** Fully supported (Ubuntu, Fedora, etc. - requires ZSH).
-- **Windows:** Supported via **WSL2** (Windows Subsystem for Linux). Native PowerShell/CMD execution is not recommended due to symbolic link permission restrictions.
+📁 Project: react-dashboard
+  ✅ AGENTS.md (OK) (2.1K)
+  ⚠️  GEMINI.md (Empty - Run vault-init soon)
+  ✅ Copilot Instructions (900B)
+------------------------------------------
+✨ Vault Scan Complete.
+```
 
-
-## ⚖️ License
-MIT
+💻 System Compatibility
