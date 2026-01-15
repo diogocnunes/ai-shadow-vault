@@ -1,0 +1,10 @@
+# Cody Ignore List for {Project Name}
+
+# Prevent indexing of symlink loops or redundant AI context files
+GEMINI.md
+AGENTS.md
+CLAUDE.md
+.cursorrules
+.windsurfrules
+.github/copilot-instructions.md
+.cody/
