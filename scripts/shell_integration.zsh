@@ -109,3 +109,10 @@ function check_vault_file() {
         echo "  ❌ $label (MISSING)"
     fi
 }
+
+# --- Auto-execution & Path Setup ---
+export PATH="$HOME/.ai-shadow-vault/bin:$PATH"
+
+autoload -U add-zsh-hook
+add-zsh-hook chpwd set_gemini_context
+set_gemini_context
