@@ -1,0 +1,4 @@
+#!/bin/bash
+REAL_PATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+# Assuming bin/ is sibling to scripts/
+"$REAL_PATH/../scripts/install_skills.sh" "$@"

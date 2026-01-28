@@ -116,3 +116,6 @@ export PATH="$HOME/.ai-shadow-vault/bin:$PATH"
 autoload -U add-zsh-hook
 add-zsh-hook chpwd set_gemini_context
 set_gemini_context
+
+# Aliases
+alias vault-skills="$HOME/.ai-shadow-vault/scripts/install_skills.sh"

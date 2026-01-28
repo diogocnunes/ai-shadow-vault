@@ -42,9 +42,31 @@ The Vault maps specific files to the expected standards of each AI tool. When yo
 | `copilot-instructions.md` | `./.github/copilot-instructions.md` | **GitHub Copilot** |
 | `cody-context.json` | `./.cody/context.json` | **Cody / Junie** |
 | `cody-ignore` | `./.cody/ignore` | **Cody / Junie** |
-| `opencode.json` | `./.opencode.json` | OpenCode Engine |
+| opencode.json | `./.opencode.json` | OpenCode Engine |
 
 > **Note:** For tools like GitHub Copilot and Cody, the tool automatically manages the necessary subdirectories (`./.github/` or `./.cody/`) for you.
+
+## ⚡ Dynamic Skills Integration (New!)
+
+Beyond basic project context, the Shadow Vault now supports **Dynamic Skills**. These are specialized sets of instructions that can be injected into any of your AI assistants to provide them with expert-level knowledge on specific domains.
+
+### The `vault-skills` Command
+Run `vault-skills` in any project directory to:
+1. **Choose your AIs:** Select which assistants you want to empower (Gemini CLI, Cursor, Windsurf, Copilot, or Claude).
+2. **Choose the Skills:** Select from a marketplace of expert profiles:
+    - **Backend Expert:** PHP 8.3, Laravel 11, Nova 5, Eloquent optimization.
+    - **Frontend Expert:** Vue 3 Composition API, PrimeVue, backoffice UX.
+    - **QA Automation:** Pest PHP, Playwright, testing strategies.
+    - **Architect Lead:** System design, migration strategies, patterns.
+    - **DX Maintainer:** Linting, CI/CD, code quality (Pint, PHPStan).
+    - **Legacy Migration Specialist:** Safe upgrades for legacy stacks.
+    - **Security & Performance:** Hardening and optimization patterns.
+
+### How it handles different AIs:
+- **Gemini CLI:** Installs the skill globally in `~/.gemini/skills/` so it's always available via `activate_skill`.
+- **Editors (Cursor, Windsurf, etc.):** Appends the skill instructions directly to your local rules file (e.g., `.cursorrules`) in the current project, automatically stripping unnecessary metadata and ensuring the AI follows the specific domain guidelines.
+
+---
 
 ## 🚀 Laravel Boost Support
 When running `vault-init` on a Laravel project, the script automatically detects it by checking for `composer.json` and the Laravel framework dependency. This feature was contributed by **@cristianovalenca**.
