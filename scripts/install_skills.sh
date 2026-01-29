@@ -147,6 +147,37 @@ append_skill_to_file() {
     } >> "$target_file"
 }
 
+# Function to append raw skill to a config file (for Claude)
+append_raw_skill_to_file() {
+    local index=$1
+    local target_file=$2
+    local ia_name=$3
+    
+    local file="${skill_files[$index]}"
+    local name="${skill_names[$index]}"
+    
+    echo -e "  [$ia_name] Adding $name to $target_file..."
+
+    # Create file if it doesn't exist
+    if [ ! -f "$target_file" ]; then
+        mkdir -p "$(dirname "$target_file")"
+        touch "$target_file"
+    fi
+
+    # Check if skill is already present
+    # We check for the frontmatter name since we are appending raw content
+    if grep -q "^name: $name" "$target_file" || grep -q "^name: \"$name\"" "$target_file" || grep -q "^name: '$name'" "$target_file"; then
+        echo -e "    Skipping $name (already in file)."
+        return
+    fi
+
+    # Append Content
+    {
+        echo -e "\n"
+        cat "$file"
+    } >> "$target_file"
+}
+
 # ---------------------------------------------------------
 # Step 1: Select AI Assistants
 # ---------------------------------------------------------
@@ -230,7 +261,7 @@ for skill_idx in "${selected_skills_indices[@]}"; do
                 append_skill_to_file "$skill_idx" ".github/copilot-instructions.md" "GitHub Copilot"
                 ;;
             4) # Claude
-                append_skill_to_file "$skill_idx" "CLAUDE.md" "Claude"
+                append_raw_skill_to_file "$skill_idx" "CLAUDE.md" "Claude"
                 ;;
         esac
     done

@@ -36,7 +36,7 @@ if [ -f "composer.json" ]; then
             echo "📦 Installing Laravel Boost..."
 
             # Install Laravel Boost via composer
-            if composer require laravel/boost --dev; then
+            if composer require "laravel/boost:^2.0" --dev; then
                 echo "✅ Laravel Boost package installed."
 
                 # Run the Boost installer
