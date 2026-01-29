@@ -102,6 +102,12 @@ The `vault-init.sh` script automatically configures a global git exclusion rules
 - `cody-ignore`
 - `.github/`
 - `.cody/`
+- `.claude/`
+- `.codex/`
+- `.cursor/`
+- `.gemini/`
+- `.junie/`
+- `.opencode/`
 
 This ensures that even if a symlink is created locally, it will **never** be detected, staged, or committed by Git, keeping your AI instructions private and your repository clean.
 
