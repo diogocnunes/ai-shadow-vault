@@ -1,11 +1,9 @@
----
-name: filament-expert
-description: Expert guidance for building admin panels with Filament PHP (v3.x). Use when creating or modifying Filament resources, forms, tables, actions, widgets, custom pages, relation managers, or troubleshooting Filament-specific issues. Covers form builders, table builders, notifications, actions, authorization, theming, and best practices for Laravel admin panels.
+description: Expert guidance for building admin panels with Filament PHP (v5+) and PHP 8.4. Use when creating or modifying Filament resources, forms, tables, actions, widgets, custom pages, relation managers, or troubleshooting Filament-specific issues. Covers form builders, table builders, notifications, actions, authorization, theming, and best practices for Laravel admin panels.
 ---
 
 # Filament Expert
 
-Expert guidance for building professional admin panels with Filament PHP v3.x.
+Expert guidance for building professional admin panels with Filament PHP v5+ running on PHP 8.4.
 
 ## Core Principles
 
