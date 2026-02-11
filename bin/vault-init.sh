@@ -61,7 +61,7 @@ GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
 # Added GEMINI.md to the ignore list (+ Laravel Boost and Universal AI files)
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/")
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$GLOBAL_IGNORE"; then
@@ -70,4 +70,15 @@ for file in "${FILES_TO_IGNORE[@]}"; do
 done
 
 git config --global core.excludesfile "$GLOBAL_IGNORE"
+
+# 4.1 Local Git Safety Net
+if [ -f ".gitignore" ]; then
+    echo "🙈 Updating local .gitignore..."
+    for file in "${FILES_TO_IGNORE[@]}"; do
+        if ! grep -q "$file" ".gitignore"; then
+            echo "$file" >> ".gitignore"
+        fi
+    done
+fi
+
 echo "✅ Global Git Safety Net updated."
