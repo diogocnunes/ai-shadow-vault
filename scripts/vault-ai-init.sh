@@ -96,6 +96,12 @@ done
 
 git config --global core.excludesfile "$GLOBAL_IGNORE"
 
+# 7. Auto-Detect Stack & Populate Knowledge
+if [ -f "$SCRIPT_DIR/auto_detect_stack.sh" ]; then
+    echo ""
+    "$SCRIPT_DIR/auto_detect_stack.sh"
+fi
+
 echo ""
 echo "✨ AI Shadow Vault Expansion initialized successfully!"
 echo "📍 Vault: $AI_VAULT"
