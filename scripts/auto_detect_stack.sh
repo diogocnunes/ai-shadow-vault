@@ -14,12 +14,42 @@ DOCS_DIR="$AI_VAULT/docs/tech-stack"
 CONTEXT_FILE="$AI_VAULT/context/tech-stack.md"
 TEMPLATES_SKILLS_DIR=""
 
+# --- Project Root Detection ---
+# Find where the project root is (upwards search)
+current_dir=$(pwd)
+while [[ "$current_dir" != "/" ]]; do
+    if [[ -f "$current_dir/composer.json" ]] || [[ -f "$current_dir/package.json" ]] || [[ -d "$current_dir/.git" ]]; then
+        PROJECT_ROOT="$current_dir"
+        break
+    fi
+    current_dir=$(dirname "$current_dir")
+done
+
+if [ -z "$PROJECT_ROOT" ]; then
+    PROJECT_ROOT=$(pwd)
+    echo -e "${YELLOW}⚠️  Could not detect project root (no composer.json/.git found). Using current directory: $PROJECT_ROOT${NC}"
+else
+    # Navigate to project root so all paths are relative to it
+    cd "$PROJECT_ROOT" || exit 1
+fi
+
 # Locate Skills Templates
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATES_SKILLS_DIR=""
+
 if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
     TEMPLATES_SKILLS_DIR="$SCRIPT_DIR/../templates/Skills"
 elif [ -d "$HOME/.gemini-vault/templates/Skills" ]; then
     TEMPLATES_SKILLS_DIR="$HOME/.gemini-vault/templates/Skills"
+# Fallback for when run from symlink or different structure
+elif [ -d "$HOME/Sites/MySites/ai-shadow-vault/templates/Skills" ]; then
+    TEMPLATES_SKILLS_DIR="$HOME/Sites/MySites/ai-shadow-vault/templates/Skills"
+fi
+
+if [ -z "$TEMPLATES_SKILLS_DIR" ]; then
+    echo -e "${YELLOW}⚠️  Warning: Skills templates directory not found. Skipping knowledge copy.${NC}"
+else
+    echo -e "  Found templates at: $TEMPLATES_SKILLS_DIR"
 fi
 
 echo -e "${BLUE}🔍 Auto-detecting Tech Stack...${NC}"
@@ -42,6 +72,9 @@ copy_skill_doc() {
     if [ -f "$TEMPLATES_SKILLS_DIR/$skill_file" ]; then
         cp "$TEMPLATES_SKILLS_DIR/$skill_file" "$DOCS_DIR/$dest_name"
         echo -e "  ✅ Added knowledge base: ${GREEN}$dest_name${NC}"
+    else
+         # Silent fail or debug log if needed
+         :
     fi
 }
 
@@ -82,7 +115,13 @@ if [ -f "composer.json" ]; then
         FILAMENT_VERSION=$(grep '"filament/filament":' composer.json | grep -o '[0-9]\+' | head -n 1)
         echo "- **Admin Panel**: Filament (v$FILAMENT_VERSION detected)" >> "$CONTEXT_FILE"
         
-        if [ "$FILAMENT_VERSION" == "3" ]; then
+        # Copy guides for any modern Filament version (3+)
+        if [ "$FILAMENT_VERSION" -ge 3 ]; then
+             copy_skill_doc "FILAMENT-V5.md" "filament-guide.md"
+             copy_skill_doc "ARCHITECT-FILAMENT-LEAD.md" "filament-architecture.md"
+        else
+            # Fallback for older versions or if detection is unsure, still copy but maybe with a warning note?
+            # For now, let's assume if they have Filament, they want the guides.
              copy_skill_doc "FILAMENT-V5.md" "filament-guide.md"
              copy_skill_doc "ARCHITECT-FILAMENT-LEAD.md" "filament-architecture.md"
         fi
@@ -114,6 +153,6 @@ fi
 
 echo "" >> "$CONTEXT_FILE"
 echo "## Knowledge Base" >> "$CONTEXT_FILE"
-echo "Relevant documentation has been automatically copied to `.ai/docs/tech-stack/`." >> "$CONTEXT_FILE"
+echo "Relevant documentation has been automatically copied to \`.ai/docs/tech-stack/\`." >> "$CONTEXT_FILE"
 
 echo -e "✅ Tech Stack detection complete. Summary saved to ${GREEN}$CONTEXT_FILE${NC}"
