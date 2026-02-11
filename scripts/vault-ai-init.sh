@@ -56,6 +56,8 @@ echo "🙈 Updating local .gitignore..."
 LOCAL_IGNORE=".gitignore"
 touch "$LOCAL_IGNORE"
 
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/")
+
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$LOCAL_IGNORE"; then
         echo "$file" >> "$LOCAL_IGNORE"
@@ -67,8 +69,6 @@ done
 echo "🔒 Updating Global Git Safety Net..."
 GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
-
-FILES_TO_IGNORE=(".ai/" ".ai" ".claude/" ".claude")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$GLOBAL_IGNORE"; then
