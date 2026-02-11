@@ -71,9 +71,18 @@ done
 
 git config --global core.excludesfile "$GLOBAL_IGNORE"
 
-# 4.1 Local Git Safety Net
-if [ -f ".gitignore" ]; then
-    echo "🙈 Updating local .gitignore..."
+# 4.1 Local Git Safety Net (Silent Ignore)
+if [ -d ".git" ]; then
+    echo "🙈 Updating .git/info/exclude..."
+    GIT_EXCLUDE=".git/info/exclude"
+    touch "$GIT_EXCLUDE"
+    for file in "${FILES_TO_IGNORE[@]}"; do
+        if ! grep -q "$file" "$GIT_EXCLUDE"; then
+            echo "$file" >> "$GIT_EXCLUDE"
+        fi
+    done
+elif [ -f ".gitignore" ]; then
+    echo "📝 Updating local .gitignore..."
     for file in "${FILES_TO_IGNORE[@]}"; do
         if ! grep -q "$file" ".gitignore"; then
             echo "$file" >> ".gitignore"
@@ -81,7 +90,7 @@ if [ -f ".gitignore" ]; then
     done
 fi
 
-echo "✅ Global Git Safety Net updated."
+echo "✅ Git Safety Net updated (Global + Local Exclude)."
 
 
 

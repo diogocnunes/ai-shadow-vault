@@ -31,14 +31,17 @@ echo "🤖 Installing AI agents..."
 cp -n "$TEMPLATES_DIR/agents/"*.sh "$AI_VAULT/agents/"
 chmod +x "$AI_VAULT/agents/"*.sh
 
-# 3. Create local symlink
-if [ -L ".ai" ]; then
-    echo "ℹ️  Symlink .ai already exists."
-elif [ -d ".ai" ]; then
-    echo "⚠️  Directory .ai already exists and is not a symlink. Skipping symlink creation."
+# 3. Create local directory (replacing symlink approach)
+if [ -d ".ai" ]; then
+    echo "ℹ️  Directory .ai already exists."
 else
-    echo "🔗 Creating local symlink .ai -> $AI_VAULT..."
-    ln -s "$AI_VAULT" ".ai"
+    echo "📁 Creating local .ai directory..."
+    mkdir -p ".ai/plans"
+    mkdir -p ".ai/docs"
+    mkdir -p ".ai/context/archive"
+    mkdir -p ".ai/prompts"
+    mkdir -p ".ai/cache"
+    mkdir -p ".ai/agents"
 fi
 
 # 4. Claude Code Integration
@@ -51,19 +54,33 @@ else
     echo "✅ Created .claude/project-rules.md"
 fi
 
-# 5. Local Git Ignore
-echo "🙈 Updating local .gitignore..."
-LOCAL_IGNORE=".gitignore"
-touch "$LOCAL_IGNORE"
+# 5. Git Exclude (Invisible Ignore)
+echo "🙈 Updating .git/info/exclude (Silent Ignore)..."
+if [ -d ".git" ]; then
+    GIT_EXCLUDE=".git/info/exclude"
+    touch "$GIT_EXCLUDE"
+    
+    FILES_TO_IGNORE=(".ai" ".ai/" ".claude" ".claude/" "GEMINI.md" "AGENTS.md" ".opencode.json" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore")
 
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/")
-
-for file in "${FILES_TO_IGNORE[@]}"; do
-    if ! grep -q "$file" "$LOCAL_IGNORE"; then
-        echo "$file" >> "$LOCAL_IGNORE"
-        echo "➕ Added $file to $LOCAL_IGNORE"
+    for file in "${FILES_TO_IGNORE[@]}"; do
+        if ! grep -q "$file" "$GIT_EXCLUDE"; then
+            echo "$file" >> "$GIT_EXCLUDE"
+            echo "➕ Added $file to $GIT_EXCLUDE"
+        fi
+    done
+else
+    echo "⚠️  Not a git repository. Skipping .git/info/exclude update."
+    
+    # Fallback to local .gitignore if it exists
+    if [ -f ".gitignore" ]; then
+        echo "📝 Updating local .gitignore instead..."
+        for file in "${FILES_TO_IGNORE[@]}"; do
+            if ! grep -q "$file" ".gitignore"; then
+                echo "$file" >> ".gitignore"
+            fi
+        done
     fi
-done
+fi
 
 # 6. Global Git Safety Net
 echo "🔒 Updating Global Git Safety Net..."
