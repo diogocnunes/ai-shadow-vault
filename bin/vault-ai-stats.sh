@@ -1,0 +1,1 @@
+../scripts/vault-ai-stats.sh

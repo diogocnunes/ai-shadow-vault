@@ -110,12 +110,47 @@ function check_vault_file() {
     fi
 }
 
+# --- AI Cache System Integration ---
+
+function claude-start() {
+    if [[ ! -d ".ai" ]]; then
+        echo "\033[1;33m⚠️  No .ai directory found. Run vault-ai-init first.\033[0m"
+        return
+    fi
+
+    echo "\033[0;34m🛡️  AI Shadow Vault - Claude Context Recap\033[0m"
+    echo "------------------------------------------"
+    vault-ai-resume
+
+    if [[ -f ".ai/rules.md" ]]; then
+        if command -v pbcopy >/dev/null 2>&1; then
+            cat ".ai/rules.md" | pbcopy
+            echo "\033[0;32m📋 .ai/rules.md copied to clipboard!\033[0m"
+        elif command -v xclip >/dev/null 2>&1; then
+            cat ".ai/rules.md" | xclip -selection clipboard
+            echo "\033[0;32m📋 .ai/rules.md copied to clipboard!\033[0m"
+        fi
+    fi
+    echo "------------------------------------------"
+    echo "\033[1;33m🚀 Start Claude Code with: claude\033[0m"
+}
+
+alias cc="claude-start"
+
+function check_ai_cache() {
+    if [[ -d ".ai" ]]; then
+        echo "\033[0;32m🛡️  AI Cache active!\033[0m (Run 'cc' to start)"
+    fi
+}
+
 # --- Auto-execution & Path Setup ---
 export PATH="$HOME/.ai-shadow-vault/bin:$PATH"
 
 autoload -U add-zsh-hook
 add-zsh-hook chpwd set_gemini_context
+add-zsh-hook chpwd check_ai_cache
 set_gemini_context
+check_ai_cache
 
 # Aliases
 alias vault-skills="$HOME/.ai-shadow-vault/scripts/install_skills.sh"

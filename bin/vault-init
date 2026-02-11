@@ -70,4 +70,39 @@ for file in "${FILES_TO_IGNORE[@]}"; do
 done
 
 git config --global core.excludesfile "$GLOBAL_IGNORE"
+
 echo "✅ Global Git Safety Net updated."
+
+
+
+# 5. AI Cache System Activation
+
+echo ""
+
+echo "🛡️  AI Cache System Expansion"
+
+echo -n "Would you like to activate the AI Cache System for this project? (y/n): "
+
+read -r ai_response
+
+
+
+if [[ "$ai_response" =~ ^[Yy]$ ]]; then
+
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if [ -f "$SCRIPT_DIR/vault-ai-init" ]; then
+
+        "$SCRIPT_DIR/vault-ai-init"
+
+    else
+
+        "$SCRIPT_DIR/../scripts/vault-ai-init.sh"
+
+    fi
+
+else
+
+    echo "⏭️  Skipping AI Cache System activation."
+
+fi
