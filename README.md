@@ -147,4 +147,32 @@ Run `vault-check` at any time to verify the integrity of your symlinks and the s
 ✨ Vault Scan Complete.
 ```
 
+## 🛡️ AI Cache System & Token Economy (New!)
+
+The Shadow Vault now includes a sophisticated **AI Cache System** designed to minimize token usage and maintain architectural consistency across long sessions. It works by creating a persistent knowledge bank in your vault that is symlinked to your project's `.ai/` directory.
+
+### 🚀 Key Features:
+- **Persistent Sessions:** Archive your thoughts and goals with `vault-ai-save`.
+- **Architectural Rules:** Enforce project-wide standards (Laravel 11, PHP 8.3, etc.) via `.ai/rules.md`.
+- **Token Savings:** Track how many tokens you save by reusing local context and documentation.
+- **Claude Integration:** Optimized workflow for Claude Code with local rules and context recap.
+
+### 🛠️ Operational Commands:
+
+| Command | Action | Description |
+| :--- | :--- | :--- |
+| `vault-ai-init` | Initialize | Setup the expanded `.ai/` structure |
+| `vault-ai-save` | Save & Archive | Persists the current session and updates the index |
+| `vault-ai-resume` | Resume Context | Shows a recap of where you left off |
+| `vault-ai-stats` | Show Stats | Calculates disk usage and token economy |
+| `cc` (Alias) | Claude Start | Prepares context for a new Claude Code session |
+
+### 🤖 Local AI Agents:
+Located in `.ai/agents/`, these scripts automate routine tasks:
+- `plan-creator.sh`: Creates standardized architectural plans.
+- `doc-fetcher.sh`: Searches local docs before going online.
+- `context-update.sh`: Quick edit of the current session goals.
+
+For more details, check the [AI Cache Guide](./AI_CACHE_GUIDE.md).
+
 💻 System Compatibility
