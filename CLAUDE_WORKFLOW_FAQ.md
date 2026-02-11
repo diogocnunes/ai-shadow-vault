@@ -54,9 +54,17 @@ O uso do Shadow Vault não é apenas organização, é redução de custos.
 
 *Nota: Em projetos grandes, isso pode significar a diferença entre gastar $1.00 ou $0.10 por funcionalidade implementada.*
 
+### 7. "Não sei onde colocar o código!" (O que fazer?)
+
+Se você estiver perdido ou precisar citar muitos arquivos, não peça para o Claude ler tudo. Use a estratégia de **Sondagem**:
+
+1.  **Peça uma busca, não uma leitura:** *"Claude, use `grep` ou `ls` para encontrar arquivos relacionados a [Assunto]. Não leia os arquivos ainda."*
+2.  **Peça o Esqueleto:** Se precisar citar vários arquivos, peça: *"Extraia apenas a assinatura dos métodos/classes dos arquivos X, Y e Z"*. Isso economiza 90% dos tokens em relação à leitura completa.
+3.  **Use o Gemini para Investigar:** Para dúvidas estruturais profundas ("Onde isso se encaixa melhor?"), o Gemini CLI com `codebase_investigator` é mais eficiente e barato que o Claude.
+
 ---
 
-### 6. Dicas de Prompts Econômicos
+### 8. Dicas de Prompts Econômicos
 
 - **Evite:** *"Claude, analise o projeto inteiro e me diga o que fazer para criar um menu."* (Isso gasta milhares de tokens lendo arquivos desnecessários).
 - **Prefira:** *"Claude, leia o plano em `.ai/plans/menu.md`. Eu vou te fornecer o código do arquivo `App/Models/User.php` para começarmos o Passo 1."*
