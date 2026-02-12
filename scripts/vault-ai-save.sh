@@ -29,12 +29,34 @@ echo -e "${BLUE}🛡️  Saving AI Shadow Vault Context...${NC}"
 
 # 1. Archive Session
 # If there's an active session file (session.md) in the root of .ai, archive it
+if [ ! -f "$AI_DIR/session.md" ]; then
+    echo -e "${YELLOW}ℹ️  No active session.md found.${NC}"
+    echo -ne "Would you like to create a quick summary now? (y/N): "
+    read -r response
+    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
+        if [ -f "$AI_DIR/agents/context-update.sh" ]; then
+            bash "$AI_DIR/agents/context-update.sh"
+        else
+            echo -e "${BLUE}📝 Enter session goal/summary (one line):${NC}"
+            read -r summary
+            cat <<EOF > "$AI_DIR/session.md"
+# AI Session Summary
+Date: $(date)
+Goal: $summary
+
+## 📦 Changes
+- Automated session capture
+EOF
+        fi
+    fi
+fi
+
 if [ -f "$AI_DIR/session.md" ]; then
     ARCHIVE_NAME="session-$TIMESTAMP.md"
     mv "$AI_DIR/session.md" "$AI_DIR/context/archive/$ARCHIVE_NAME"
     echo -e "📦 Session archived: ${GREEN}context/archive/$ARCHIVE_NAME${NC}"
 else
-    echo -e "ℹ️  No active session.md found to archive."
+    echo -e "ℹ️  Session skipped (no file to archive)."
 fi
 
 # 2. Update Knowledge Index (INDEX.md)
