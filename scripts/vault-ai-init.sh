@@ -44,6 +44,13 @@ else
     mkdir -p ".ai/agents"
 fi
 
+# 3.1 Ensure local files are present
+echo "📄 Ensuring local templates and agents are present..."
+cp -n "$TEMPLATES_DIR/rules.md" ".ai/rules.md"
+cp -n "$TEMPLATES_DIR/session-template.md" ".ai/session-template.md"
+cp -n "$TEMPLATES_DIR/agents/"*.sh ".ai/agents/"
+chmod +x ".ai/agents/"*.sh
+
 # 4. Claude Code Integration
 echo "🤖 Setting up Claude Code integration..."
 mkdir -p .claude
