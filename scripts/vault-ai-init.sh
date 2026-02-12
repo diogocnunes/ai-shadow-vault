@@ -10,56 +10,40 @@ AI_VAULT="$PROJECT_VAULT/.ai"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/../templates"
 
-echo "🛡️  Initializing AI Shadow Vault Expansion for: $PROJECT_NAME"
+# --- Project Root Detection ---
+PROJECT_ROOT="$PWD"
+while [[ "$PROJECT_ROOT" != "/" && ! -d "$PROJECT_ROOT/.git" && ! -f "$PROJECT_ROOT/composer.json" && ! -f "$PROJECT_ROOT/package.json" ]]; do
+    PROJECT_ROOT=$(dirname "$PROJECT_ROOT")
+done
+if [[ "$PROJECT_ROOT" == "/" ]]; then PROJECT_ROOT="$PWD"; fi
 
-# 1. Create Vault structure
-echo "📁 Creating Vault structure at $AI_VAULT..."
-mkdir -p "$AI_VAULT/plans"
-mkdir -p "$AI_VAULT/docs"
-mkdir -p "$AI_VAULT/context/archive"
-mkdir -p "$AI_VAULT/prompts"
-mkdir -p "$AI_VAULT/cache"
-mkdir -p "$AI_VAULT/agents"
+echo "🛡️  Initializing AI Shadow Vault Expansion for: $PROJECT_NAME"
+echo "📍 Project Root: $PROJECT_ROOT"
+
+# 1. Create Vault structure (Local)
+echo "📁 Creating local .ai directory..."
+mkdir -p "$PROJECT_ROOT/.ai/plans"
+mkdir -p "$PROJECT_ROOT/.ai/docs"
+mkdir -p "$PROJECT_ROOT/.ai/context/archive"
+mkdir -p "$PROJECT_ROOT/.ai/prompts"
+mkdir -p "$PROJECT_ROOT/.ai/cache"
+mkdir -p "$PROJECT_ROOT/.ai/agents"
 
 # 2. Install base templates
 echo "📄 Installing base templates..."
-cp -n "$TEMPLATES_DIR/rules.md" "$AI_VAULT/rules.md"
-cp -n "$TEMPLATES_DIR/session-template.md" "$AI_VAULT/session-template.md"
+cp -n "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
+cp -n "$TEMPLATES_DIR/session-template.md" "$PROJECT_ROOT/.ai/session-template.md"
 
 # 2.1 Install agents
 echo "🤖 Installing AI agents..."
-cp -n "$TEMPLATES_DIR/agents/"*.sh "$AI_VAULT/agents/"
-chmod +x "$AI_VAULT/agents/"*.sh
-
-# 3. Create local directory (replacing symlink approach)
-if [ -d ".ai" ]; then
-    echo "ℹ️  Directory .ai already exists."
-else
-    echo "📁 Creating local .ai directory..."
-    mkdir -p ".ai/plans"
-    mkdir -p ".ai/docs"
-    mkdir -p ".ai/context/archive"
-    mkdir -p ".ai/prompts"
-    mkdir -p ".ai/cache"
-    mkdir -p ".ai/agents"
-fi
-
-# 3.1 Ensure local files are present
-echo "📄 Ensuring local templates and agents are present..."
-cp -n "$TEMPLATES_DIR/rules.md" ".ai/rules.md"
-cp -n "$TEMPLATES_DIR/session-template.md" ".ai/session-template.md"
-cp -n "$TEMPLATES_DIR/agents/"*.sh ".ai/agents/"
-chmod +x ".ai/agents/"*.sh
+cp -n "$TEMPLATES_DIR/agents/"*.sh "$PROJECT_ROOT/.ai/agents/"
+chmod +x "$PROJECT_ROOT/.ai/agents/"*.sh
 
 # 4. Claude Code Integration
 echo "🤖 Setting up Claude Code integration..."
-mkdir -p .claude
-if [ -f ".claude/project-rules.md" ]; then
-    echo "ℹ️  .claude/project-rules.md already exists."
-else
-    cp "$TEMPLATES_DIR/CLAUDE_PROJECT_RULES.md" ".claude/project-rules.md"
-    echo "✅ Created .claude/project-rules.md"
-fi
+mkdir -p "$PROJECT_ROOT/.claude"
+cp "$TEMPLATES_DIR/CLAUDE_PROJECT_RULES.md" "$PROJECT_ROOT/.claude/project-rules.md"
+echo "✅ Updated $PROJECT_ROOT/.claude/project-rules.md"
 
 # 5. Git Exclude (Invisible Ignore)
 echo "🙈 Updating .git/info/exclude (Silent Ignore)..."
