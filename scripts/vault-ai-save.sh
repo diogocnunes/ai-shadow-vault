@@ -9,14 +9,21 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-AI_DIR=".ai"
-TIMESTAMP=$(date +"%Y%m%d-%H%M")
-INDEX_FILE="$AI_DIR/docs/INDEX.md"
+# Find project root with .ai directory
+CURRENT_DIR="$PWD"
+while [[ "$CURRENT_DIR" != "/" && ! -d "$CURRENT_DIR/.ai" ]]; do
+    CURRENT_DIR=$(dirname "$CURRENT_DIR")
+done
 
-if [ ! -d "$AI_DIR" ]; then
-    echo -e "${YELLOW}⚠️  No .ai directory found.${NC}"
+AI_DIR="$CURRENT_DIR/.ai"
+
+if [[ "$CURRENT_DIR" == "/" || ! -d "$AI_DIR" ]]; then
+    echo -e "${YELLOW}⚠️  No .ai directory found in project tree.${NC}"
     exit 1
 fi
+
+TIMESTAMP=$(date +"%Y%m%d-%H%M")
+INDEX_FILE="$AI_DIR/docs/INDEX.md"
 
 echo -e "${BLUE}🛡️  Saving AI Shadow Vault Context...${NC}"
 

@@ -9,10 +9,16 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-AI_DIR=".ai"
+# Find project root with .ai directory
+CURRENT_DIR="$PWD"
+while [[ "$CURRENT_DIR" != "/" && ! -d "$CURRENT_DIR/.ai" ]]; do
+    CURRENT_DIR=$(dirname "$CURRENT_DIR")
+done
 
-if [ ! -d "$AI_DIR" ]; then
-    echo -e "${YELLOW}⚠️  No .ai directory found. Run vault-ai-init first.${NC}"
+AI_DIR="$CURRENT_DIR/.ai"
+
+if [[ "$CURRENT_DIR" == "/" || ! -d "$AI_DIR" ]]; then
+    echo -e "${YELLOW}⚠️  No .ai directory found in project tree. Run vault-ai-init first.${NC}"
     exit 1
 fi
 

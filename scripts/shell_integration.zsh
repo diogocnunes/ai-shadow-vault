@@ -5,23 +5,35 @@ function set_gemini_context() {
         return
     fi
 
-    local project_name=$(basename "$PWD")
+    # 0. Find project root
+    local project_root="$PWD"
+    while [[ "$project_root" != "/" && ! -d "$project_root/.git" && ! -f "$project_root/composer.json" && ! -f "$project_root/package.json" ]]; do
+        project_root=$(dirname "$project_root")
+    done
+
+    if [[ "$project_root" == "/" ]]; then
+        # Check if we are in a subdirectory of a known vault project
+        # (Fall back to standard behavior if no clear root found)
+        project_root="$PWD"
+    fi
+
+    local project_name=$(basename "$project_root")
     local vault_path="$HOME/.gemini-vault/$project_name"
 
-    # Define paths
-    local md_context="./GEMINI.md"
-    local md_agents="./AGENTS.md"
-    local json_config="./.opencode.json"
-    local copilot_dest="./.github/copilot-instructions.md"
-    local claude_md="./CLAUDE.md"
-    local cursor_rules="./.cursorrules"
-    local windsurf_rules="./.windsurfrules"
-    local cody_context="./.cody/context.json"
-    local cody_ignore="./.cody/ignore"
+    # Define paths (relative to project root)
+    local md_context="$project_root/GEMINI.md"
+    local md_agents="$project_root/AGENTS.md"
+    local json_config="$project_root/.opencode.json"
+    local copilot_dest="$project_root/.github/copilot-instructions.md"
+    local claude_md="$project_root/CLAUDE.md"
+    local cursor_rules="$project_root/.cursorrules"
+    local windsurf_rules="$project_root/.windsurfrules"
+    local cody_context="$project_root/.cody/context.json"
+    local cody_ignore="$project_root/.cody/ignore"
 
     # Laravel Boost files
-    local mcp_config="./.mcp.json"
-    local boost_config="./boost.json"
+    local mcp_config="$project_root/.mcp.json"
+    local boost_config="$project_root/boost.json"
 
     # Cleanup existing symlinks (Universal AI)
     [[ -L "$md_context" ]] && rm "$md_context"
@@ -53,13 +65,13 @@ function set_gemini_context() {
 
     # 3. Link Copilot (Special Case: needs .github folder)
     if [[ -f "$vault_path/copilot-instructions.md" ]]; then
-        mkdir -p "./.github"
+        mkdir -p "$project_root/.github"
         ln -sf "$vault_path/copilot-instructions.md" "$copilot_dest"
     fi
 
     # 4. Link Cody/Junie (Special Case: needs .cody folder)
     if [[ -f "$vault_path/cody-context.json" || -f "$vault_path/cody-ignore" ]]; then
-        mkdir -p "./.cody"
+        mkdir -p "$project_root/.cody"
         [[ -f "$vault_path/cody-context.json" ]] && ln -sf "$vault_path/cody-context.json" "$cody_context"
         [[ -f "$vault_path/cody-ignore" ]] && ln -sf "$vault_path/cody-ignore" "$cody_ignore"
     fi
@@ -113,21 +125,26 @@ function check_vault_file() {
 # --- AI Cache System Integration ---
 
 function claude-start() {
-    if [[ ! -d ".ai" ]]; then
-        echo "\033[1;33m⚠️  No .ai directory found. Run vault-ai-init first.\033[0m"
+    # Find project root
+    local project_root="$PWD"
+    while [[ "$project_root" != "/" && ! -d "$project_root/.ai" ]]; do
+        project_root=$(dirname "$project_root")
+    done
+
+    if [[ "$project_root" == "/" || ! -d "$project_root/.ai" ]]; then
+        echo "\033[1;33m⚠️  No .ai directory found in project tree. Run vault-ai-init first.\033[0m"
         return
     fi
 
-    echo "\033[0;34m🛡️  AI Shadow Vault - Claude Context Recap\033[0m"
-    echo "------------------------------------------"
-    vault-ai-resume
+    # Go to root for vault-ai-resume to ensure it finds .ai
+    (cd "$project_root" && echo "\033[0;34m🛡️  AI Shadow Vault - Claude Context Recap\033[0m" && echo "------------------------------------------" && vault-ai-resume)
 
-    if [[ -f ".ai/rules.md" ]]; then
+    if [[ -f "$project_root/.ai/rules.md" ]]; then
         if command -v pbcopy >/dev/null 2>&1; then
-            cat ".ai/rules.md" | pbcopy
+            cat "$project_root/.ai/rules.md" | pbcopy
             echo "\033[0;32m📋 .ai/rules.md copied to clipboard!\033[0m"
         elif command -v xclip >/dev/null 2>&1; then
-            cat ".ai/rules.md" | xclip -selection clipboard
+            cat "$project_root/.ai/rules.md" | xclip -selection clipboard
             echo "\033[0;32m📋 .ai/rules.md copied to clipboard!\033[0m"
         fi
     fi
@@ -138,7 +155,12 @@ function claude-start() {
 alias cc="claude-start"
 
 function check_ai_cache() {
-    if [[ -d ".ai" ]]; then
+    local project_root="$PWD"
+    while [[ "$project_root" != "/" && ! -d "$project_root/.ai" ]]; do
+        project_root=$(dirname "$project_root")
+    done
+
+    if [[ -d "$project_root/.ai" ]]; then
         echo "\033[0;32m🛡️  AI Cache active!\033[0m (Run 'cc' to start)"
     fi
 }

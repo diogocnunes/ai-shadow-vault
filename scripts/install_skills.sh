@@ -237,6 +237,13 @@ if [ ${#selected_skills_indices[@]} -eq 0 ]; then
     exit 0
 fi
 
+# --- Project Root Detection ---
+PROJECT_ROOT="$PWD"
+while [[ "$PROJECT_ROOT" != "/" && ! -d "$PROJECT_ROOT/.git" && ! -f "$PROJECT_ROOT/composer.json" && ! -f "$PROJECT_ROOT/package.json" ]]; do
+    PROJECT_ROOT=$(dirname "$PROJECT_ROOT")
+done
+if [[ "$PROJECT_ROOT" == "/" ]]; then PROJECT_ROOT="$PWD"; fi
+
 # ---------------------------------------------------------
 # Step 3: Installation
 # ---------------------------------------------------------
@@ -252,16 +259,16 @@ for skill_idx in "${selected_skills_indices[@]}"; do
                 install_gemini_skill "$skill_idx"
                 ;;
             1) # Cursor
-                append_skill_to_file "$skill_idx" ".cursorrules" "Cursor"
+                append_skill_to_file "$skill_idx" "$PROJECT_ROOT/.cursorrules" "Cursor"
                 ;;
             2) # Windsurf
-                append_skill_to_file "$skill_idx" ".windsurfrules" "Windsurf"
+                append_skill_to_file "$skill_idx" "$PROJECT_ROOT/.windsurfrules" "Windsurf"
                 ;;
             3) # Copilot
-                append_skill_to_file "$skill_idx" ".github/copilot-instructions.md" "GitHub Copilot"
+                append_skill_to_file "$skill_idx" "$PROJECT_ROOT/.github/copilot-instructions.md" "GitHub Copilot"
                 ;;
             4) # Claude
-                append_raw_skill_to_file "$skill_idx" "CLAUDE.md" "Claude"
+                append_raw_skill_to_file "$skill_idx" "$PROJECT_ROOT/CLAUDE.md" "Claude"
                 ;;
         esac
     done
