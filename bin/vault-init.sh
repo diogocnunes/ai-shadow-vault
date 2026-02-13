@@ -12,16 +12,27 @@ mkdir -p "$PROJECT_VAULT"
 # 2. Copy templates if they don't exist
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
-cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-# Novo: Suporte ao Copilot e Universal AI
 cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
-cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
 cp -n "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
 cp -n "$SCRIPT_DIR/../templates/.windsurfrules" "$PROJECT_VAULT/.windsurfrules"
 cp -n "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
 cp -n "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
 
-echo "✅ Vault directory created at: $PROJECT_VAULT"
+# 2.1 Dynamic Configuration for rules, Gemini and Claude
+if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
+    # Create a temp .ai dir if it doesn't exist just for the configurator to work
+    # The configurator will generate the files in the project root
+    bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
+    
+    # Move the generated files to the Vault if they were generated in the root
+    [ -f "GEMINI.md" ] && mv "GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+    [ -f "CLAUDE.md" ] && mv "CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+else
+    cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+    cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+fi
+
+echo "✅ Vault directory updated at: $PROJECT_VAULT"
 
 # 3. Laravel Boost Detection & Installation
 if [ -f "composer.json" ]; then
