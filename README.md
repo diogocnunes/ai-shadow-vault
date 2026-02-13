@@ -167,9 +167,9 @@ The Shadow Vault now includes a sophisticated **AI Cache System** designed to mi
 | `vault-ai-stats` | Show Stats | Calculates disk usage and token economy |
 | `cc` (Alias) | Claude Start | Prepares context for a new Claude Code session |
 
-## 🧠 Dynamic Context & Stack Detection (V1.5.0)
+## 🧠 Dynamic Context & Stack Detection (V1.5.1)
 
-The Shadow Vault is no longer static. It now features an **Intelligent Configurator** that analyzes your project's DNA to tailor the AI's instructions.
+The Shadow Vault is no longer static. It now features an **Intelligent Configurator** that acts as an **AI Onboarding Assistant**, analyzing your project's DNA to tailor the AI's instructions.
 
 ### 🔍 How it Works:
 When you run `vault-init` or `vault-ai-init`, the system:
@@ -179,8 +179,11 @@ When you run `vault-init` or `vault-ai-init`, the system:
     - **Admin Panels:** Automatically distinguishes between **Filament** and **Laravel Nova**.
     - **Frontend:** Identifies **Vue.js**, **React**, or **Livewire (TALL Stack)**.
     - **UI Libraries:** Detects **Quasar**, **PrimeVue**, or **TailwindCSS**.
-    - **Infrastructure:** Detects **Docker (Sail)** and adjust commands accordingly.
-3. **Generates Tailored Rules:** Dynamically populates `rules.md`, `GEMINI.md`, and `CLAUDE.md` with the correct build commands, test patterns, and architectural guidelines for *your* specific project.
+3. **Interactive Briefing (New!):**
+    - **Environment:** Select between **Laravel Herd, Sail, Valet, Docker, or Laradock**.
+    - **Database:** Define your DB engine (**MySQL, PostgreSQL, MariaDB, etc.**).
+    - **Business Context:** Input your project's **Goal** and **Key Integrations** (Stripe, AWS, etc.) during setup.
+4. **Generates Tailored Rules:** Dynamically populates `rules.md`, `GEMINI.md`, and `CLAUDE.md` with project-specific commands and architecture notes.
 
 ### 🤖 AI Orchestration:
 All generated files now include **Cross-AI Orchestration Rules**. This ensures that Gemini and Claude:

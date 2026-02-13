@@ -21,4 +21,7 @@
 ## 🤖 Context Specifics
 - Focus on performance and type safety.
 - Ensure all components are documented.
+- **Goal:** {{PROJECT_CONTEXT}}
+- **Integrations:** {{KEY_INTEGRATIONS}}
 - **Stack:** {{FRAMEWORK}} {{FRAMEWORK_VERSION}} / {{FRONTEND_STACK}} / {{ADMIN_PANEL}}
+- **Environment:** {{DEV_ENVIRONMENT}}

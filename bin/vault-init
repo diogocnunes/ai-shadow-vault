@@ -12,14 +12,30 @@ mkdir -p "$PROJECT_VAULT"
 # 2. Copy templates if they don't exist
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
-cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-# Novo: Suporte ao Copilot e Universal AI
 cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
-cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
 cp -n "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
 cp -n "$SCRIPT_DIR/../templates/.windsurfrules" "$PROJECT_VAULT/.windsurfrules"
 cp -n "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
 cp -n "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
+
+# 2.1 Dynamic Configuration for rules, Gemini and Claude
+if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
+    bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
+    # Move the generated files to the Vault
+    [ -f "GEMINI.md" ] && mv "GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+    [ -f "CLAUDE.md" ] && mv "CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+    
+    # Create symlinks immediately
+    ln -sf "$PROJECT_VAULT/GEMINI.md" "GEMINI.md"
+    ln -sf "$PROJECT_VAULT/CLAUDE.md" "CLAUDE.md"
+    ln -sf "$PROJECT_VAULT/AGENTS.md" "AGENTS.md"
+else
+    cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+    cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+    ln -sf "$PROJECT_VAULT/GEMINI.md" "GEMINI.md"
+    ln -sf "$PROJECT_VAULT/CLAUDE.md" "CLAUDE.md"
+    ln -sf "$PROJECT_VAULT/AGENTS.md" "AGENTS.md"
+fi
 
 echo "✅ Vault directory created at: $PROJECT_VAULT"
 
