@@ -31,10 +31,17 @@ mkdir -p "$PROJECT_ROOT/.ai/agents"
 
 # 2. Install base templates
 echo "📄 Installing base templates..."
-cp -n "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
+# cp -n "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"  <-- Removed static copy
 cp -n "$TEMPLATES_DIR/session-template.md" "$PROJECT_ROOT/.ai/session-template.md"
 
-# 2.1 Install agents
+# 2.1 Run dynamic configuration for rules.md
+if [ -f "$SCRIPT_DIR/vault-ai-configurator.sh" ]; then
+    bash "$SCRIPT_DIR/vault-ai-configurator.sh"
+else
+    cp -n "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
+fi
+
+# 2.2 Install agents
 echo "🤖 Installing AI agents..."
 cp -n "$TEMPLATES_DIR/agents/"*.sh "$PROJECT_ROOT/.ai/agents/"
 chmod +x "$PROJECT_ROOT/.ai/agents/"*.sh

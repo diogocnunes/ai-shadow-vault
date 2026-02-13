@@ -167,6 +167,27 @@ The Shadow Vault now includes a sophisticated **AI Cache System** designed to mi
 | `vault-ai-stats` | Show Stats | Calculates disk usage and token economy |
 | `cc` (Alias) | Claude Start | Prepares context for a new Claude Code session |
 
+## 🧠 Dynamic Context & Stack Detection (V1.5.0)
+
+The Shadow Vault is no longer static. It now features an **Intelligent Configurator** that analyzes your project's DNA to tailor the AI's instructions.
+
+### 🔍 How it Works:
+When you run `vault-init` or `vault-ai-init`, the system:
+1. **Analyzes Dependencies:** Scans `composer.json` and `package.json`.
+2. **Detects Tech Stack:**
+    - **Backend:** PHP version, Laravel version.
+    - **Admin Panels:** Automatically distinguishes between **Filament** and **Laravel Nova**.
+    - **Frontend:** Identifies **Vue.js**, **React**, or **Livewire (TALL Stack)**.
+    - **UI Libraries:** Detects **Quasar**, **PrimeVue**, or **TailwindCSS**.
+    - **Infrastructure:** Detects **Docker (Sail)** and adjust commands accordingly.
+3. **Generates Tailored Rules:** Dynamically populates `rules.md`, `GEMINI.md`, and `CLAUDE.md` with the correct build commands, test patterns, and architectural guidelines for *your* specific project.
+
+### 🤖 AI Orchestration:
+All generated files now include **Cross-AI Orchestration Rules**. This ensures that Gemini and Claude:
+- **Prioritize the Vault:** Always look into `.ai/` first.
+- **Bypass Git Ignores:** Automatically use `cat` or shell commands to read files that are symlinked or hidden from Git.
+- **Stay in Scope:** Use the correct testing (Pest/PHPUnit) and build (Vite/Mix) tools detected during init.
+
 ### 🤖 Local AI Agents:
 Located in `.ai/agents/`, these scripts automate routine tasks:
 - `plan-creator.sh`: Creates standardized architectural plans.

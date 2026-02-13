@@ -61,4 +61,5 @@ else
 fi
 
 echo "------------------------------------------"
+echo -e "💡 ${YELLOW}AI Tip:${NC} If the AI can't read symlinks (GEMINI.md), tell it to use 'cat'."
 echo -e "🚀 Run ${GREEN}vault-ai-save${NC} when you finish your next task!"
