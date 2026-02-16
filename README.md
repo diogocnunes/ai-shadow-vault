@@ -126,6 +126,24 @@ To maximize performance while keeping costs near zero, this setup prioritizes th
 
 3. **Budget Alerts:** Set a monthly budget alert of **$5.00** in Google Cloud Billing to receive immediate email notifications of any spending.
 
+## 🚀 Laravel Superpowers Integration (New in 1.6.0)
+
+We have integrated the **[Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel)** collection directly into the Vault. This gives your AI agents 50+ specialized skills for Laravel development, ranging from TDD workflows to advanced architecture patterns.
+
+**Features:**
+*   **Auto-Detection:** The `vault-ai-init` script now detects if you are running **Laravel Sail** and adjusts all command instructions accordingly.
+*   **Skill Injection:** Automatically copies relevant Superpowers (like `laravel:tdd-with-pest`, `laravel:migrations-and-factories`) into your project's `.ai/docs/` folder.
+*   **Universal Access:** Use these skills in **Gemini CLI** (via `activate_skill`), **Claude Code**, or **Cursor/Windsurf**.
+
+👉 **[Read the Full Superpowers Guide](./SUPERPOWERS_GUIDE.md)**
+
+## ❤️ Credits & Inspiration
+
+The Shadow Vault evolves thanks to the community. Special thanks to:
+*   **[JP Caparas](https://github.com/jpcaparas)** for the **[Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel)** project, which inspired our new skill system.
+*   **@cristianovalenca** for the initial Laravel detection logic.
+*   **@maclevison** for the Universal Claude support.
+
 ## 📊 Monitoring
 Run `vault-check` at any time to verify the integrity of your symlinks and the status of your context files across all projects in the Vault.
 

@@ -9,6 +9,7 @@
 - **Testing:** New features require PestPHP tests. Use `Http::fake()` for external APIs.
 - **Linting:** Run `./vendor/bin/pint` before finalizing any code.
 - **Frontend:** Use Vue 3 Composition API (`<script setup>`) and TailwindCSS.
+- **Laravel Superpowers:** You have access to specialized Laravel skills (TDD, Migrations, Clean Controllers, etc.). Use `activate_skill` when relevant.
 
 ## AI Interaction Rules
 - Consult `GEMINI.md` for project architecture.

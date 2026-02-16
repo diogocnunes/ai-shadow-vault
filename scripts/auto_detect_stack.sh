@@ -91,11 +91,27 @@ if [ -f "composer.json" ]; then
     # Laravel
     if grep -q "laravel/framework" composer.json; then
         echo "- **Framework**: Laravel" >> "$CONTEXT_FILE"
+        
+        # Sail Detection
+        if [ -f "sail" ] || [ -x "vendor/bin/sail" ]; then
+            echo "- **Runner**: Laravel Sail (Docker)" >> "$CONTEXT_FILE"
+            echo -e "  ✅ Detected ${GREEN}Laravel Sail${NC}. AI will prefer Sail commands."
+        else
+            echo "- **Runner**: Host (Native PHP/Composer)" >> "$CONTEXT_FILE"
+        fi
+
         copy_skill_doc "LARAVEL-CODE-QUALITY.md" "laravel-standards.md"
         copy_skill_doc "BACKEND-EXPERT.md" "laravel-backend.md"
         copy_skill_doc "SECURITY-PERFORMANCE.md" "laravel-security.md"
         copy_skill_doc "DX-MAINTAINER.md" "developer-experience.md"
         copy_skill_doc "QA-AUTOMATION.md" "testing-strategy.md"
+
+        # Laravel Superpowers Integration
+        if [ -d "$TEMPLATES_SKILLS_DIR/Laravel" ]; then
+            echo -e "  🚀 Adding Laravel Superpowers knowledge..."
+            # Copy all markdown files except LICENSE and CREDITS to keep it clean
+            find "$TEMPLATES_SKILLS_DIR/Laravel" -maxdepth 1 -name "*.md" ! -name "CREDITS.md" -exec cp {} "$DOCS_DIR/" \;
+        fi
     fi
 
     # Laravel Nova
