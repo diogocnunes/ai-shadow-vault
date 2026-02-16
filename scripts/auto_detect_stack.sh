@@ -117,7 +117,15 @@ if [ -f "composer.json" ]; then
             if [ -d "$TEMPLATES_SKILLS_DIR/Laravel/Commands" ]; then
                 PROJECT_COMMANDS_DIR="$AI_VAULT/commands"
                 mkdir -p "$PROJECT_COMMANDS_DIR"
-                cp "$TEMPLATES_SKILLS_DIR/Laravel/Commands/"*.md "$PROJECT_COMMANDS_DIR/"
+                
+                # Copy and rename to lowercase
+                for file in "$TEMPLATES_SKILLS_DIR/Laravel/Commands/"*.[mM][dD]; do
+                    [ -e "$file" ] || continue
+                    filename=$(basename "$file")
+                    lower_filename=$(echo "$filename" | tr '[:upper:]' '[:lower:]')
+                    cp "$file" "$PROJECT_COMMANDS_DIR/$lower_filename"
+                done
+                
                 echo -e "  ⚡ Added Superpowers commands to ${GREEN}$PROJECT_COMMANDS_DIR${NC}"
             fi
         fi

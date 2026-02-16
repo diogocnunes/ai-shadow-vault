@@ -7,7 +7,16 @@ VAULT_ROOT="$HOME/.gemini-vault"
 PROJECT_NAME=$(basename "$PWD")
 PROJECT_VAULT="$VAULT_ROOT/$PROJECT_NAME"
 AI_VAULT="$PROJECT_VAULT/.ai"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Resolve SCRIPT_DIR correctly, handling symlinks
+SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SCRIPT_DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+
 TEMPLATES_DIR="$SCRIPT_DIR/../templates"
 
 # --- Project Root Detection ---
@@ -35,7 +44,9 @@ echo "📄 Installing base templates..."
 cp -n "$TEMPLATES_DIR/session-template.md" "$PROJECT_ROOT/.ai/session-template.md"
 
 # 2.1 Run dynamic configuration for rules.md
-if [ -f "$SCRIPT_DIR/vault-ai-configurator.sh" ]; then
+if [ -s "$PROJECT_ROOT/.ai/rules.md" ]; then
+    echo "✅ Rules file already exists. Skipping configuration."
+elif [ -f "$SCRIPT_DIR/vault-ai-configurator.sh" ]; then
     bash "$SCRIPT_DIR/vault-ai-configurator.sh"
 else
     cp -n "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
@@ -97,7 +108,10 @@ git config --global core.excludesfile "$GLOBAL_IGNORE"
 # 7. Auto-Detect Stack & Populate Knowledge
 if [ -f "$SCRIPT_DIR/auto_detect_stack.sh" ]; then
     echo ""
-    "$SCRIPT_DIR/auto_detect_stack.sh"
+    echo "🔍 Launching stack auto-detection..."
+    bash "$SCRIPT_DIR/auto_detect_stack.sh"
+else
+    echo "⚠️  Could not find auto_detect_stack.sh in $SCRIPT_DIR"
 fi
 
 echo ""
@@ -105,5 +119,8 @@ echo "✨ AI Shadow Vault Expansion initialized successfully!"
 echo "📍 Vault: $AI_VAULT"
 echo "🔗 Local Link: .ai/"
 echo "🤖 Claude Rules: .claude/project-rules.md"
+echo ""
+echo "💡 To activate the interactive skills used by the installed commands:"
+echo "   Run 'vault-skills' and select the ones you need."
 echo ""
 echo "Ready to code with deep context! 🚀"
