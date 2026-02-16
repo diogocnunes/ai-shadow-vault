@@ -11,6 +11,15 @@ mkdir -p "$PROJECT_VAULT"
 
 # 2. Copy templates if they don't exist
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Ensure global templates directory exists and update it
+mkdir -p "$VAULT_ROOT/templates"
+if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
+    echo "📦 Updating global skills library..."
+    rm -rf "$VAULT_ROOT/templates/Skills"
+    cp -r "$SCRIPT_DIR/../templates/Skills" "$VAULT_ROOT/templates/Skills"
+fi
+
 cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
 cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
 cp -n "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
