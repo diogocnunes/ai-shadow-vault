@@ -109,8 +109,17 @@ if [ -f "composer.json" ]; then
         # Laravel Superpowers Integration
         if [ -d "$TEMPLATES_SKILLS_DIR/Laravel" ]; then
             echo -e "  🚀 Adding Laravel Superpowers knowledge..."
-            # Copy all markdown files except LICENSE and CREDITS to keep it clean
+            
+            # Copy Skills (Documentation)
             find "$TEMPLATES_SKILLS_DIR/Laravel" -maxdepth 1 -name "*.md" ! -name "CREDITS.md" -exec cp {} "$DOCS_DIR/" \;
+            
+            # Copy Commands (Prompts)
+            if [ -d "$TEMPLATES_SKILLS_DIR/Laravel/Commands" ]; then
+                PROJECT_COMMANDS_DIR="$AI_VAULT/commands"
+                mkdir -p "$PROJECT_COMMANDS_DIR"
+                cp "$TEMPLATES_SKILLS_DIR/Laravel/Commands/"*.md "$PROJECT_COMMANDS_DIR/"
+                echo -e "  ⚡ Added Superpowers commands to ${GREEN}$PROJECT_COMMANDS_DIR${NC}"
+            fi
         fi
     fi
 
