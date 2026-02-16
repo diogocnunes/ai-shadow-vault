@@ -61,8 +61,9 @@ Simply ask for the skill in natural language.
 > **Gemini:** *Calls `activate_skill('laravel:debugging-prompts')`...* "Please provide the error message and stack trace..."
 
 **Manual Command Execution:**
-If you prefer to use the raw prompt templates (Commands):
-> **User:** "Read the file `templates/Skills/Laravel/Commands/brainstorm.md` and follow its instructions."
+If you prefer to use the raw prompt templates (Commands), they are automatically copied to your project's `.ai/commands/` folder during initialization.
+
+> **User:** "Read `.ai/commands/brainstorm.md` and follow its instructions."
 
 ---
 
