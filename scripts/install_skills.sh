@@ -44,9 +44,16 @@ declare -a skill_descriptions
 # Read skills
 echo -e "Scanning available skills in ${YELLOW}$SOURCE_DIR${NC}..."
 count=0
-for file in "$SOURCE_DIR"/*.md; do
+
+# Use find to get all .md files recursively, excluding LICENSE and CREDITS
+while IFS= read -r file; do
     [ -e "$file" ] || continue
     
+    # Skip if it's a command file (we handle those separately or not at all in this script)
+    if [[ "$file" == *"Commands/"* ]]; then continue; fi
+    if [[ "$(basename "$file")" == "CREDITS.md" ]]; then continue; fi
+    if [[ "$(basename "$file")" == "LICENSE" ]]; then continue; fi
+
     # Extract name from frontmatter
     name=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^name:" | head -n 1 | sed 's/name: *//' | tr -d '"' | tr -d "'")
     desc=$(sed -n '/^---$/,/^---$/p' "$file" | grep "^description:" | head -n 1 | sed 's/description: *//')
@@ -65,7 +72,7 @@ for file in "$SOURCE_DIR"/*.md; do
     skill_names[$count]="$name"
     skill_descriptions[$count]="$desc"
     ((count++))
-done
+done < <(find "$SOURCE_DIR" -name "*.md")
 
 if [ $count -eq 0 ]; then
     echo -e "${RED}No skill files found in $SOURCE_DIR${NC}"
