@@ -100,20 +100,20 @@ if [ -f "composer.json" ]; then
             echo "- **Runner**: Host (Native PHP/Composer)" >> "$CONTEXT_FILE"
         fi
 
-        copy_skill_doc "LARAVEL-CODE-QUALITY.md" "laravel-standards.md"
-        copy_skill_doc "BACKEND-EXPERT.md" "laravel-backend.md"
-        copy_skill_doc "SECURITY-PERFORMANCE.md" "laravel-security.md"
-        copy_skill_doc "DX-MAINTAINER.md" "developer-experience.md"
-        copy_skill_doc "QA-AUTOMATION.md" "testing-strategy.md"
-
-        # Laravel Superpowers Integration
+        # Laravel Superpowers Integration - High-Level Docs Only
         if [ -d "$TEMPLATES_SKILLS_DIR/Laravel" ]; then
-            echo -e "  🚀 Adding Laravel Superpowers knowledge..."
+            echo -e "  🚀 Adding Laravel Superpowers knowledge (Architectural & Standards)..."
             
-            # Copy Skills (Documentation)
-            find "$TEMPLATES_SKILLS_DIR/Laravel" -maxdepth 1 -name "*.md" ! -name "CREDITS.md" -exec cp {} "$DOCS_DIR/" \;
-            
-            # Copy Commands (Prompts)
+            # Copy ONLY high-level architectural/standard docs
+            # Avoid copying operational skills (migrations, controllers, etc) to keep context light.
+            copy_skill_doc "LARAVEL-CODE-QUALITY.md" "laravel-standards.md"
+            copy_skill_doc "BACKEND-EXPERT.md" "laravel-backend.md" 
+            copy_skill_doc "SECURITY-PERFORMANCE.md" "laravel-security.md"
+            copy_skill_doc "DX-MAINTAINER.md" "developer-experience.md"
+            copy_skill_doc "QA-AUTOMATION.md" "testing-strategy.md"
+            copy_skill_doc "ARCHITECT-LEAD.md" "laravel-architecture.md"
+
+            # Copy Commands (Prompts) - These are small and useful to have
             if [ -d "$TEMPLATES_SKILLS_DIR/Laravel/Commands" ]; then
                 PROJECT_COMMANDS_DIR="$AI_VAULT/commands"
                 mkdir -p "$PROJECT_COMMANDS_DIR"
