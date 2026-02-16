@@ -121,6 +121,7 @@ generate_from_template() {
     local template=$1; local output=$2
     if [ -f "$template" ]; then
         mkdir -p "$(dirname "$output")"
+        rm -f "$output"
         cp "$template" "$output"
         
         # General replacements
