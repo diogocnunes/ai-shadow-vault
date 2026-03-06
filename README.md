@@ -66,6 +66,13 @@ Run `vault-skills` in any project directory to:
 - **Gemini CLI:** Installs the skill globally in `~/.gemini/skills/` so it's always available via `activate_skill`.
 - **Editors (Cursor, Windsurf, etc.):** Appends the skill instructions directly to your local rules file (e.g., `.cursorrules`) in the current project, automatically stripping unnecessary metadata and ensuring the AI follows the specific domain guidelines.
 
+## 🔬 Polyscope Integration (macOS)
+When initializing a project with `vault-init` on a macOS system, you will be prompted to set up the **Polyscope app** integration. If accepted, a `polyscope.json` file is automatically generated in your project root with AI-ready tasks for:
+- 🔒 Security Reviews
+- 🧪 Automated Test Generation
+- 📋 AI Context Syncing
+- 🏗️ Code Audits
+
 ---
 
 ## 🚀 Laravel Boost Support
@@ -125,6 +132,21 @@ To maximize performance while keeping costs near zero, this setup prioritizes th
    - These limits ensure that even in a "loop" scenario, you won't spend more than a few cents per day.
 
 3. **Budget Alerts:** Set a monthly budget alert of **$5.00** in Google Cloud Billing to receive immediate email notifications of any spending.
+
+## 🚀 Version 1.7.0 - New Shortcuts & Polyscope Integration
+
+This release focuses on daily developer experience with faster shortcuts and better tool integration.
+
+### ⚡ 'plan' Shortcut
+After running `vault-init`, you can now simply type `plan "Your Title"` in your project root to immediately trigger the `plan-creator.sh` agent. No more typing the full path to `.ai/agents/`.
+
+### 🔬 Polyscope App Support (macOS)
+When initializing on macOS, you'll be prompted to set up **Polyscope** integration. The system automatically:
+- Generates a `polyscope.json` file.
+- Asks for your local project URL (suggesting `http://folder.test`).
+- Configures 4 essential AI tasks for one-click security reviews, test generation, and context syncing.
+
+For more information about Polyscope, visit [getpolyscope.com](https://getpolyscope.com/).
 
 ## 🚀 Laravel Superpowers Integration (New in 1.6.0)
 
@@ -211,7 +233,7 @@ All generated files now include **Cross-AI Orchestration Rules**. This ensures t
 
 ### 🤖 Local AI Agents:
 Located in `.ai/agents/`, these scripts automate routine tasks:
-- `plan-creator.sh`: Creates standardized architectural plans.
+- `plan-creator.sh`: Creates standardized architectural plans. (⚡️ **New:** You can now simply run `plan "My Plan"` in the project root after initialization!)
 - `doc-fetcher.sh`: Searches local docs before going online.
 - `context-update.sh`: Quick edit of the current session goals.
 

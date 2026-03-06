@@ -80,13 +80,45 @@ if [ -f "composer.json" ]; then
     fi
 fi
 
+# 3.5 Polyscope Integration (macOS only)
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo ""
+    echo "🔬 Polyscope App Integration"
+    echo -n "Do you use the Polyscope app (macOS exclusive)? (y/n): "
+    read -r polyscope_response
+
+    if [[ "$polyscope_response" =~ ^[Yy]$ ]]; then
+        DEFAULT_URL="http://$PROJECT_NAME.test"
+        echo -n "Enter the project Local URL (Default: $DEFAULT_URL): "
+        read -r custom_url
+        POLYSCOPE_URL=${custom_url:-$DEFAULT_URL}
+
+        echo "📝 Creating polyscope.json from template..."
+        if [ -f "$SCRIPT_DIR/../templates/polyscope.json" ]; then
+            sed "s|\[\[PREVIEW_URL\]\]|$POLYSCOPE_URL|g" "$SCRIPT_DIR/../templates/polyscope.json" > polyscope.json
+            echo "✅ polyscope.json created with URL: $POLYSCOPE_URL"
+        else
+            echo "⚠️  Polyscope template not found at $SCRIPT_DIR/../templates/polyscope.json. Creating basic file..."
+            cat << EOF > polyscope.json
+{
+  "preview": {
+    "url": "$POLYSCOPE_URL"
+  }
+}
+EOF
+        fi
+    else
+        echo "⏭️  Skipping Polyscope integration."
+    fi
+fi
+
 # 4. Global Git Safety Net
 echo "🔒 Configuring Global Git Safety Net..."
 GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
 # Added GEMINI.md to the ignore list (+ Laravel Boost and Universal AI files)
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/")
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/" "polyscope.json" "plan")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$GLOBAL_IGNORE"; then
