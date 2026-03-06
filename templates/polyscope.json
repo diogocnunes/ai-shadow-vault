@@ -1,0 +1,23 @@
+{
+  "preview": {
+    "url": "[[PREVIEW_URL]]"
+  },
+  "tasks": [
+    {
+      "label": "🔒 Security Review",
+      "prompt": "Review the codebase for security vulnerabilities focusing on SQL injection, mass assignment, missing policies, and unprotected routes. Follow the project rules in .ai/rules.md."
+    },
+    {
+      "label": "🧪 Generate Tests",
+      "prompt": "Generate PHPUnit/Pest tests for the files changed in the last commit. Follow Larastan Level 9 standards and the patterns in .ai/docs/."
+    },
+    {
+      "label": "📋 Sync AI Context",
+      "prompt": "Read .ai/context/, .ai/plans/, and .ai/docs/ and summarize the current project state, active plans, and pending work."
+    },
+    {
+      "label": "🏗️ Code Audit",
+      "prompt": "Audit the codebase for N+1 queries, missing eager loading, untyped parameters, and magic numbers. Reference .ai/rules.md for standards."
+    }
+  ]
+}

@@ -57,6 +57,10 @@ echo "🤖 Installing AI agents..."
 cp -n "$TEMPLATES_DIR/agents/"*.sh "$PROJECT_ROOT/.ai/agents/"
 chmod +x "$PROJECT_ROOT/.ai/agents/"*.sh
 
+# Create the 'plan' symlink for easy access
+ln -sf ".ai/agents/plan-creator.sh" "$PROJECT_ROOT/plan"
+echo "🔗 Symlink 'plan' created for easy access."
+
 # 4. Claude Code Integration
 echo "🤖 Setting up Claude Code integration..."
 mkdir -p "$PROJECT_ROOT/.claude"
@@ -69,7 +73,7 @@ if [ -d ".git" ]; then
     GIT_EXCLUDE=".git/info/exclude"
     touch "$GIT_EXCLUDE"
     
-    FILES_TO_IGNORE=(".ai" ".ai/" ".claude" ".claude/" "GEMINI.md" "AGENTS.md" ".opencode.json" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore")
+    FILES_TO_IGNORE=(".ai" ".ai/" ".claude" ".claude/" "GEMINI.md" "AGENTS.md" ".opencode.json" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" "plan")
 
     for file in "${FILES_TO_IGNORE[@]}"; do
         if ! grep -q "$file" "$GIT_EXCLUDE"; then
