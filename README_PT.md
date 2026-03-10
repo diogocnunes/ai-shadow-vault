@@ -72,6 +72,14 @@ source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 
 3. Reabra o terminal.
 
+Se quiser apenas recarregar o AI Shadow Vault mais tarde, prefira:
+
+```bash
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
+```
+
+Evite correr `source ~/.zshrc` repetidamente apenas para refrescar o AI Shadow Vault.
+
 4. Dentro de um projeto:
 
 ```bash
@@ -86,7 +94,7 @@ Se você já tem o AI Shadow Vault instalado, o fluxo recomendado é:
 ```bash
 cd ~/Sites/meu-projeto
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
 Caminho único de upgrade de `1.x` para `2.x`:
@@ -94,7 +102,7 @@ Caminho único de upgrade de `1.x` para `2.x`:
 ```bash
 cd ~/Sites/meu-projeto
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 vault-init --non-interactive
 vault-skills standardize
 vault-skills sync
@@ -113,7 +121,7 @@ Exemplo com dois projetos existentes:
 ```bash
 cd ~/Sites/meu-projeto-a
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 vault-init --non-interactive
 vault-skills standardize
 vault-skills sync
@@ -225,7 +233,7 @@ vault-skills status
 ```bash
 cd ~/Sites/meu-projeto
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
 ## Ficheiro de contexto portátil

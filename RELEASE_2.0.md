@@ -105,7 +105,7 @@ Recommended flow for existing users:
 ```bash
 cd ~/Sites/my-project
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
 One-time upgrade path from `1.x` to `2.x`:
@@ -113,7 +113,7 @@ One-time upgrade path from `1.x` to `2.x`:
 ```bash
 cd ~/Sites/my-project
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 vault-init --non-interactive
 vault-skills standardize
 vault-skills sync
@@ -132,7 +132,7 @@ Example:
 ```bash
 cd ~/Sites/project-a
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 vault-init --non-interactive
 vault-skills standardize
 vault-skills sync
@@ -183,6 +183,6 @@ For an older project:
 
 ```bash
 vault-update
-source ~/.zshrc
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 vault-skills status
 ```

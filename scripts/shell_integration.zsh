@@ -1,5 +1,12 @@
 # --- AI SHADOW CONTEXT ORCHESTRATION (V7.0) ---
 
+if [[ -n "${AI_SHADOW_SHELL_INTEGRATION_LOADED:-}" ]]; then
+    autoload -U add-zsh-hook
+    add-zsh-hook -D chpwd set_gemini_context 2>/dev/null || true
+    add-zsh-hook -D chpwd check_ai_cache 2>/dev/null || true
+fi
+export AI_SHADOW_SHELL_INTEGRATION_LOADED=1
+
 AI_SHADOW_SHELL_DIR="${${(%):-%N}:A:h}"
 source "$AI_SHADOW_SHELL_DIR/lib/vault-resolver.sh"
 
@@ -190,9 +197,14 @@ function check_ai_cache() {
 }
 
 # --- Auto-execution & Path Setup ---
-export PATH="$HOME/.ai-shadow-vault/bin:$PATH"
+case ":$PATH:" in
+    *":$HOME/.ai-shadow-vault/bin:"*) ;;
+    *) export PATH="$HOME/.ai-shadow-vault/bin:$PATH" ;;
+esac
 
 autoload -U add-zsh-hook
+add-zsh-hook -D chpwd set_gemini_context 2>/dev/null || true
+add-zsh-hook -D chpwd check_ai_cache 2>/dev/null || true
 add-zsh-hook chpwd set_gemini_context
 add-zsh-hook chpwd check_ai_cache
 set_gemini_context
