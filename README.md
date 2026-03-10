@@ -89,6 +89,43 @@ vault-update
 source ~/.zshrc
 ```
 
+One-time upgrade path from `1.x` to `2.x`:
+
+```bash
+cd ~/Sites/my-project
+vault-update
+source ~/.zshrc
+vault-init --non-interactive
+vault-skills standardize
+vault-skills sync
+vault-ai-context
+```
+
+This one-time sequence is necessary because the old `1.x` `vault-update` only performs the package pull. The automatic post-update refresh starts working from `2.x` onward.
+
+Important:
+
+- `vault-update` itself only needs to update the package once
+- the `vault-init --non-interactive`, `vault-skills standardize`, `vault-skills sync`, and `vault-ai-context` steps must be run once for each project you want to migrate
+
+Example with two existing projects:
+
+```bash
+cd ~/Sites/project-a
+vault-update
+source ~/.zshrc
+vault-init --non-interactive
+vault-skills standardize
+vault-skills sync
+vault-ai-context
+
+cd ~/Sites/project-b
+vault-init --non-interactive
+vault-skills standardize
+vault-skills sync
+vault-ai-context
+```
+
 When `vault-update` is executed inside a project, it now does more than `git pull`. It will also:
 
 - refresh the project vault in non-interactive mode
