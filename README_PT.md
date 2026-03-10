@@ -1,0 +1,304 @@
+# AI Shadow Vault
+
+AI Shadow Vault é uma camada local de contexto para desenvolvimento assistido por IA. O objetivo é manter instruções, histórico, planos e skills fora do repositório principal, mas disponíveis dentro do projeto quando necessário.
+
+## O que resolve
+
+O sistema ajuda quando você quer:
+
+- manter contexto de IA fora do Git
+- reutilizar planos e histórico entre ferramentas
+- suportar vários agentes com a mesma base de contexto
+- evitar que worktrees e clones temporários quebrem a resolução do vault
+
+## Peças principais
+
+O sistema combina:
+
+- um data root no diretório do utilizador
+- uma workspace local `.ai/` dentro do projeto
+- ficheiros gerados e symlinks para agentes específicos
+
+## Data root
+
+Por omissão:
+
+```bash
+~/.ai-shadow-vault-data
+```
+
+Instalações antigas podem ainda usar:
+
+```bash
+~/.gemini-vault
+```
+
+Comportamento de migração:
+
+- se `~/.gemini-vault` existir e `~/.ai-shadow-vault-data` não existir, a pasta é renomeada automaticamente
+- se ambas existirem, `~/.ai-shadow-vault-data` é a principal
+- o conteúdo legado continua legível para compatibilidade
+
+## Resolução estável do projeto
+
+A identidade do projeto é resolvida nesta ordem:
+
+1. `git remote.origin.url`
+2. `git rev-parse --git-common-dir`
+3. `git rev-parse --show-toplevel`
+4. `basename "$PWD"`
+
+Isto evita problemas em:
+
+- repositórios normais
+- Git worktrees
+- clones temporários como os do Polyscope
+- diretórios sem Git
+
+## Instalação
+
+1. Clone o projeto:
+
+```bash
+git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
+mkdir -p ~/.ai-shadow-vault-data
+```
+
+2. Adicione ao `~/.zshrc`:
+
+```bash
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
+```
+
+3. Reabra o terminal.
+
+4. Dentro de um projeto:
+
+```bash
+vault-init
+vault-ai-init
+```
+
+## Atualizar uma instalação existente
+
+Se você já tem o AI Shadow Vault instalado, o fluxo recomendado é:
+
+```bash
+cd ~/Sites/meu-projeto
+vault-update
+source ~/.zshrc
+```
+
+Quando o `vault-update` é executado dentro de um projeto, ele agora faz mais do que um `git pull`. Ele também:
+
+- refresca o vault do projeto em modo não interativo
+- normaliza os ficheiros geridos para o formato atual
+- volta a sincronizar os targets de skills guardados
+- regenera `.ai/context/agent-context.md`
+
+Se executar o `vault-update` fora de um projeto, ele atualiza apenas o pacote.
+
+Se quiser correr manualmente o pós-update do projeto, use:
+
+```bash
+vault-init --non-interactive
+vault-skills standardize
+vault-skills sync
+vault-ai-context
+```
+
+## Compatibilidade com sistemas operativos
+
+Suporte atual:
+
+- `macOS`: suportado
+- `Linux`: não suportado
+- `Windows`: não suportado
+
+Motivos:
+
+- a integração de shell depende de `zsh`
+- a maior parte dos scripts usa `bash`
+- o clipboard espera `pbcopy` no macOS ou `xclip` no Linux
+- ainda existem scripts com `sed -i ''`, que é formato de macOS
+- a integração com Polyscope é exclusiva de macOS
+
+Neste momento, o pacote deve ser tratado como macOS-only.
+
+## Workspace local `.ai/`
+
+Principais caminhos:
+
+| Caminho | Função |
+| :--- | :--- |
+| `.ai/rules.md` | regras globais do projeto |
+| `.ai/plans/` | planos de implementação |
+| `.ai/docs/` | documentação local |
+| `.ai/context/archive/` | sessões arquivadas |
+| `.ai/context/agent-context.md` | contexto portátil para prompts |
+| `.ai/skills/ACTIVE_SKILLS.md` | bundle das skills ativas |
+
+## Comandos principais
+
+| Comando | Função |
+| :--- | :--- |
+| `vault-init` | inicializa o vault do projeto e os symlinks |
+| `vault-ai-init` | inicializa a workspace `.ai/` |
+| `vault-ai-resume` | mostra a última sessão e planos ativos |
+| `vault-ai-save` | arquiva a sessão atual |
+| `vault-ai-context` | gera `.ai/context/agent-context.md` |
+| `vault-ai-stats` | mostra métricas da cache local |
+| `vault-check` | verifica o vault |
+| `cc` | fluxo rápido de contexto para Claude |
+| `vault-skills` | gere as skills universais |
+
+## Exemplos rápidos
+
+### Exemplo 1: Setup inicial
+
+```bash
+cd ~/Sites/meu-projeto
+vault-init
+vault-ai-init
+```
+
+### Exemplo 2: Criar plano e contexto
+
+```bash
+.ai/agents/plan-creator.sh "Refatorar faturação"
+vault-ai-context
+```
+
+### Exemplo 3: Preparar Claude
+
+```bash
+cc
+```
+
+### Exemplo 4: Ativar skills para Laravel Nova
+
+```bash
+vault-skills activate --preset laravel-nova
+vault-skills sync native context editors
+vault-skills status
+```
+
+### Exemplo 5: Atualizar uma instalação antiga
+
+```bash
+cd ~/Sites/meu-projeto
+vault-update
+source ~/.zshrc
+```
+
+## Ficheiro de contexto portátil
+
+Para ferramentas sem clipboard, use:
+
+```text
+.ai/context/agent-context.md
+```
+
+Exemplo de prompt:
+
+```text
+Use .ai/context/agent-context.md como resumo atual do projeto.
+Depois siga .ai/plans/refatorar-faturacao.md.
+```
+
+## Skills universais
+
+O sistema usa um modelo híbrido:
+
+- `Gemini` e `Codex`: skills nativas globais
+- `Claude`, `Junie` e `Opencode`: bundle agregado local
+- `Cursor`, `Windsurf` e `Copilot`: regras locais regeneradas
+
+Comandos úteis:
+
+```bash
+vault-skills status
+vault-skills presets
+vault-skills list
+vault-skills activate --preset laravel-nova
+vault-skills activate --preset filament syncfusion-document-editor
+vault-skills sync native context editors
+vault-skills standardize
+```
+
+Ficheiros principais:
+
+- `.ai/skills/active-skills.txt`
+- `.ai/skills/active-skills.json`
+- `.ai/skills/ACTIVE_SKILLS.md`
+
+## Fluxos típicos
+
+### Fluxo com Claude
+
+```bash
+cc
+.ai/agents/plan-creator.sh "Adicionar auditoria"
+claude
+vault-ai-save
+```
+
+### Fluxo com Gemini
+
+```bash
+vault-ai-context
+.ai/agents/plan-creator.sh "Validar arquitetura"
+vault-skills activate --preset laravel-nova
+vault-skills sync gemini
+```
+
+### Upgrade de projeto antigo
+
+```bash
+vault-skills standardize
+```
+
+Este comando cria backups antes de reescrever os ficheiros geridos para o formato atual.
+
+## Troubleshooting
+
+### O `cc` não copia nada
+
+- No macOS, confirme que `pbcopy` está disponível
+- No Linux, instale `xclip`
+- Mesmo sem clipboard, o `cc` continua a regenerar `.ai/context/agent-context.md`
+
+### As skills parecem duplicadas ou os ficheiros antigos ficaram confusos
+
+Execute:
+
+```bash
+vault-skills standardize
+```
+
+Isto cria backups e reescreve os ficheiros geridos para o formato atual.
+
+### A ferramenta não consegue usar contexto por clipboard
+
+Use:
+
+```text
+.ai/context/agent-context.md
+```
+
+e, quando necessário:
+
+```text
+.ai/skills/ACTIVE_SKILLS.md
+```
+
+### Linux e Windows
+
+Não são plataformas suportadas por este pacote neste momento.
+
+## Guias relacionados
+
+- [AI_CACHE_GUIDE.md](./AI_CACHE_GUIDE.md)
+- [SUPERPOWERS_GUIDE.md](./SUPERPOWERS_GUIDE.md)
+- [CLAUDE_WORKFLOW_FAQ.md](./CLAUDE_WORKFLOW_FAQ.md)
+- [GEMINI_WORKFLOW_GUIDE.md](./GEMINI_WORKFLOW_GUIDE.md)

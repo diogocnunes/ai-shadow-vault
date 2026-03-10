@@ -1,115 +1,109 @@
-# Laravel Superpowers Guide 🚀
+# Laravel Superpowers Guide
 
-This guide explains how to use the integrated **Laravel Superpowers** within your AI Shadow Vault workflow. These are specialized AI skills derived from the excellent [Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel) project.
+Este guia cobre a integração de skills Laravel dentro do AI Shadow Vault.
 
-## What are Superpowers?
+## O que este guia cobre
 
-Superpowers are **specialized instruction sets (Skills)** and **prompt templates (Commands)** designed to make your AI assistant an expert in specific Laravel domains.
+O foco aqui é:
 
-Instead of generic advice, you get:
-*   **TDD Workflows:** Strict Red-Green-Refactor cycles with Pest.
-*   **Safe Migrations:** Patterns for zero-downtime database changes.
-*   **Architecture:** Clean Code, Ports & Adapters, Service Layers.
-*   **Sail Awareness:** Commands that automatically respect your Docker environment.
+- skills Laravel reutilizáveis
+- docs locais em `.ai/docs/tech-stack/`
+- sincronização dessas skills entre agentes
 
----
+## Como as skills chegam aos agentes
 
-## 🛠️ Installation & Setup
+### Gemini
 
-### 1. Global Installation (Recommended)
-To make these skills available to **Gemini CLI** (globally) and your **Code Editors** (Cursor, Windsurf):
+Instalação nativa em:
 
-```bash
-# From the vault directory
-./scripts/install_skills.sh
+```text
+~/.gemini/skills/<skill>/SKILL.md
 ```
-*   Select **Gemini CLI (Global)** to install them for terminal usage.
-*   Select **Cursor/Windsurf** to append them to your project's rules files.
-*   Choose "all" or select specific skills (e.g., `laravel:tdd-with-pest`, `laravel:migrations-and-factories`).
 
-### 2. Project-Specific Initialization
-To copy these skills into a specific project's documentation (useful for **Claude Code** context):
+### Codex
+
+Instalação nativa em:
+
+```text
+~/.codex/skills/<skill>/SKILL.md
+```
+
+### Claude, Junie e Opencode
+
+Uso principal via:
+
+```text
+.ai/skills/ACTIVE_SKILLS.md
+```
+
+### Cursor, Windsurf e Copilot
+
+Uso através de regras locais regeneradas pelo `vault-skills sync`.
+
+## Fluxo recomendado para Laravel
 
 ```bash
-# Navigate to your Laravel project
-cd ~/Sites/my-laravel-app
-
-# Run the stack detector
+vault-init
 vault-ai-init
-# OR directly:
-~/.ai-shadow-vault/scripts/auto_detect_stack.sh
+vault-skills activate --preset laravel-nova
+vault-skills sync native context
 ```
-This will automatically copy the relevant Markdown files into `.ai/docs/tech-stack/`, making them available as "Local Documentation" for any AI agent reading the `.ai` folder.
 
----
+## Casos típicos
 
-## 🤖 How to Use
+### Projeto Laravel + Nova
 
-### 1. Gemini CLI
+```bash
+vault-skills activate --preset laravel-nova
+vault-skills sync native context
+```
 
-The Gemini CLI uses the `activate_skill` tool. You don't need to remember the exact filename.
+### Projeto Laravel + Filament
 
-**Usage:**
-Simply ask for the skill in natural language.
+```bash
+vault-skills activate --preset filament
+vault-skills sync native context
+```
 
-> **User:** "I need to design a new feature for Invoicing. Activate the **Laravel Brainstorming** skill."
->
-> **Gemini:** *Calls `activate_skill('laravel:brainstorming')`...* "Okay, let's brainstorm. What is the goal of this feature?"
+### Projeto TALL Stack
 
-> **User:** "I'm fixing a bug in the User model. Use the **Debugging Prompts** skill."
->
-> **Gemini:** *Calls `activate_skill('laravel:debugging-prompts')`...* "Please provide the error message and stack trace..."
+```bash
+vault-skills activate --preset tall-stack
+vault-skills sync native context
+```
 
-**Manual Command Execution:**
-If you prefer to use the raw prompt templates (Commands), they are automatically copied to your project's `.ai/commands/` folder during initialization.
+## Skills vs docs locais
 
-> **User:** "Read `.ai/commands/brainstorm.md` and follow its instructions."
+Use skills para comportamento e prioridades.
 
----
+Exemplos:
 
-### 2. Claude Code (CLI)
+- arquitetura
+- code quality
+- QA
+- segurança
+- migração legada
 
-Since Claude Code is context-aware, if you ran `vault-ai-init`, the skills are already in `.ai/docs/tech-stack/`.
+Use docs locais para detalhe técnico concreto.
 
-**Usage:**
-Reference the skill by name or concept.
+Exemplos:
 
-> **User:** "Check the local docs for **TDD with Pest** and help me write a test for the `OrderService`."
+- padrões Nova
+- eager loading
+- validação
+- Pest
+- Filament
 
-> **User:** "I want to create a migration. Follow the **Migrations and Factories** guide in `.ai/docs`."
+## Upgrade de projetos antigos
 
----
+Se o projeto acumulou skills antigas em `CLAUDE.md`, `.cursorrules` ou ficheiros semelhantes:
 
-### 3. Cursor & Windsurf (Editors)
+```bash
+vault-skills standardize
+```
 
-If you installed the skills via `install_skills.sh`, they are embedded in your `.cursorrules` or `.windsurfrules`.
+O comando cria backups antes de reescrever os ficheiros geridos.
 
-**Usage:**
-The editor's AI will automatically apply these rules when relevant.
-*   When you ask to "Create a model", it will automatically suggest creating a Migration and Factory (per `migrations-and-factories` skill).
-*   When you ask to "Refactor controller", it will follow the `controller-cleanup` guidelines automatically.
+## Créditos
 
----
-
-## ⚡ Top Skills Available
-
-Here are some of the most powerful skills included:
-
-| Skill | Description |
-| :--- | :--- |
-| **`laravel:brainstorming`** | Interactive design refinement. Clarifies domain, data, and interfaces before coding. |
-| **`laravel:tdd-with-pest`** | Strict RED-GREEN-REFACTOR workflow using Pest PHP. |
-| **`laravel:migrations-and-factories`** | Safe database change patterns. "Never edit a merged migration." |
-| **`laravel:quality-checks`** | Unified quality gates: Pint, PHPStan, Tests. |
-| **`laravel:controller-cleanup`** | Strategies to keep controllers thin (FormRequests, Actions). |
-| **`laravel:debugging-prompts`** | Templates for reporting errors effectively to get better fixes. |
-| **`laravel:filament-v5`** | Expert guidance for Filament V5 resources and forms. |
-
----
-
-## ❤️ Credits
-
-This integration is possible thanks to the open-source community.
-*   **Original Project:** [Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel) by [JP Caparas](https://github.com/jpcaparas).
-*   **Base Concept:** Superpowers for Claude by Jesse Vincent.
-*   **License:** MIT.
+Esta integração é inspirada no projeto [Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel) de [JP Caparas](https://github.com/jpcaparas).

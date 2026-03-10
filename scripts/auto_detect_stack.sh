@@ -3,11 +3,16 @@
 # AI Shadow Vault - Stack Auto-Detector
 # Detects project technology stack and populates the Vault with relevant knowledge.
 
+set -euo pipefail
+
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/vault-resolver.sh"
 
 AI_VAULT=".ai"
 DOCS_DIR="$AI_VAULT/docs/tech-stack"
@@ -34,13 +39,10 @@ else
 fi
 
 # Locate Skills Templates
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TEMPLATES_SKILLS_DIR=""
-
 if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
     TEMPLATES_SKILLS_DIR="$SCRIPT_DIR/../templates/Skills"
-elif [ -d "$HOME/.gemini-vault/templates/Skills" ]; then
-    TEMPLATES_SKILLS_DIR="$HOME/.gemini-vault/templates/Skills"
+elif [ -d "$(vault_shared_asset_path "templates/Skills")" ]; then
+    TEMPLATES_SKILLS_DIR="$(vault_shared_asset_path "templates/Skills")"
 # Fallback for when run from symlink or different structure
 elif [ -d "$HOME/Sites/MySites/ai-shadow-vault/templates/Skills" ]; then
     TEMPLATES_SKILLS_DIR="$HOME/Sites/MySites/ai-shadow-vault/templates/Skills"

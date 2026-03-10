@@ -1,23 +1,23 @@
 # {Project Name} - Claude AI Guidelines
 
-## 🏗️ Build Commands
-- Primary Build: `npm run build`
-- Development: `npm run dev`
+## Context Priority
 
-## 🧪 Test Patterns
-- Run all tests: `npm test`
-- Watch mode: `npm test -- --watch`
+Use this order when gathering context:
 
-## 🤖 AI Orchestration (Context Priority)
-- **Shadow Vault:** A pasta `.ai/` contém o cérebro do projeto (contexto, planos e histórico).
-- **Regra de Acesso:** Sempre prioriza ficheiros em `.ai/`. Se a pasta parecer inacessível devido ao `.gitignore`, desativa os filtros de ignorados para ler o seu conteúdo.
-- **Workflow:** Antes de sugerir mudanças, consulta `.ai/plans/` para verificar se já existe uma estratégia definida.
+1. `.ai/plans/`
+2. `.ai/skills/ACTIVE_SKILLS.md`
+3. `.ai/rules.md`
+4. `.ai/context/agent-context.md`
+5. `.ai/docs/`
 
-## 🎨 Style Guides
-- Language: TypeScript / JavaScript
-- Style: Clean Code, SOLID principles
-- Formatting: Prettier / ESLint
+## Shadow Vault Rules
 
-## 🤖 Context Specifics
-- Focus on performance and type safety.
-- Ensure all components are documented.
+- The `.ai/` directory is the project's local context layer.
+- If Git ignore rules hide files, read them explicitly instead of assuming they do not exist.
+- Treat `CLAUDE.md` as orchestration guidance, not as the place to accumulate appended raw skills forever.
+
+## Working Style
+
+- Prefer focused changes tied to an explicit plan.
+- Reuse existing patterns before introducing new abstractions.
+- Keep recommendations aligned with the active skills bundle when present.

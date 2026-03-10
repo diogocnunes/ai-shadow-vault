@@ -1,41 +1,93 @@
-# AI Cache System & Token Economy Guide 🛡️💰
+# AI Cache Guide
 
-The AI Cache System is an advanced expansion for the Shadow Vault designed to optimize AI interactions, reduce token costs, and maintain deep architectural context across sessions.
+Este guia explica a camada local `.ai/` do AI Shadow Vault.
 
-## 🚀 Core Workflow
+## Objetivo
 
-1. **Initialize:** `vault-ai-init` (creates structure & symlinks)
-2. **Resume:** `vault-ai-resume` (see what you were doing)
-3. **Plan:** `.ai/agents/plan-creator.sh "New Feature"`
-4. **Research:** `.ai/agents/doc-fetcher.sh "Library Name"`
-5. **Code:** Use Claude, Gemini, or Cursor (context is automatically injected via `.ai/rules.md`)
-6. **Save:** `vault-ai-save` (archive session & update stats)
+A pasta `.ai/` existe para reduzir contexto repetido entre sessões e entre agentes.
 
-## 📊 Operational Commands
+Ela concentra:
 
-| Command | Action | Purpose |
-| :--- | :--- | :--- |
-| `vault-ai-init` | Setup Structure | Initialize `.ai/` vault and project links |
-| `vault-ai-save` | Archive Session | Moves `session.md` to archive, updates index & stats |
-| `vault-ai-resume`| Restore Context | Shows last session recap and active plans |
-| `vault-ai-stats` | Show Economy | Displays disk usage and estimated token savings |
-| `cc` | Claude Start | Quick recap and clipboard context for Claude |
+- regras do projeto
+- planos persistentes
+- documentação local
+- histórico arquivado
+- contexto portátil
+- bundle de skills ativas
 
-## 🤖 Sub-Agents (in `.ai/agents/`)
+## Estrutura principal
 
-- `doc-fetcher.sh`: Local-first documentation search.
-- `plan-creator.sh`: Standardized architectural planning.
-- `context-update.sh`: Quick edit of the current session context.
+| Caminho | Função |
+| :--- | :--- |
+| `.ai/rules.md` | regras globais do projeto |
+| `.ai/plans/` | planos de implementação |
+| `.ai/docs/` | documentação local |
+| `.ai/context/archive/` | sessões arquivadas |
+| `.ai/context/agent-context.md` | resumo portátil da sessão |
+| `.ai/skills/ACTIVE_SKILLS.md` | bundle das skills ativas |
 
-## 🛡️ Git Safety & Privacy
+## Inicialização
 
-The system automatically handles local and global git exclusions:
-- `.ai/` and `.claude/` are added to `.gitignore`.
-- Global protection is updated via `~/.gitignore_global`.
+No projeto:
 
-## 💰 Token Economy Strategy
+```bash
+vault-ai-init
+```
 
-- **Context Reuse:** By archiving sessions and using rules, you avoid re-sending the same architectural context every time.
-- **Local Documentation:** Fetching local docs instead of asking the AI to "browse" or "explain" saves thousands of tokens per query.
-- **Estimated Savings:** The `vault-ai-stats` command tracks your "Knowledge Bank" and calculates how many tokens you are NOT spending.
-EOF
+## Fluxo básico
+
+```bash
+vault-ai-resume
+.ai/agents/plan-creator.sh "Melhorar dashboard"
+vault-ai-context
+vault-ai-save
+```
+
+## O papel do `agent-context.md`
+
+`.ai/context/agent-context.md` serve para:
+
+- Superset
+- Polyscope
+- agentes sem clipboard
+- prompts que precisam de um único ficheiro de contexto
+
+Exemplo de prompt:
+
+```text
+Leia .ai/context/agent-context.md como resumo atual do projeto.
+Depois siga .ai/plans/melhorar-dashboard.md.
+```
+
+## O papel do `ACTIVE_SKILLS.md`
+
+`.ai/skills/ACTIVE_SKILLS.md` agrega as skills ativas para agentes orientados a ficheiros.
+
+Use-o quando:
+
+- a ferramenta não tem sistema nativo de skills
+- quer partilhar o mesmo conjunto de skills entre Claude, Junie e Opencode
+- quer um fallback portátil mesmo para Gemini e Codex
+
+Exemplo:
+
+```text
+Use .ai/skills/ACTIVE_SKILLS.md como bundle de skills ativo antes de propor arquitetura, testes ou refactors.
+```
+
+## Continuidade de sessão
+
+O ciclo esperado é:
+
+1. notas ativas em `.ai/session.md`
+2. `vault-ai-save` arquiva a sessão
+3. `vault-ai-resume` mostra o último estado
+4. `vault-ai-context` regenera o contexto portátil
+
+## Boas práticas
+
+- mantenha `.ai/rules.md` curto e reutilizável
+- coloque conteúdo longo em `.ai/docs/`
+- use `.ai/plans/` para estratégia
+- use `agent-context.md` para transporte de contexto
+- use `vault-skills standardize` para normalizar projetos antigos

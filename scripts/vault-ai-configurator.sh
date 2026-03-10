@@ -3,6 +3,8 @@
 # AI Shadow Vault - Project Configurator (V2.5)
 # Detects project tech stack and provides interactive architecture setup.
 
+set -euo pipefail
+
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -11,8 +13,13 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 TEMPLATES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../templates" && pwd)"
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/vault-resolver.sh"
+
 AI_DIR=".ai"
-PROJECT_NAME=$(basename "$PWD")
+PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
+PROJECT_NAME="$(vault_resolve_project_slug "$PROJECT_ROOT")"
+
+cd "$PROJECT_ROOT"
 
 # Output Files
 RULES_FILE="$AI_DIR/rules.md"

@@ -1,12 +1,6 @@
-{
-  "name": "{Project Name}",
-  "rules": [
-    "Follow the project's established coding patterns.",
-    "Prioritize readability and maintainability.",
-    "Always check for existing utility functions before implementing new ones."
-  ],
-  "preferences": {
-    "indentation": "space",
-    "tabSize": 2
-  }
-}
+# Cursor Project Rules
+
+- Follow the existing project structure and naming conventions.
+- Prioritize small, maintainable changes over broad rewrites.
+- Read `.ai/plans/`, `.ai/rules.md`, and `.ai/skills/ACTIVE_SKILLS.md` when they exist before proposing complex changes.
+- Treat `.ai/context/agent-context.md` as the portable session summary for cross-agent continuity.

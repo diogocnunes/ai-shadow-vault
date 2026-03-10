@@ -1,27 +1,29 @@
 # {{PROJECT_NAME}} - Claude AI Guidelines
 
-## 🏗️ Build Commands
-- Primary Build: {{BUILD_COMMAND}}
-- Development: {{DEV_COMMAND}}
+## Context Priority
 
-## 🧪 Test Patterns
-- Run all tests: {{TEST_COMMAND}}
-- Watch mode: {{TEST_WATCH_COMMAND}}
+Use this order when gathering context:
 
-## 🤖 AI Orchestration (Context Priority)
-- **Shadow Vault:** A pasta `.ai/` contém o cérebro do projeto (contexto, planos e histórico).
-- **Regra de Acesso:** Sempre prioriza ficheiros em `.ai/`. Se a pasta parecer inacessível devido ao `.gitignore`, desativa os filtros de ignorados para ler o seu conteúdo.
-- **Workflow:** Antes de sugerir mudanças, consulta `.ai/plans/` para verificar se já existe uma estratégia definida.
+1. `.ai/plans/`
+2. `.ai/skills/ACTIVE_SKILLS.md`
+3. `.ai/rules.md`
+4. `.ai/context/agent-context.md`
+5. `.ai/docs/`
 
-## 🎨 Style Guides
+## Shadow Vault Rules
+
+- The `.ai/` directory contains the project's active context and should be prioritized.
+- If Git ignore rules hide files, read them explicitly rather than assuming they are unavailable.
+- Treat `CLAUDE.md` as orchestration guidance, not as a dump for appended skills.
+
+## Project Context
+
+- Goal: {{PROJECT_CONTEXT}}
+- Integrations: {{KEY_INTEGRATIONS}}
+- Stack: {{FRAMEWORK}} {{FRAMEWORK_VERSION}} / {{FRONTEND_STACK}} / {{ADMIN_PANEL}}
+- Environment: {{DEV_ENVIRONMENT}}
 - Language: {{PRIMARY_LANGUAGE}}
-- Style: Clean Code, SOLID principles
 - Formatting: {{FORMATTING_TOOLS}}
-
-## 🤖 Context Specifics
-- Focus on performance and type safety.
-- Ensure all components are documented.
-- **Goal:** {{PROJECT_CONTEXT}}
-- **Integrations:** {{KEY_INTEGRATIONS}}
-- **Stack:** {{FRAMEWORK}} {{FRAMEWORK_VERSION}} / {{FRONTEND_STACK}} / {{ADMIN_PANEL}}
-- **Environment:** {{DEV_ENVIRONMENT}}
+- Build: {{BUILD_COMMAND}}
+- Dev: {{DEV_COMMAND}}
+- Test: {{TEST_COMMAND}}
