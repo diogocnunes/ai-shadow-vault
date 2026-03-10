@@ -84,7 +84,12 @@ Evite correr `source ~/.zshrc` repetidamente apenas para refrescar o AI Shadow V
 
 ```bash
 vault-init
-vault-ai-init
+```
+
+Se quiser reabrir a configuração interativa do projeto mais tarde, use:
+
+```bash
+vault-init --force-config
 ```
 
 ## Atualizar uma instalação existente
@@ -187,8 +192,7 @@ Principais caminhos:
 
 | Comando | Função |
 | :--- | :--- |
-| `vault-init` | inicializa o vault do projeto e os symlinks |
-| `vault-ai-init` | inicializa a workspace `.ai/` |
+| `vault-init` | inicializa o vault do projeto, os symlinks e a workspace `.ai/` |
 | `vault-ai-resume` | mostra a última sessão e planos ativos |
 | `vault-ai-save` | arquiva a sessão atual |
 | `vault-ai-context` | gera `.ai/context/agent-context.md` |
@@ -204,7 +208,6 @@ Principais caminhos:
 ```bash
 cd ~/Sites/meu-projeto
 vault-init
-vault-ai-init
 ```
 
 ### Exemplo 2: Criar plano e contexto

@@ -157,7 +157,7 @@ function claude-start() {
     local project_root="$(vault_resolve_project_root "$PWD")"
 
     if [[ "$project_root" == "/" || ! -d "$project_root/.ai" ]]; then
-        echo "\033[1;33m⚠️  No .ai directory found in project tree. Run vault-ai-init first.\033[0m"
+        echo "\033[1;33m⚠️  No .ai directory found in project tree. Run vault-init first.\033[0m"
         return
     fi
 

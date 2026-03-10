@@ -31,7 +31,13 @@ Ela concentra:
 No projeto:
 
 ```bash
-vault-ai-init
+vault-init
+```
+
+Para reconfigurar as regras e o contexto do projeto:
+
+```bash
+vault-init --force-config
 ```
 
 ## Fluxo básico

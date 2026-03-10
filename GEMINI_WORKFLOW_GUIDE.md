@@ -34,7 +34,6 @@ Isto instala skills nativas em `~/.gemini/skills/` e mantém o bundle agregado n
 ## Fluxo recomendado
 
 ```bash
-vault-ai-init
 vault-ai-context
 .ai/agents/plan-creator.sh "Validar arquitetura"
 vault-skills activate --preset laravel-nova

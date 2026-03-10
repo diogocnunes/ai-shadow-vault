@@ -44,7 +44,6 @@ Uso através de regras locais regeneradas pelo `vault-skills sync`.
 
 ```bash
 vault-init
-vault-ai-init
 vault-skills activate --preset laravel-nova
 vault-skills sync native context
 ```
