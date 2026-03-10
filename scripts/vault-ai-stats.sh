@@ -18,7 +18,7 @@ done
 AI_DIR="$CURRENT_DIR/.ai"
 
 if [[ "$CURRENT_DIR" == "/" || ! -d "$AI_DIR" ]]; then
-    echo -e "${YELLOW}⚠️  No .ai directory found in project tree. Run vault-ai-init first.${NC}"
+    echo -e "${YELLOW}⚠️  No .ai directory found in project tree. Run vault-init first.${NC}"
     exit 1
 fi
 

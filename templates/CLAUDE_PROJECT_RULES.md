@@ -23,7 +23,7 @@ At the beginning of every session:
 
 **User Triggers:** "New Session", "Start fresh", "Init AI"
 **Action:**
-1. Execute `scripts/vault-ai-init.sh` (or `bin/vault-ai-init`).
+1. Execute `bin/vault-init`.
 
 ## 🛡️ Git Safety
 - Never suggest committing files inside `.ai/` or `.claude/`.

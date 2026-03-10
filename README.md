@@ -84,7 +84,12 @@ Do not repeatedly run `source ~/.zshrc` just to refresh AI Shadow Vault.
 
 ```bash
 vault-init
-vault-ai-init
+```
+
+If you need to reopen the interactive project configuration later, use:
+
+```bash
+vault-init --force-config
 ```
 
 ## Updating an Existing Install
@@ -189,8 +194,7 @@ Important paths:
 
 | Command | Purpose |
 | :--- | :--- |
-| `vault-init` | initialize the project vault and symlinks |
-| `vault-ai-init` | initialize the local `.ai/` workspace |
+| `vault-init` | initialize the project vault, symlinks, and local `.ai/` workspace |
 | `vault-ai-resume` | show the latest archived session and active plans |
 | `vault-ai-save` | archive the current session |
 | `vault-ai-context` | generate `.ai/context/agent-context.md` |
@@ -206,7 +210,6 @@ Important paths:
 ```bash
 cd ~/Sites/my-project
 vault-init
-vault-ai-init
 ```
 
 ### Example 2: Start a task with a plan

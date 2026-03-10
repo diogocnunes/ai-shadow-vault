@@ -6,14 +6,100 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/vault-resolver.sh"
 
 NON_INTERACTIVE=0
-if [[ "${1:-}" == "--non-interactive" ]]; then
-    NON_INTERACTIVE=1
-fi
+FORCE_CONFIG=0
+FULL_CONFIG_RAN=0
+
+while [[ "$#" -gt 0 ]]; do
+    case "${1:-}" in
+        --non-interactive)
+            NON_INTERACTIVE=1
+            ;;
+        --force-config)
+            FORCE_CONFIG=1
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
 
 DATA_ROOT="$(vault_ensure_data_root)"
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
 PROJECT_SLUG="$(vault_resolve_project_slug "$PROJECT_ROOT")"
 PROJECT_VAULT="$(vault_resolve_project_vault "$PROJECT_ROOT")"
+AI_VAULT="$PROJECT_VAULT/.ai"
+TEMPLATES_DIR="$SCRIPT_DIR/../templates"
+
+copy_if_missing() {
+    local source_path="$1"
+    local destination_path="$2"
+
+    if [ ! -e "$destination_path" ]; then
+        cp "$source_path" "$destination_path"
+    fi
+}
+
+initialize_local_ai_workspace() {
+    echo ""
+    echo "🛡️  Initializing local .ai workspace..."
+    echo "📁 Creating local .ai directory..."
+    mkdir -p "$PROJECT_ROOT/.ai/plans"
+    mkdir -p "$PROJECT_ROOT/.ai/docs"
+    mkdir -p "$PROJECT_ROOT/.ai/context/archive"
+    mkdir -p "$PROJECT_ROOT/.ai/prompts"
+    mkdir -p "$PROJECT_ROOT/.ai/cache"
+    mkdir -p "$PROJECT_ROOT/.ai/agents"
+
+    echo "📄 Installing base templates..."
+    copy_if_missing "$TEMPLATES_DIR/session-template.md" "$PROJECT_ROOT/.ai/session-template.md"
+
+    if [ "$FULL_CONFIG_RAN" -eq 1 ]; then
+        echo "✅ Rules file already refreshed by the main configurator."
+    elif [ "$FORCE_CONFIG" -eq 0 ] && [ -s "$PROJECT_ROOT/.ai/rules.md" ]; then
+        echo "✅ Rules file already exists. Skipping .ai rules configuration."
+    elif [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
+        (
+            cd "$PROJECT_ROOT"
+            if [ "$NON_INTERACTIVE" -eq 1 ]; then
+                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --rules-only --non-interactive
+            else
+                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --rules-only
+            fi
+        )
+    else
+        copy_if_missing "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
+    fi
+
+    echo "🤖 Installing AI agents..."
+    for agent_script in "$TEMPLATES_DIR/agents/"*.sh; do
+        copy_if_missing "$agent_script" "$PROJECT_ROOT/.ai/agents/$(basename "$agent_script")"
+        chmod +x "$PROJECT_ROOT/.ai/agents/$(basename "$agent_script")"
+    done
+
+    ln -sf ".ai/agents/plan-creator.sh" "$PROJECT_ROOT/plan"
+    echo "🔗 Symlink 'plan' created for easy access."
+
+    echo "🤖 Setting up Claude Code integration..."
+    mkdir -p "$PROJECT_ROOT/.claude"
+    cp "$TEMPLATES_DIR/CLAUDE_PROJECT_RULES.md" "$PROJECT_ROOT/.claude/project-rules.md"
+    echo "✅ Updated $PROJECT_ROOT/.claude/project-rules.md"
+
+    if [ -f "$SCRIPT_DIR/../scripts/auto_detect_stack.sh" ]; then
+        echo ""
+        echo "🔍 Launching stack auto-detection..."
+        bash "$SCRIPT_DIR/../scripts/auto_detect_stack.sh"
+    else
+        echo "⚠️  Could not find auto_detect_stack.sh in $SCRIPT_DIR/../scripts"
+    fi
+
+    echo ""
+    echo "✨ Local .ai workspace initialized successfully!"
+    echo "📍 Vault: $AI_VAULT"
+    echo "🔗 Local Link: .ai/"
+    echo "🤖 Claude Rules: .claude/project-rules.md"
+}
 
 echo "🛡️  Initializing AI Shadow Vault for: $PROJECT_SLUG"
 echo "📍 Project Root: $PROJECT_ROOT"
@@ -26,34 +112,46 @@ mkdir -p "$PROJECT_VAULT"
 mkdir -p "$DATA_ROOT/templates"
 if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
     echo "📦 Updating global skills library..."
-    rm -rf "$DATA_ROOT/templates/Skills"
-    cp -r "$SCRIPT_DIR/../templates/Skills" "$DATA_ROOT/templates/Skills"
+    if rm -rf "$DATA_ROOT/templates/Skills" 2>/dev/null && cp -r "$SCRIPT_DIR/../templates/Skills" "$DATA_ROOT/templates/Skills" 2>/dev/null; then
+        :
+    else
+        echo "⚠️  Could not refresh global skills library at $DATA_ROOT/templates/Skills. Continuing..."
+    fi
 fi
 
-cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
-cp -n "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
-cp -n "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
-cp -n "$SCRIPT_DIR/../templates/.windsurfrules" "$PROJECT_VAULT/.windsurfrules"
-cp -n "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
-cp -n "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
+copy_if_missing "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
+copy_if_missing "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
+copy_if_missing "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
+copy_if_missing "$SCRIPT_DIR/../templates/.windsurfrules" "$PROJECT_VAULT/.windsurfrules"
+copy_if_missing "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
+copy_if_missing "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
 
 # 2.1 Dynamic Configuration for rules, Gemini and Claude
 if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
-    (
-        cd "$PROJECT_ROOT"
-        bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
-    )
-    # Move the generated files to the Vault
-    [ -f "$PROJECT_ROOT/GEMINI.md" ] && mv "$PROJECT_ROOT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-    [ -f "$PROJECT_ROOT/CLAUDE.md" ] && mv "$PROJECT_ROOT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
-    
+    if [ "$FORCE_CONFIG" -eq 1 ] || [ ! -f "$PROJECT_VAULT/GEMINI.md" ] || [ ! -f "$PROJECT_VAULT/CLAUDE.md" ]; then
+        (
+            cd "$PROJECT_ROOT"
+            if [ "$NON_INTERACTIVE" -eq 1 ]; then
+                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --non-interactive
+            else
+                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
+            fi
+        )
+        [ -f "$PROJECT_ROOT/GEMINI.md" ] && mv -f "$PROJECT_ROOT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+        [ -f "$PROJECT_ROOT/CLAUDE.md" ] && mv -f "$PROJECT_ROOT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+        FULL_CONFIG_RAN=1
+    else
+        echo "✅ Existing Gemini and Claude context found. Skipping configurator."
+        echo "💡 Use --force-config to re-run the interactive project configuration."
+    fi
+
     # Create symlinks immediately
     ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
     ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
     ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
 else
-    cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-    cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+    copy_if_missing "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+    copy_if_missing "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
     ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
     ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
     ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
@@ -164,35 +262,4 @@ echo "✅ Git Safety Net updated (Global + Local Exclude)."
 
 
 
-# 5. AI Cache System Activation
-
-echo ""
-
-echo "🛡️  AI Cache System Expansion"
-
-if [ "$NON_INTERACTIVE" -eq 0 ]; then
-    echo -n "Would you like to activate the AI Cache System for this project? (y/n): "
-    read -r ai_response
-else
-    ai_response="n"
-fi
-
-if [[ "$ai_response" =~ ^[Yy]$ ]]; then
-
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-    if [ -f "$SCRIPT_DIR/vault-ai-init" ]; then
-
-        (cd "$PROJECT_ROOT" && "$SCRIPT_DIR/vault-ai-init")
-
-    else
-
-        (cd "$PROJECT_ROOT" && "$SCRIPT_DIR/../scripts/vault-ai-init.sh")
-
-    fi
-
-else
-
-    echo "⏭️  Skipping AI Cache System activation."
-
-fi
+initialize_local_ai_workspace

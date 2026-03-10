@@ -177,7 +177,11 @@ resolve_requested_targets() {
         done
     fi
 
-    printf '%s\n' "${resolved[@]}" | dedupe_lines
+    if [[ "${#resolved[@]}" -eq 0 ]]; then
+        return 0
+    fi
+
+    printf '%s\n' "${resolved[@]+"${resolved[@]}"}" | dedupe_lines
 }
 
 resolve_requested_skills() {
@@ -190,7 +194,11 @@ resolve_requested_skills() {
         resolved+=("$normalized_name")
     done
 
-    printf '%s\n' "${resolved[@]}" | dedupe_lines
+    if [[ "${#resolved[@]}" -eq 0 ]]; then
+        return 0
+    fi
+
+    printf '%s\n' "${resolved[@]+"${resolved[@]}"}" | dedupe_lines
 }
 
 project_slug() {
@@ -476,7 +484,11 @@ sync_to_targets() {
         return 0
     fi
 
-    "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" "${skill_names[@]}" >/dev/null
+    if [[ "${#skill_names[@]}" -gt 0 ]]; then
+        "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" "${skill_names[@]+"${skill_names[@]}"}" >/dev/null
+    else
+        "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" >/dev/null
+    fi
     bundle_path="$(skills_active_bundle_file "$PROJECT_ROOT")"
 
     for skill_name in "${skill_names[@]}"; do
@@ -549,13 +561,21 @@ command_activate() {
         [[ -n "$skill_name" ]] && targets+=("$skill_name")
     done < <(skills_load_targets "$PROJECT_ROOT")
 
-    skills_write_list_file "$(skills_active_file "$PROJECT_ROOT")" "${skills[@]}"
-    state_args=("${skills[@]}" "--targets")
+    skills_write_list_file "$(skills_active_file "$PROJECT_ROOT")" "${skills[@]+"${skills[@]}"}"
+    state_args=()
+    if [[ "${#skills[@]}" -gt 0 ]]; then
+        state_args+=("${skills[@]}")
+    fi
+    state_args+=("--targets")
     if [[ "${#targets[@]}" -gt 0 ]]; then
         state_args+=("${targets[@]}")
     fi
     skills_write_state_json "$PROJECT_ROOT" "${state_args[@]}"
-    "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" "${skills[@]}" >/dev/null
+    if [[ "${#skills[@]}" -gt 0 ]]; then
+        "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" "${skills[@]}" >/dev/null
+    else
+        "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" >/dev/null
+    fi
 
     echo -e "${GREEN}Active skills updated.${NC}"
     echo "Skills: ${skills[*]}"
@@ -585,7 +605,11 @@ command_sync() {
         [[ -n "$arg" ]] && stored_targets+=("$arg")
     done < <(skills_load_targets "$PROJECT_ROOT")
 
-    state_args=("${active_skills[@]}" "--targets")
+    state_args=()
+    if [[ "${#active_skills[@]}" -gt 0 ]]; then
+        state_args+=("${active_skills[@]}")
+    fi
+    state_args+=("--targets")
     if [[ "${#stored_targets[@]}" -gt 0 ]]; then
         state_args+=("${stored_targets[@]}")
     fi
@@ -636,7 +660,11 @@ command_standardize() {
         [[ -n "$file_path" ]] && targets+=("$file_path")
     done < <(skills_load_targets "$PROJECT_ROOT")
 
-    state_args=("${active_skills[@]}" "--targets")
+    state_args=()
+    if [[ "${#active_skills[@]}" -gt 0 ]]; then
+        state_args+=("${active_skills[@]}")
+    fi
+    state_args+=("--targets")
     if [[ "${#targets[@]}" -gt 0 ]]; then
         state_args+=("${targets[@]}")
     fi

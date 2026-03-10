@@ -5,6 +5,25 @@
 
 set -euo pipefail
 
+NON_INTERACTIVE=0
+RULES_ONLY=0
+
+while [[ "$#" -gt 0 ]]; do
+    case "${1:-}" in
+        --non-interactive)
+            NON_INTERACTIVE=1
+            ;;
+        --rules-only)
+            RULES_ONLY=1
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
+
 # Colors
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -99,8 +118,11 @@ fi
 
 # 2. Interactive Menu
 echo -e "  🚀 ${BLUE}Detected Stack:${NC} PHP $PHP_VERSION / $FRAMEWORK $FRAMEWORK_VERSION / $ADMIN_PANEL / $DEV_ENVIRONMENT"
-echo -ne "  ❓ Do you want to customize or complete the project context? (y/N): "
-read -r response
+response="n"
+if [ "$NON_INTERACTIVE" -eq 0 ]; then
+    echo -ne "  ❓ Do you want to customize or complete the project context? (y/N): "
+    read -r response
+fi
 
 if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     echo -e "\n  ${YELLOW}--- Tech Stack Selection ---${NC}"
@@ -159,7 +181,9 @@ generate_from_template() {
 }
 
 generate_from_template "$T_RULES" "$RULES_FILE"
-generate_from_template "$T_GEMINI" "$GEMINI_FILE"
-generate_from_template "$T_CLAUDE" "$CLAUDE_FILE"
+if [ "$RULES_ONLY" -eq 0 ]; then
+    generate_from_template "$T_GEMINI" "$GEMINI_FILE"
+    generate_from_template "$T_CLAUDE" "$CLAUDE_FILE"
+fi
 
 echo -e "\n✨ Configuration complete! AI context is now project-specific. 🚀"
