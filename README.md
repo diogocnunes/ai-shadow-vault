@@ -1,242 +1,316 @@
-# AI Shadow Vault 🛡️
+# AI Shadow Vault
 
-**AI Shadow Vault: A local DX infrastructure for context-aware AI coding. It uses ZSH-automated symlinks to inject private context and rules from a secure vault into your workflow. Eliminate git pollution and privacy leaks while optimizing AI performance and costs. The elite setup for professional, private, and efficient AI-driven development.**
+AI Shadow Vault is a local context layer for AI-assisted development. It keeps project-specific AI instructions, plans, history, and skills outside the main repository while still making them available inside the project when needed.
 
----
+## What It Solves
 
-## 🚀 The Concept
-This project solves the "Context Dilemma": How to give AI deep project knowledge without committing sensitive `.md` files to your team's repository or polluting your `.gitignore`.
+AI Shadow Vault helps when you want to:
 
-By using a decentralized **Vault** in your `$HOME` directory and ZSH hooks, this tool automatically injects context via symbolic links whenever you enter a project folder. It now provides **Universal AI Support**, seamlessly integrating with **Gemini, Claude, Cursor, Windsurf, GitHub Copilot, and Cody/Junie**.
+- keep AI context out of Git
+- reuse local plans and session history across tools
+- support multiple agents with one shared project context
+- avoid breaking context when working in Git worktrees or temporary clones
 
-## 🛠️ Installation
+## Core Pieces
 
-1. **Clone & Setup:**
-   ```bash
-   git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
-   mkdir -p ~/.gemini-vault
-   ```
+The system is built from three layers:
 
-2. **ZSH Integration:** Add this line to your `~/.zshrc`:
-    ```bash
-    source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-    ```
+- a user data root for vault files
+- a local `.ai/` workspace inside each project
+- generated files and symlinks for specific agents
 
-3. **Initialize a Project:**
-   Navigate to your project folder and simply run:
-   ```bash
-   vault-init
-   ```
+## Data Root
 
-## 🤖 Multi-AI Strategy (How it works)
+The default data root is:
 
-The Vault maps specific files to the expected standards of each AI tool. When you enter a directory, the shell script creates the following symlinks:
-
-| File in Vault | Symlink Target | Primary AI / Tool |
-| :--- | :--- | :--- |
-| `GEMINI.md` | `./GEMINI.md` | Google Gemini |
-| `CLAUDE.md` | `./CLAUDE.md` | Anthropic Claude |
-| `AGENTS.md` | `./AGENTS.md` | Custom AI Agents |
-| `.cursorrules` | `./.cursorrules` | **Cursor Editor** |
-| `.windsurfrules` | `./.windsurfrules` | **Windsurf (Codeium)** |
-| `copilot-instructions.md` | `./.github/copilot-instructions.md` | **GitHub Copilot** |
-| `cody-context.json` | `./.cody/context.json` | **Cody / Junie** |
-| `cody-ignore` | `./.cody/ignore` | **Cody / Junie** |
-| opencode.json | `./.opencode.json` | OpenCode Engine |
-
-> **Note:** For tools like GitHub Copilot and Cody, the tool automatically manages the necessary subdirectories (`./.github/` or `./.cody/`) for you.
-
-## ⚡ Dynamic Skills Integration (New!)
-
-Beyond basic project context, the Shadow Vault now supports **Dynamic Skills**. These are specialized sets of instructions that can be injected into any of your AI assistants to provide them with expert-level knowledge on specific domains.
-
-### The `vault-skills` Command
-Run `vault-skills` in any project directory to:
-1. **Choose your AIs:** Select which assistants you want to empower (Gemini CLI, Cursor, Windsurf, Copilot, or Claude).
-2. **Choose the Skills:** Select from a marketplace of expert profiles:
-    - **Backend Expert:** PHP 8.3, Laravel 11, Nova 5, Eloquent optimization.
-    - **Frontend Expert:** Vue 3 Composition API, PrimeVue, backoffice UX.
-    - **QA Automation:** Pest PHP, Playwright, testing strategies.
-    - **Architect Lead:** System design, migration strategies, patterns.
-    - **DX Maintainer:** Linting, CI/CD, code quality (Pint, PHPStan).
-    - **Legacy Migration Specialist:** Safe upgrades for legacy stacks.
-    - **Security & Performance:** Hardening and optimization patterns.
-
-### How it handles different AIs:
-- **Gemini CLI:** Installs the skill globally in `~/.gemini/skills/` so it's always available via `activate_skill`.
-- **Editors (Cursor, Windsurf, etc.):** Appends the skill instructions directly to your local rules file (e.g., `.cursorrules`) in the current project, automatically stripping unnecessary metadata and ensuring the AI follows the specific domain guidelines.
-
-## 🔬 Polyscope Integration (macOS)
-When initializing a project with `vault-init` on a macOS system, you will be prompted to set up the **Polyscope app** integration. If accepted, a `polyscope.json` file is automatically generated in your project root with AI-ready tasks for:
-- 🔒 Security Reviews
-- 🧪 Automated Test Generation
-- 📋 AI Context Syncing
-- 🏗️ Code Audits
-
----
-
-## 🚀 Laravel Boost Support
-When running `vault-init` on a Laravel project, the script automatically detects it by checking for `composer.json` and the Laravel framework dependency. This feature was contributed by **@cristianovalenca**.
-
-If a Laravel project is detected, you'll be prompted to install **Laravel Boost**, a powerful tool that enhances AI-assisted development in Laravel applications.
-
-**What happens when you choose to install:**
-1. Runs `composer require laravel/boost --dev`
-2. Executes `php artisan boost:install` to configure Laravel Boost
-3. Automatically adds Laravel Boost files to your global `.gitignore`
-
-**Protected Laravel Boost files:**
-- `.mcp.json` - MCP server configuration
-- `CLAUDE.md` - AI guidelines for Claude (Universal support added by **@maclevison**)
-- `boost.json` - Boost configuration
-- `.ai/` - Custom guidelines directory
-
-Just like the Shadow Vault files, these are automatically excluded from Git to keep your repository clean while maintaining full AI context capabilities.
-
-## 🛡️ Safety First: Global Git Protection
-The `vault-init.sh` script automatically configures a global git exclusion ruleset. It ensures that your private AI instructions **never** leak into production or team commits. It updates your `~/.gitignore_global` to include:
-- `GEMINI.md`
-- `AGENTS.md`
-- `.opencode.json`
-- `.mcp.json`
-- `CLAUDE.md`
-- `boost.json`
-- `.ai/`
-- `copilot-instructions.md`
-- `.cursorrules`
-- `.windsurfrules`
-- `cody-context.json`
-- `cody-ignore`
-- `.github/`
-- `.cody/`
-- `.claude/`
-- `.codex/`
-- `.cursor/`
-- `.gemini/`
-- `.junie/`
-- `.opencode/`
-
-This ensures that even if a symlink is created locally, it will **never** be detected, staged, or committed by Git, keeping your AI instructions private and your repository clean.
-
-## 💰 Cost Optimization (Gemini Flash + Paid Tier)
-
-To maximize performance while keeping costs near zero, this setup prioritizes the **Gemini Flash** model for operational tasks (Build/Plan) and reserves **Gemini Pro** for complex architectural decisions.
-
-### How to configure "Safety Brakes":
-
-1. **Enable Paid Tier (Level 1):** Go to [Google AI Studio](https://aistudio.google.com/) and switch your plan to **Pay-as-you-go**. This removes the "Free Tier" rate limits (20 requests/min), enabling smooth `/init` commands without interruptions.
-
-2. **Set Hard Quotas (The "Kill Switch"):** In the [Google Cloud Console](https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas), edit your **"Paid Tier"** quotas to prevent unexpected costs:
-   - **Gemini Flash:** Set to **500** requests per day.
-   - **Gemini Pro:** Set to **200** requests per day.
-   - These limits ensure that even in a "loop" scenario, you won't spend more than a few cents per day.
-
-3. **Budget Alerts:** Set a monthly budget alert of **$5.00** in Google Cloud Billing to receive immediate email notifications of any spending.
-
-## 🚀 Version 1.7.0 - New Shortcuts & Polyscope Integration
-
-This release focuses on daily developer experience with faster shortcuts and better tool integration.
-
-### ⚡ 'plan' Shortcut
-After running `vault-init`, you can now simply type `plan "Your Title"` in your project root to immediately trigger the `plan-creator.sh` agent. No more typing the full path to `.ai/agents/`.
-
-### 🔬 Polyscope App Support (macOS)
-When initializing on macOS, you'll be prompted to set up **Polyscope** integration. The system automatically:
-- Generates a `polyscope.json` file.
-- Asks for your local project URL (suggesting `http://folder.test`).
-- Configures 4 essential AI tasks for one-click security reviews, test generation, and context syncing.
-
-For more information about Polyscope, visit [getpolyscope.com](https://getpolyscope.com/).
-
-## 🚀 Laravel Superpowers Integration (New in 1.6.0)
-
-We have integrated the **[Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel)** collection directly into the Vault. This gives your AI agents 50+ specialized skills for Laravel development, ranging from TDD workflows to advanced architecture patterns.
-
-**Features:**
-*   **Auto-Detection:** The `vault-ai-init` script now detects if you are running **Laravel Sail** and adjusts all command instructions accordingly.
-*   **Skill Injection:** Automatically copies relevant Superpowers (like `laravel:tdd-with-pest`, `laravel:migrations-and-factories`) into your project's `.ai/docs/` folder.
-*   **Universal Access:** Use these skills in **Gemini CLI** (via `activate_skill`), **Claude Code**, or **Cursor/Windsurf**.
-
-👉 **[Read the Full Superpowers Guide](./SUPERPOWERS_GUIDE.md)**
-
-## ❤️ Credits & Inspiration
-
-The Shadow Vault evolves thanks to the community. Special thanks to:
-*   **[JP Caparas](https://github.com/jpcaparas)** for the **[Laravel Superpowers](https://github.com/jpcaparas/superpowers-laravel)** project, which inspired our new skill system.
-*   **@cristianovalenca** for the initial Laravel detection logic.
-*   **@maclevison** for the Universal Claude support.
-
-## 📊 Monitoring
-Run `vault-check` at any time to verify the integrity of your symlinks and the status of your context files across all projects in the Vault.
-
-### Example Output:
-```text
-🔍 Starting AI Shadow Vault Health Check...
-------------------------------------------
-📁 Project: my-laravel-app
-  ✅ AGENTS.md (OK) (1.2K)
-  ✅ GEMINI.md (800B)
-  ✅ Copilot Instructions (1.5K)
-  ℹ️  opencode.json (Using Global Config)
-
-📁 Project: react-dashboard
-  ✅ AGENTS.md (OK) (2.1K)
-  ⚠️  GEMINI.md (Empty - Run vault-init soon)
-  ✅ Copilot Instructions (900B)
-------------------------------------------
-✨ Vault Scan Complete.
+```bash
+~/.ai-shadow-vault-data
 ```
 
-## 🛡️ AI Cache System & Token Economy (New!)
+Legacy installs may still use:
 
-The Shadow Vault now includes a sophisticated **AI Cache System** designed to minimize token usage and maintain architectural consistency across long sessions. It works by creating a persistent knowledge bank in your vault that is symlinked to your project's `.ai/` directory.
+```bash
+~/.gemini-vault
+```
 
-### 🚀 Key Features:
-- **Persistent Sessions:** Archive your thoughts and goals with `vault-ai-save`.
-- **Architectural Rules:** Enforce project-wide standards (Laravel 11, PHP 8.3, etc.) via `.ai/rules.md`.
-- **Token Savings:** Track how many tokens you save by reusing local context and documentation.
-- **Claude Integration:** Optimized workflow for Claude Code with local rules and context recap.
+Migration behavior:
 
-### 🛠️ Operational Commands:
+- if `~/.gemini-vault` exists and `~/.ai-shadow-vault-data` does not, it is renamed automatically
+- if both exist, `~/.ai-shadow-vault-data` is primary
+- legacy content can still be read for compatibility
 
-| Command | Action | Description |
-| :--- | :--- | :--- |
-| `vault-ai-init` | Initialize | Setup the expanded `.ai/` structure |
-| `vault-ai-save` | Save & Archive | Persists the current session and updates the index |
-| `vault-ai-resume` | Resume Context | Shows a recap of where you left off |
-| `vault-ai-stats` | Show Stats | Calculates disk usage and token economy |
-| `cc` (Alias) | Claude Start | Prepares context for a new Claude Code session |
+## Stable Project Resolution
 
-## 🧠 Dynamic Context & Stack Detection (V1.5.1)
+Project identity is resolved in this order:
 
-The Shadow Vault is no longer static. It now features an **Intelligent Configurator** that acts as an **AI Onboarding Assistant**, analyzing your project's DNA to tailor the AI's instructions.
+1. `git remote.origin.url`
+2. `git rev-parse --git-common-dir`
+3. `git rev-parse --show-toplevel`
+4. `basename "$PWD"`
 
-### 🔍 How it Works:
-When you run `vault-init` or `vault-ai-init`, the system:
-1. **Analyzes Dependencies:** Scans `composer.json` and `package.json`.
-2. **Detects Tech Stack:**
-    - **Backend:** PHP version, Laravel version.
-    - **Admin Panels:** Automatically distinguishes between **Filament** and **Laravel Nova**.
-    - **Frontend:** Identifies **Vue.js**, **React**, or **Livewire (TALL Stack)**.
-    - **UI Libraries:** Detects **Quasar**, **PrimeVue**, or **TailwindCSS**.
-3. **Interactive Briefing (New!):**
-    - **Environment:** Select between **Laravel Herd, Sail, Valet, Docker, or Laradock**.
-    - **Database:** Define your DB engine (**MySQL, PostgreSQL, MariaDB, etc.**).
-    - **Business Context:** Input your project's **Goal** and **Key Integrations** (Stripe, AWS, etc.) during setup.
-4. **Generates Tailored Rules:** Dynamically populates `rules.md`, `GEMINI.md`, and `CLAUDE.md` with project-specific commands and architecture notes.
+This keeps the vault stable across:
 
-### 🤖 AI Orchestration:
-All generated files now include **Cross-AI Orchestration Rules**. This ensures that Gemini and Claude:
-- **Prioritize the Vault:** Always look into `.ai/` first.
-- **Bypass Git Ignores:** Automatically use `cat` or shell commands to read files that are symlinked or hidden from Git.
-- **Stay in Scope:** Use the correct testing (Pest/PHPUnit) and build (Vite/Mix) tools detected during init.
+- normal repositories
+- Git worktrees
+- temporary clones created by tools such as Polyscope
+- non-Git directories
 
-### 🤖 Local AI Agents:
-Located in `.ai/agents/`, these scripts automate routine tasks:
-- `plan-creator.sh`: Creates standardized architectural plans. (⚡️ **New:** You can now simply run `plan "My Plan"` in the project root after initialization!)
-- `doc-fetcher.sh`: Searches local docs before going online.
-- `context-update.sh`: Quick edit of the current session goals.
+## Installation
 
-For more details, check the [AI Cache Guide](./AI_CACHE_GUIDE.md).
+1. Clone the project:
 
-💻 System Compatibility
+```bash
+git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
+mkdir -p ~/.ai-shadow-vault-data
+```
+
+2. Add this to `~/.zshrc`:
+
+```bash
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
+```
+
+3. Reload the shell.
+
+4. Inside a project:
+
+```bash
+vault-init
+vault-ai-init
+```
+
+## Updating an Existing Install
+
+If you already have AI Shadow Vault installed, the recommended update flow is:
+
+```bash
+cd ~/Sites/my-project
+vault-update
+source ~/.zshrc
+```
+
+When `vault-update` is executed inside a project, it now does more than `git pull`. It will also:
+
+- refresh the project vault in non-interactive mode
+- standardize managed AI files to the current format
+- re-sync stored skill targets
+- regenerate `.ai/context/agent-context.md`
+
+If you run `vault-update` outside a project, it only updates the package itself.
+
+If you want to run the project refresh steps manually, use:
+
+```bash
+vault-init --non-interactive
+vault-skills standardize
+vault-skills sync
+vault-ai-context
+```
+
+## OS Compatibility
+
+Current support:
+
+- `macOS`: supported
+- `Linux`: not supported
+- `Windows`: not supported
+
+Why:
+
+- shell integration depends on `zsh`
+- most scripts are written for `bash`
+- clipboard support expects `pbcopy` on macOS or `xclip` on Linux
+- some generation code still uses macOS-style `sed -i ''`
+- Polyscope integration is macOS-only
+
+At this point, the package should be treated as macOS-only.
+
+## Local `.ai/` Workspace
+
+The local `.ai/` directory is the project-side context layer.
+
+Important paths:
+
+| Path | Purpose |
+| :--- | :--- |
+| `.ai/rules.md` | project rules |
+| `.ai/plans/` | implementation plans |
+| `.ai/docs/` | local documentation |
+| `.ai/context/archive/` | archived sessions |
+| `.ai/context/agent-context.md` | portable promptable context |
+| `.ai/skills/ACTIVE_SKILLS.md` | active skills bundle |
+
+## Main Commands
+
+| Command | Purpose |
+| :--- | :--- |
+| `vault-init` | initialize the project vault and symlinks |
+| `vault-ai-init` | initialize the local `.ai/` workspace |
+| `vault-ai-resume` | show the latest archived session and active plans |
+| `vault-ai-save` | archive the current session |
+| `vault-ai-context` | generate `.ai/context/agent-context.md` |
+| `vault-ai-stats` | show local cache metrics |
+| `vault-check` | verify vault integrity |
+| `cc` | quick Claude-oriented context flow |
+| `vault-skills` | manage universal skills |
+
+## Quick Start Examples
+
+### Example 1: Basic project setup
+
+```bash
+cd ~/Sites/my-project
+vault-init
+vault-ai-init
+```
+
+### Example 2: Start a task with a plan
+
+```bash
+.ai/agents/plan-creator.sh "Refactor billing flow"
+vault-ai-context
+```
+
+### Example 3: Prepare Claude context
+
+```bash
+cc
+```
+
+### Example 4: Activate skills for a Laravel Nova project
+
+```bash
+vault-skills activate --preset laravel-nova
+vault-skills sync native context editors
+vault-skills status
+```
+
+### Example 5: Update an older installation
+
+```bash
+cd ~/Sites/my-project
+vault-update
+source ~/.zshrc
+```
+
+## Portable Context File
+
+For tools that do not use clipboard workflows, use:
+
+```text
+.ai/context/agent-context.md
+```
+
+Typical prompt example:
+
+```text
+Use .ai/context/agent-context.md as the current project summary.
+Then follow .ai/plans/refactor-billing-flow.md.
+```
+
+## Universal Skills Layer
+
+AI Shadow Vault uses a hybrid skills model:
+
+- `Gemini` and `Codex`: native global skills
+- `Claude`, `Junie`, and `Opencode`: project-local aggregate bundle
+- `Cursor`, `Windsurf`, and `Copilot`: regenerated local rules
+
+Useful commands:
+
+```bash
+vault-skills status
+vault-skills presets
+vault-skills list
+vault-skills activate --preset laravel-nova
+vault-skills activate --preset filament syncfusion-document-editor
+vault-skills sync native context editors
+vault-skills standardize
+```
+
+State files:
+
+- `.ai/skills/active-skills.txt`
+- `.ai/skills/active-skills.json`
+- `.ai/skills/ACTIVE_SKILLS.md`
+
+## Typical Workflows
+
+### Claude workflow
+
+```bash
+cc
+.ai/agents/plan-creator.sh "Add audit trail"
+claude
+vault-ai-save
+```
+
+### Gemini workflow
+
+```bash
+vault-ai-context
+.ai/agents/plan-creator.sh "Validate architecture"
+vault-skills activate --preset laravel-nova
+vault-skills sync gemini
+```
+
+### Upgrade an older project
+
+```bash
+vault-skills standardize
+```
+
+This creates backups before rewriting managed files into the new standard format.
+
+## Troubleshooting
+
+### `cc` does not copy anything
+
+- On macOS, make sure `pbcopy` is available
+- On Linux, install `xclip`
+- Even without clipboard support, `cc` still regenerates `.ai/context/agent-context.md`
+
+### Skills look duplicated or old files are messy
+
+Run:
+
+```bash
+vault-skills standardize
+```
+
+This backs up managed files and rewrites them to the current format.
+
+### A tool cannot use clipboard-based context
+
+Use:
+
+```text
+.ai/context/agent-context.md
+```
+
+and, when needed:
+
+```text
+.ai/skills/ACTIVE_SKILLS.md
+```
+
+### Linux and Windows
+
+They are not supported targets for this package at the moment.
+
+## Git Safety
+
+Generated and sensitive files are kept out of normal repository flow using:
+
+- `.git/info/exclude`
+- `~/.gitignore_global`
+
+This includes `.ai/`, `.claude/`, local symlinks, and generated artifacts such as `agent-context.md`.
+
+## Related Guides
+
+- [README_PT.md](./README_PT.md)
+- [AI_CACHE_GUIDE.md](./AI_CACHE_GUIDE.md)
+- [SUPERPOWERS_GUIDE.md](./SUPERPOWERS_GUIDE.md)
+- [CLAUDE_WORKFLOW_FAQ.md](./CLAUDE_WORKFLOW_FAQ.md)
+- [GEMINI_WORKFLOW_GUIDE.md](./GEMINI_WORKFLOW_GUIDE.md)

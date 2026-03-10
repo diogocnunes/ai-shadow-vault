@@ -1,6 +1,6 @@
-# {Project Name} - Windsurf Interaction Rules
+# Windsurf Project Rules
 
-- Be proactive in suggesting improvements.
-- Maintain consistent error handling across the project.
-- Use descriptive naming for all variables and functions.
-- Respect the existing project structure and file organization.
+- Respect the established architecture and code patterns already present in the project.
+- Prefer incremental, reviewable changes.
+- Check `.ai/plans/`, `.ai/rules.md`, and `.ai/skills/ACTIVE_SKILLS.md` before suggesting structural work.
+- Use `.ai/context/agent-context.md` when you need a compact summary of the latest session state.

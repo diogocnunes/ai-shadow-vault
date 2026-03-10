@@ -1,23 +1,33 @@
 #!/bin/bash
 
-VAULT_ROOT="$HOME/.gemini-vault"
-PROJECT_NAME=$(basename "$PWD")
-PROJECT_VAULT="$VAULT_ROOT/$PROJECT_NAME"
+set -euo pipefail
 
-echo "🛡️  Initializing AI Shadow Vault for: $PROJECT_NAME"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/../scripts/lib/vault-resolver.sh"
+
+NON_INTERACTIVE=0
+if [[ "${1:-}" == "--non-interactive" ]]; then
+    NON_INTERACTIVE=1
+fi
+
+DATA_ROOT="$(vault_ensure_data_root)"
+PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
+PROJECT_SLUG="$(vault_resolve_project_slug "$PROJECT_ROOT")"
+PROJECT_VAULT="$(vault_resolve_project_vault "$PROJECT_ROOT")"
+
+echo "🛡️  Initializing AI Shadow Vault for: $PROJECT_SLUG"
+echo "📍 Project Root: $PROJECT_ROOT"
 
 # 1. Create Vault structure
 mkdir -p "$PROJECT_VAULT"
 
 # 2. Copy templates if they don't exist
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # Ensure global templates directory exists and update it
-mkdir -p "$VAULT_ROOT/templates"
+mkdir -p "$DATA_ROOT/templates"
 if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
     echo "📦 Updating global skills library..."
-    rm -rf "$VAULT_ROOT/templates/Skills"
-    cp -r "$SCRIPT_DIR/../templates/Skills" "$VAULT_ROOT/templates/Skills"
+    rm -rf "$DATA_ROOT/templates/Skills"
+    cp -r "$SCRIPT_DIR/../templates/Skills" "$DATA_ROOT/templates/Skills"
 fi
 
 cp -n "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
@@ -29,29 +39,32 @@ cp -n "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
 
 # 2.1 Dynamic Configuration for rules, Gemini and Claude
 if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
-    bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
+    (
+        cd "$PROJECT_ROOT"
+        bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
+    )
     # Move the generated files to the Vault
-    [ -f "GEMINI.md" ] && mv "GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-    [ -f "CLAUDE.md" ] && mv "CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+    [ -f "$PROJECT_ROOT/GEMINI.md" ] && mv "$PROJECT_ROOT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
+    [ -f "$PROJECT_ROOT/CLAUDE.md" ] && mv "$PROJECT_ROOT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
     
     # Create symlinks immediately
-    ln -sf "$PROJECT_VAULT/GEMINI.md" "GEMINI.md"
-    ln -sf "$PROJECT_VAULT/CLAUDE.md" "CLAUDE.md"
-    ln -sf "$PROJECT_VAULT/AGENTS.md" "AGENTS.md"
+    ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
+    ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
+    ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
 else
     cp -n "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
     cp -n "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
-    ln -sf "$PROJECT_VAULT/GEMINI.md" "GEMINI.md"
-    ln -sf "$PROJECT_VAULT/CLAUDE.md" "CLAUDE.md"
-    ln -sf "$PROJECT_VAULT/AGENTS.md" "AGENTS.md"
+    ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
+    ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
+    ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
 fi
 
 echo "✅ Vault directory created at: $PROJECT_VAULT"
 
 # 3. Laravel Boost Detection & Installation
-if [ -f "composer.json" ]; then
+if [ "$NON_INTERACTIVE" -eq 0 ] && [ -f "$PROJECT_ROOT/composer.json" ]; then
     # Check if Laravel is in the dependencies
-    if grep -q '"laravel/framework"' composer.json; then
+    if grep -q '"laravel/framework"' "$PROJECT_ROOT/composer.json"; then
         echo ""
         echo "🔍 Laravel project detected!"
         echo -n "Would you like to install Laravel Boost? (y/n): "
@@ -61,12 +74,12 @@ if [ -f "composer.json" ]; then
             echo "📦 Installing Laravel Boost..."
 
             # Install Laravel Boost via composer
-            if composer require "laravel/boost:^2.0" --dev; then
+            if (cd "$PROJECT_ROOT" && composer require "laravel/boost:^2.0" --dev); then
                 echo "✅ Laravel Boost package installed."
 
                 # Run the Boost installer
                 echo "🚀 Running Laravel Boost installer..."
-                if php artisan boost:install; then
+                if (cd "$PROJECT_ROOT" && php artisan boost:install); then
                     echo "✅ Laravel Boost installed successfully!"
                 else
                     echo "⚠️  Laravel Boost installer failed. Please check the errors above."
@@ -81,25 +94,25 @@ if [ -f "composer.json" ]; then
 fi
 
 # 3.5 Polyscope Integration (macOS only)
-if [[ "$OSTYPE" == "darwin"* ]]; then
+if [ "$NON_INTERACTIVE" -eq 0 ] && [[ "$OSTYPE" == "darwin"* ]]; then
     echo ""
     echo "🔬 Polyscope App Integration"
     echo -n "Do you use the Polyscope app (macOS exclusive)? (y/n): "
     read -r polyscope_response
 
     if [[ "$polyscope_response" =~ ^[Yy]$ ]]; then
-        DEFAULT_URL="http://$PROJECT_NAME.test"
+        DEFAULT_URL="http://$PROJECT_SLUG.test"
         echo -n "Enter the project Local URL (Default: $DEFAULT_URL): "
         read -r custom_url
         POLYSCOPE_URL=${custom_url:-$DEFAULT_URL}
 
         echo "📝 Creating polyscope.json from template..."
         if [ -f "$SCRIPT_DIR/../templates/polyscope.json" ]; then
-            sed "s|\[\[PREVIEW_URL\]\]|$POLYSCOPE_URL|g" "$SCRIPT_DIR/../templates/polyscope.json" > polyscope.json
+            sed "s|\[\[PREVIEW_URL\]\]|$POLYSCOPE_URL|g" "$SCRIPT_DIR/../templates/polyscope.json" > "$PROJECT_ROOT/polyscope.json"
             echo "✅ polyscope.json created with URL: $POLYSCOPE_URL"
         else
             echo "⚠️  Polyscope template not found at $SCRIPT_DIR/../templates/polyscope.json. Creating basic file..."
-            cat << EOF > polyscope.json
+            cat << EOF > "$PROJECT_ROOT/polyscope.json"
 {
   "preview": {
     "url": "$POLYSCOPE_URL"
@@ -118,7 +131,7 @@ GLOBAL_IGNORE="$HOME/.gitignore_global"
 touch "$GLOBAL_IGNORE"
 
 # Added GEMINI.md to the ignore list (+ Laravel Boost and Universal AI files)
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/" "polyscope.json" "plan")
+FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" ".ai/context/agent-context.md" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/" "polyscope.json" "plan")
 
 for file in "${FILES_TO_IGNORE[@]}"; do
     if ! grep -q "$file" "$GLOBAL_IGNORE"; then
@@ -129,20 +142,20 @@ done
 git config --global core.excludesfile "$GLOBAL_IGNORE"
 
 # 4.1 Local Git Safety Net (Silent Ignore)
-if [ -d ".git" ]; then
+if [ -d "$PROJECT_ROOT/.git" ]; then
     echo "🙈 Updating .git/info/exclude..."
-    GIT_EXCLUDE=".git/info/exclude"
+    GIT_EXCLUDE="$PROJECT_ROOT/.git/info/exclude"
     touch "$GIT_EXCLUDE"
     for file in "${FILES_TO_IGNORE[@]}"; do
         if ! grep -q "$file" "$GIT_EXCLUDE"; then
             echo "$file" >> "$GIT_EXCLUDE"
         fi
     done
-elif [ -f ".gitignore" ]; then
+elif [ -f "$PROJECT_ROOT/.gitignore" ]; then
     echo "📝 Updating local .gitignore..."
     for file in "${FILES_TO_IGNORE[@]}"; do
-        if ! grep -q "$file" ".gitignore"; then
-            echo "$file" >> ".gitignore"
+        if ! grep -q "$file" "$PROJECT_ROOT/.gitignore"; then
+            echo "$file" >> "$PROJECT_ROOT/.gitignore"
         fi
     done
 fi
@@ -157,11 +170,12 @@ echo ""
 
 echo "🛡️  AI Cache System Expansion"
 
-echo -n "Would you like to activate the AI Cache System for this project? (y/n): "
-
-read -r ai_response
-
-
+if [ "$NON_INTERACTIVE" -eq 0 ]; then
+    echo -n "Would you like to activate the AI Cache System for this project? (y/n): "
+    read -r ai_response
+else
+    ai_response="n"
+fi
 
 if [[ "$ai_response" =~ ^[Yy]$ ]]; then
 
@@ -169,11 +183,11 @@ if [[ "$ai_response" =~ ^[Yy]$ ]]; then
 
     if [ -f "$SCRIPT_DIR/vault-ai-init" ]; then
 
-        "$SCRIPT_DIR/vault-ai-init"
+        (cd "$PROJECT_ROOT" && "$SCRIPT_DIR/vault-ai-init")
 
     else
 
-        "$SCRIPT_DIR/../scripts/vault-ai-init.sh"
+        (cd "$PROJECT_ROOT" && "$SCRIPT_DIR/../scripts/vault-ai-init.sh")
 
     fi
 

@@ -1,42 +1,70 @@
-# ♊ Gemini CLI + AI Shadow Vault: Workflow & Contexto
+# Gemini Workflow Guide
 
-O Gemini CLI opera de forma diferente do Claude Code. Enquanto o Claude é excelente para "Plan e Execute" em arquivos específicos, o Gemini CLI é um **Agente Investigador**.
+Este guia descreve o uso do AI Shadow Vault com Gemini.
 
----
+## Onde o Gemini ajuda mais
 
-### 1. O Gemini é mais inteligente com o contexto?
-**Sim.** O Gemini CLI tem a capacidade de:
-- **Investigar:** Usar o `codebase_investigator` para mapear dependências sem que você precise ler os arquivos.
-- **Memorizar:** Usar o `save_memory` para guardar fatos sobre você e suas preferências que persistem entre projetos.
-- **Auto-Recap:** Ele lê o arquivo `.gemini/GEMINI.md` automaticamente no início de cada conversa.
+Gemini é especialmente útil para:
 
-### 2. Os scripts `vault-*` funcionam com o Gemini?
-**Sim, e devem ser usados.** 
-Embora o Gemini consiga investigar o código sozinho, isso consome tokens e tempo. Se você já tem um plano em `.ai/plans/`, o Gemini chegará à solução muito mais rápido.
+- investigação estrutural
+- validação de arquitetura
+- exploração mais ampla do código
+- revisão de coerência entre plano e implementação
 
-### 3. Fluxo de Trabalho Integrado
+## Fontes de contexto para Gemini
 
-1.  **Sincronização de Memória:**
-    - O Gemini escreve memórias importantes em `.gemini/GEMINI.md`.
-    - O script `vault-ai-save` pode ser usado para consolidar essas memórias no arquivo central de conhecimento do Vault.
+Gemini deve priorizar:
 
-2.  **O "Double-Check" de Arquitetura:**
-    - Peça ao Gemini: *"Use o `codebase_investigator` para validar se o plano em `.ai/plans/meu-plano.md` é viável na estrutura atual"*.
-    - Isso une a **estratégia** do seu plano com a **visão real** da IA sobre o código.
+1. `.ai/plans/`
+2. skills nativas do Gemini, quando ativadas
+3. `.ai/skills/ACTIVE_SKILLS.md`
+4. `.ai/rules.md`
+5. `.ai/context/agent-context.md`
+6. `.ai/docs/`
 
-3.  **Uso dos Agentes:**
-    - Você pode pedir ao Gemini: *"Rode o script `.ai/agents/doc-fetcher.sh "Laravel"` e me explique como integrar com o que descobriu no projeto"*.
+## Como ativar skills no Gemini
 
-### 4. Onde o Gemini economiza mais?
+```bash
+vault-skills activate --preset laravel-nova
+vault-skills sync gemini
+```
 
-| Funcionalidade | Vantagem do Gemini | Impacto no Cache |
-| :--- | :--- | :--- |
-| **Codebase Investigator** | Não precisa ler todos os arquivos. | Ele valida o que está no cache do `.ai/`. |
-| **Save Memory** | Lembra de preferências globais. | Evita repetir "Eu prefiro usar Tailwind" em cada chat. |
-| **Context Window** | Janela de 2M de tokens. | Permite carregar documentos técnicos inteiros se necessário. |
+Isto instala skills nativas em `~/.gemini/skills/` e mantém o bundle agregado no projeto.
 
-### 5. Dica de Prompt para Gemini CLI
-*"Gemini, analise o contexto em `.gemini/GEMINI.md` e o plano em `.ai/plans/task.md`. Use suas ferramentas de investigação apenas se encontrar inconsistências entre o plano e o código real."*
+## Fluxo recomendado
 
----
-**Resumo:** Use o Claude Code para **construir** (execução rápida e precisa) e o Gemini CLI para **arquitetar e investigar** (análise profunda e memória de longo prazo). Ambos compartilham a mesma "fonte da verdade": a pasta `.ai/`.
+```bash
+vault-ai-init
+vault-ai-context
+.ai/agents/plan-creator.sh "Validar arquitetura"
+vault-skills activate --preset laravel-nova
+vault-skills sync gemini
+```
+
+## Exemplo de prompt
+
+```text
+Leia .ai/plans/validar-arquitetura.md, .ai/context/agent-context.md e .ai/skills/ACTIVE_SKILLS.md.
+Investigue o código apenas para validar se o plano encaixa na estrutura atual.
+```
+
+## Quando usar Gemini antes de Claude
+
+Use Gemini primeiro quando:
+
+- ainda não está claro onde a mudança deve entrar
+- existe dúvida sobre a arquitetura atual
+- o código parece espalhado
+- quer validar um plano antes de implementar
+
+Depois disso, Claude pode entrar com escopo mais fechado para execução.
+
+## Skills nativas vs bundle agregado
+
+Use skills nativas do Gemini para comportamento especializado recorrente.
+
+Use `.ai/skills/ACTIVE_SKILLS.md` quando:
+
+- quiser o mesmo conjunto de skills partilhado com outros agentes
+- precisar de fallback portátil
+- estiver a alternar entre Gemini, Claude, Codex e outras ferramentas
