@@ -33,30 +33,21 @@ vault_git_toplevel() {
     local start_dir
     start_dir=${1:-"$PWD"}
 
-    (
-        cd "$start_dir" 2>/dev/null || exit 1
-        git rev-parse --show-toplevel 2>/dev/null
-    )
+    git -C "$start_dir" rev-parse --show-toplevel 2>/dev/null
 }
 
 vault_git_common_dir() {
     local start_dir
     start_dir=${1:-"$PWD"}
 
-    (
-        cd "$start_dir" 2>/dev/null || exit 1
-        git rev-parse --path-format=absolute --git-common-dir 2>/dev/null
-    )
+    git -C "$start_dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null
 }
 
 vault_git_origin_url() {
     local start_dir
     start_dir=${1:-"$PWD"}
 
-    (
-        cd "$start_dir" 2>/dev/null || exit 1
-        git config --get remote.origin.url 2>/dev/null
-    )
+    git -C "$start_dir" config --get remote.origin.url 2>/dev/null
 }
 
 vault_normalize_repo_url() {
