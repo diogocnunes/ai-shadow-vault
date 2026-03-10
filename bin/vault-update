@@ -74,7 +74,8 @@ if [ "$LOCAL" = "$REMOTE" ]; then
         log_warn "ℹ️  No current project detected. Skipping project refresh."
     fi
 
-    log_warn "💡 Run 'source ~/.zshrc' or restart the terminal if shell aliases changed."
+    log_warn "💡 Reload only AI Shadow Vault with: source ~/.ai-shadow-vault/scripts/shell_integration.zsh"
+    log_warn "💡 Or open a new terminal tab/window."
     exit 0
 fi
 
@@ -94,4 +95,5 @@ else
     log_warn "ℹ️  No current project detected. Skipping project refresh."
 fi
 
-log_warn "💡 Run 'source ~/.zshrc' or restart terminal to apply shell changes."
+log_warn "💡 Reload only AI Shadow Vault with: source ~/.ai-shadow-vault/scripts/shell_integration.zsh"
+log_warn "💡 Or open a new terminal tab/window."
