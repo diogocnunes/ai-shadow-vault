@@ -62,6 +62,7 @@ supported_target_presets() {
 
 supported_skill_presets() {
     printf '%s\n' \
+        planning \
         laravel-nova \
         filament \
         tall-stack \
@@ -73,6 +74,10 @@ supported_skill_presets() {
 
 expand_skill_preset() {
     case "${1:-}" in
+        planning)
+            printf '%s\n' \
+                user-stories
+            ;;
         laravel-nova)
             printf '%s\n' \
                 architect-lead \
@@ -414,7 +419,7 @@ command_list() {
     done
     echo
     echo "Target presets: all native editors context"
-    echo "Skill presets: laravel-nova filament tall-stack qa security frontend fullstack"
+    echo "Skill presets: planning laravel-nova filament tall-stack qa security frontend fullstack"
 }
 
 command_presets() {
@@ -749,7 +754,7 @@ Presets:
   all native editors context
 
 Skill presets:
-  laravel-nova filament tall-stack qa security frontend fullstack
+  planning laravel-nova filament tall-stack qa security frontend fullstack
 EOF
 }
 

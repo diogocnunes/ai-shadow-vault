@@ -184,6 +184,7 @@ function claude-start() {
 }
 
 alias cc="claude-start"
+alias vault-breakdown="$HOME/.ai-shadow-vault/bin/vault-breakdown"
 
 function check_ai_cache() {
     local project_root="$PWD"
