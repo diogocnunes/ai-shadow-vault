@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
+source "$SCRIPT_DIR/lib/extensions-resolver.sh"
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -130,6 +131,8 @@ fi
 
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
 AI_DIR="$PROJECT_ROOT/.ai"
+
+vault_extension_notice_if_disabled "$PROJECT_ROOT" "review" "vault-review" || true
 
 if [[ ! -d "$AI_DIR" ]]; then
     echo -e "${YELLOW}No .ai directory found in project tree. Run vault-init first.${NC}"

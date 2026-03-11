@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
 source "$SCRIPT_DIR/lib/skills-resolver.sh"
+source "$SCRIPT_DIR/lib/extensions-resolver.sh"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -16,6 +17,7 @@ SKILLS_MANAGED_START="<!-- AI Shadow Vault: managed skills start -->"
 SKILLS_MANAGED_END="<!-- AI Shadow Vault: managed skills end -->"
 
 PROJECT_ROOT="$(skills_project_root "$PWD")"
+vault_extension_notice_if_disabled "$PROJECT_ROOT" "skills" "vault-skills" || true
 
 normalize_target_name() {
     local target
