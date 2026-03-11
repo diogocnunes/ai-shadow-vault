@@ -186,6 +186,7 @@ Principais caminhos:
 | `.ai/docs/` | documentação local |
 | `.ai/context/archive/` | sessões arquivadas |
 | `.ai/context/agent-context.md` | contexto portátil para prompts |
+| `.ai/reviews/` | artefactos de review guardados |
 | `.ai/skills/ACTIVE_SKILLS.md` | bundle das skills ativas |
 
 ## Comandos principais
@@ -196,6 +197,7 @@ Principais caminhos:
 | `vault-ai-resume` | mostra a última sessão e planos ativos |
 | `vault-ai-save` | arquiva a sessão atual |
 | `vault-ai-context` | gera `.ai/context/agent-context.md` |
+| `vault-review` | prepara um prompt estruturado de code review e o caminho de saída |
 | `vault-ai-stats` | mostra métricas da cache local |
 | `vault-check` | verifica o vault |
 | `cc` | fluxo rápido de contexto para Claude |
@@ -253,6 +255,14 @@ vault-update
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
+### Exemplo 6: Preparar review de alterações staged
+
+```bash
+vault-skills activate --preset reviewing-laravel
+vault-skills sync native context editors
+vault-review --scope staged
+```
+
 ## Ficheiro de contexto portátil
 
 Para ferramentas sem clipboard, use:
@@ -283,6 +293,10 @@ vault-skills status
 vault-skills presets
 vault-skills list
 vault-skills activate --preset planning
+vault-skills activate --preset reviewing
+vault-skills activate --preset reviewing-laravel
+vault-skills activate --preset reviewing-laravel-nova
+vault-skills activate --preset reviewing-filament
 vault-skills activate --preset laravel-nova
 vault-skills activate --preset filament syncfusion-document-editor
 vault-skills sync native context editors
@@ -298,6 +312,25 @@ Ficheiros principais:
 O preset `planning` ativa atualmente:
 
 - `user-stories`
+
+Presets de review:
+
+- `reviewing`
+- `reviewing-laravel`
+- `reviewing-laravel-nova`
+- `reviewing-filament`
+
+Os artefactos de review são escritos em:
+
+```text
+.ai/reviews/
+```
+
+## Atribuição de terceiros
+
+A skill built-in `code-review` e o fluxo `vault-review` foram adaptados do pacote original [`felipereisdev/code-review-skill`](https://github.com/felipereisdev/code-review-skill).
+
+Esse pacote upstream está licenciado em MIT. O AI Shadow Vault reutiliza e adapta a estrutura do fluxo de review e do prompt em conformidade com a licença MIT.
 
 ## Fluxos típicos
 
@@ -320,6 +353,22 @@ vault-ai-context
 vault-skills activate --preset laravel-nova
 vault-skills sync gemini
 ```
+
+### Fluxo de review
+
+```bash
+vault-skills activate --preset reviewing-filament
+vault-skills sync native context editors
+vault-review --scope branch --base main
+```
+
+Scopes suportados:
+
+- `vault-review --scope working`
+- `vault-review --scope staged`
+- `vault-review --scope branch --base main`
+- `vault-review --scope commit --commit <sha>`
+- `vault-review --scope range --from <sha> --to <sha>`
 
 ### Upgrade de projeto antigo
 

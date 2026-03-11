@@ -5,13 +5,15 @@
 1. **Search local `.ai/cache/`** for previous solutions.
 2. **Search local `.ai/docs/`** for project-specific patterns.
 3. **Search local `.ai/plans/`** for ongoing work.
-4. **Only then** use external tools or general knowledge.
+4. **Search local `.ai/reviews/`** for previous review findings when relevant.
+5. **Only then** use external tools or general knowledge.
 
 ## 🏁 Mandatory Session Start
 At the beginning of every session:
 1. Load and review `.ai/rules.md`.
 2. Check `.ai/plans/` for the current roadmap.
-3. If no active session exists, propose creating one using `.ai/session-template.md`.
+3. Check `.ai/reviews/` for recent review findings when they affect the current task.
+4. If no active session exists, propose creating one using `.ai/session-template.md`.
 
 ## 💾 Session Context Management
 **MANDATORY:** You must maintain a running log of your activities in `.ai/session.md`.

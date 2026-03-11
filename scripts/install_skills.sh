@@ -63,6 +63,10 @@ supported_target_presets() {
 supported_skill_presets() {
     printf '%s\n' \
         planning \
+        reviewing \
+        reviewing-laravel \
+        reviewing-laravel-nova \
+        reviewing-filament \
         laravel-nova \
         filament \
         tall-stack \
@@ -77,6 +81,41 @@ expand_skill_preset() {
         planning)
             printf '%s\n' \
                 user-stories
+            ;;
+        reviewing)
+            printf '%s\n' \
+                code-review \
+                dx-maintainer \
+                qa-automation
+            ;;
+        reviewing-laravel)
+            printf '%s\n' \
+                code-review \
+                backend-expert \
+                laravel-code-quality \
+                qa-automation \
+                security-performance
+            ;;
+        reviewing-laravel-nova)
+            printf '%s\n' \
+                code-review \
+                architect-lead \
+                backend-expert \
+                laravel-code-quality \
+                legacy-migration-specialist \
+                qa-automation \
+                security-performance
+            ;;
+        reviewing-filament)
+            printf '%s\n' \
+                code-review \
+                architect-filament-lead \
+                backend-expert \
+                filament-v5 \
+                frontend-expert \
+                laravel-code-quality \
+                qa-automation \
+                security-performance
             ;;
         laravel-nova)
             printf '%s\n' \
@@ -419,7 +458,7 @@ command_list() {
     done
     echo
     echo "Target presets: all native editors context"
-    echo "Skill presets: planning laravel-nova filament tall-stack qa security frontend fullstack"
+    echo "Skill presets: planning reviewing reviewing-laravel reviewing-laravel-nova reviewing-filament laravel-nova filament tall-stack qa security frontend fullstack"
 }
 
 command_presets() {
@@ -754,7 +793,7 @@ Presets:
   all native editors context
 
 Skill presets:
-  planning laravel-nova filament tall-stack qa security frontend fullstack
+  planning reviewing reviewing-laravel reviewing-laravel-nova reviewing-filament laravel-nova filament tall-stack qa security frontend fullstack
 EOF
 }
 
