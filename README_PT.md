@@ -200,6 +200,8 @@ Principais caminhos:
 | `vault-check` | verifica o vault |
 | `cc` | fluxo rápido de contexto para Claude |
 | `vault-skills` | gere as skills universais |
+| `vault-user-stories` | prepara um prompt de planeamento com user stories e o caminho de saída |
+| `vault-breakdown` | alias para `vault-user-stories` |
 
 ## Exemplos rápidos
 
@@ -215,6 +217,18 @@ vault-init
 ```bash
 .ai/agents/plan-creator.sh "Refatorar faturação"
 vault-ai-context
+```
+
+### Exemplo 2b: Gerar prompt de user stories
+
+```bash
+vault-user-stories "Implementar login OAuth"
+```
+
+Alias:
+
+```bash
+vault-breakdown "Implementar login OAuth"
 ```
 
 ### Exemplo 3: Preparar Claude
@@ -268,6 +282,7 @@ Comandos úteis:
 vault-skills status
 vault-skills presets
 vault-skills list
+vault-skills activate --preset planning
 vault-skills activate --preset laravel-nova
 vault-skills activate --preset filament syncfusion-document-editor
 vault-skills sync native context editors
@@ -280,12 +295,17 @@ Ficheiros principais:
 - `.ai/skills/active-skills.json`
 - `.ai/skills/ACTIVE_SKILLS.md`
 
+O preset `planning` ativa atualmente:
+
+- `user-stories`
+
 ## Fluxos típicos
 
 ### Fluxo com Claude
 
 ```bash
 cc
+.ai/agents/user-stories.sh "Adicionar auditoria"
 .ai/agents/plan-creator.sh "Adicionar auditoria"
 claude
 vault-ai-save
@@ -295,6 +315,7 @@ vault-ai-save
 
 ```bash
 vault-ai-context
+.ai/agents/user-stories.sh "Validar arquitetura"
 .ai/agents/plan-creator.sh "Validar arquitetura"
 vault-skills activate --preset laravel-nova
 vault-skills sync gemini
