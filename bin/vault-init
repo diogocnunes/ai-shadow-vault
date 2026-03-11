@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/vault-resolver.sh"
+source "$SCRIPT_DIR/../scripts/lib/extensions-resolver.sh"
 
 NON_INTERACTIVE=0
 FORCE_CONFIG=0
@@ -52,6 +53,7 @@ initialize_local_ai_workspace() {
     mkdir -p "$PROJECT_ROOT/.ai/prompts"
     mkdir -p "$PROJECT_ROOT/.ai/cache"
     mkdir -p "$PROJECT_ROOT/.ai/agents"
+    mkdir -p "$PROJECT_ROOT/.ai/extensions"
 
     echo "📄 Installing base templates..."
     copy_if_missing "$TEMPLATES_DIR/session-template.md" "$PROJECT_ROOT/.ai/session-template.md"
@@ -75,6 +77,9 @@ initialize_local_ai_workspace() {
 
     echo "🤖 Installing AI agents..."
     for agent_script in "$TEMPLATES_DIR/agents/"*.sh; do
+        if [ "$(basename "$agent_script")" = "user-stories.sh" ]; then
+            continue
+        fi
         copy_if_missing "$agent_script" "$PROJECT_ROOT/.ai/agents/$(basename "$agent_script")"
         chmod +x "$PROJECT_ROOT/.ai/agents/$(basename "$agent_script")"
     done
@@ -87,19 +92,12 @@ initialize_local_ai_workspace() {
     cp "$TEMPLATES_DIR/CLAUDE_PROJECT_RULES.md" "$PROJECT_ROOT/.claude/project-rules.md"
     echo "✅ Updated $PROJECT_ROOT/.claude/project-rules.md"
 
-    if [ -f "$SCRIPT_DIR/../scripts/auto_detect_stack.sh" ]; then
-        echo ""
-        echo "🔍 Launching stack auto-detection..."
-        bash "$SCRIPT_DIR/../scripts/auto_detect_stack.sh"
-    else
-        echo "⚠️  Could not find auto_detect_stack.sh in $SCRIPT_DIR/../scripts"
-    fi
-
     echo ""
     echo "✨ Local .ai workspace initialized successfully!"
     echo "📍 Vault: $AI_VAULT"
     echo "🔗 Local Link: .ai/"
     echo "🤖 Claude Rules: .claude/project-rules.md"
+    echo "🧩 Optional workflows: use vault-ext to enable extensions when needed."
 }
 
 echo "🛡️  Initializing AI Shadow Vault for: $PROJECT_SLUG"
@@ -107,18 +105,6 @@ echo "📍 Project Root: $PROJECT_ROOT"
 
 # 1. Create Vault structure
 mkdir -p "$PROJECT_VAULT"
-
-# 2. Copy templates if they don't exist
-# Ensure global templates directory exists and update it
-mkdir -p "$DATA_ROOT/templates"
-if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
-    echo "📦 Updating global skills library..."
-    if rm -rf "$DATA_ROOT/templates/Skills" 2>/dev/null && cp -r "$SCRIPT_DIR/../templates/Skills" "$DATA_ROOT/templates/Skills" 2>/dev/null; then
-        :
-    else
-        echo "⚠️  Could not refresh global skills library at $DATA_ROOT/templates/Skills. Continuing..."
-    fi
-fi
 
 copy_if_missing "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
 copy_if_missing "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
@@ -160,68 +146,12 @@ fi
 
 echo "✅ Vault directory created at: $PROJECT_VAULT"
 
-# 3. Laravel Boost Detection & Installation
-if [ "$NON_INTERACTIVE" -eq 0 ] && [ -f "$PROJECT_ROOT/composer.json" ]; then
-    # Check if Laravel is in the dependencies
-    if grep -q '"laravel/framework"' "$PROJECT_ROOT/composer.json"; then
-        echo ""
-        echo "🔍 Laravel project detected!"
-        echo -n "Would you like to install Laravel Boost? (y/n): "
-        read -r response
-
-        if [[ "$response" =~ ^[Yy]$ ]]; then
-            echo "📦 Installing Laravel Boost..."
-
-            # Install Laravel Boost via composer
-            if (cd "$PROJECT_ROOT" && composer require "laravel/boost:^2.0" --dev); then
-                echo "✅ Laravel Boost package installed."
-
-                # Run the Boost installer
-                echo "🚀 Running Laravel Boost installer..."
-                if (cd "$PROJECT_ROOT" && php artisan boost:install); then
-                    echo "✅ Laravel Boost installed successfully!"
-                else
-                    echo "⚠️  Laravel Boost installer failed. Please check the errors above."
-                fi
-            else
-                echo "⚠️  Failed to install Laravel Boost package. Please check the errors above."
-            fi
-        else
-            echo "⏭️  Skipping Laravel Boost installation."
-        fi
-    fi
-fi
-
-# 3.5 Polyscope Integration (macOS only)
-if [ "$NON_INTERACTIVE" -eq 0 ] && [[ "$OSTYPE" == "darwin"* ]]; then
-    echo ""
-    echo "🔬 Polyscope App Integration"
-    echo -n "Do you use the Polyscope app (macOS exclusive)? (y/n): "
-    read -r polyscope_response
-
-    if [[ "$polyscope_response" =~ ^[Yy]$ ]]; then
-        DEFAULT_URL="http://$PROJECT_SLUG.test"
-        echo -n "Enter the project Local URL (Default: $DEFAULT_URL): "
-        read -r custom_url
-        POLYSCOPE_URL=${custom_url:-$DEFAULT_URL}
-
-        echo "📝 Creating polyscope.json from template..."
-        if [ -f "$SCRIPT_DIR/../templates/polyscope.json" ]; then
-            sed "s|\[\[PREVIEW_URL\]\]|$POLYSCOPE_URL|g" "$SCRIPT_DIR/../templates/polyscope.json" > "$PROJECT_ROOT/polyscope.json"
-            echo "✅ polyscope.json created with URL: $POLYSCOPE_URL"
-        else
-            echo "⚠️  Polyscope template not found at $SCRIPT_DIR/../templates/polyscope.json. Creating basic file..."
-            cat << EOF > "$PROJECT_ROOT/polyscope.json"
-{
-  "preview": {
-    "url": "$POLYSCOPE_URL"
-  }
-}
-EOF
-        fi
-    else
-        echo "⏭️  Skipping Polyscope integration."
-    fi
+# 3. Run optional post-init hooks for extensions already enabled in the project.
+if [ -x "$SCRIPT_DIR/../bin/vault-ext" ]; then
+    (
+        cd "$PROJECT_ROOT"
+        "$SCRIPT_DIR/../bin/vault-ext" run-hook post-init >/dev/null 2>&1 || true
+    )
 fi
 
 # 4. Global Git Safety Net

@@ -12,6 +12,7 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
+source "$SCRIPT_DIR/lib/extensions-resolver.sh"
 
 CURRENT_DIR="$PWD"
 while [[ "$CURRENT_DIR" != "/" && ! -d "$CURRENT_DIR/.ai" ]]; do
@@ -63,6 +64,22 @@ mkdir -p "$(dirname "$CONTEXT_FILE")"
         find "$AI_DIR/plans" -type f -name "*.md" -exec basename {} \; | sort | sed 's/^/- /'
     else
         echo "- No active plans found."
+    fi
+
+    echo
+    echo "## Enabled Extensions"
+    if [[ -f "$AI_DIR/extensions/enabled.txt" ]]; then
+        sed 's/^/- /' "$AI_DIR/extensions/enabled.txt"
+    else
+        echo "- No optional extensions enabled."
+    fi
+
+    echo
+    echo "## Optional Bundles"
+    if [[ -f "$AI_DIR/skills/ACTIVE_SKILLS.md" ]]; then
+        echo "- Skills bundle available at .ai/skills/ACTIVE_SKILLS.md"
+    else
+        echo "- No optional bundles detected."
     fi
 
     echo

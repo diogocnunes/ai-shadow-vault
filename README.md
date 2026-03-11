@@ -1,163 +1,177 @@
 # AI Shadow Vault
 
-AI Shadow Vault is a local context layer for AI-assisted development. It keeps project-specific AI instructions, plans, history, and skills outside the main repository while still making them available inside the project when needed.
+AI Shadow Vault is a local AI context layer for development. It keeps project context outside the repository, links the right files back into the project, and generates a portable `.ai/context/agent-context.md` summary for agents.
 
-## What It Solves
+## Product Shape
 
-AI Shadow Vault helps when you want to:
+AI Shadow Vault now has two layers:
 
-- keep AI context out of Git
-- reuse local plans and session history across tools
-- support multiple agents with one shared project context
-- avoid breaking context when working in Git worktrees or temporary clones
+- `core`: vault resolution, local `.ai/` workspace, symlinks, session/history files, and generated context
+- `extensions`: optional workflows such as review prompts, planning prompts, and skills syncing
 
-## Core Pieces
+The default install is intentionally small. Optional workflows must be enabled per project.
 
-The system is built from three layers:
+## What Stays in Core
 
-- a user data root for vault files
-- a local `.ai/` workspace inside each project
-- generated files and symlinks for specific agents
+- stable project and worktree resolution
+- external vault storage under `~/.ai-shadow-vault-data`
+- local `.ai/` workspace bootstrap
+- `GEMINI.md`, `CLAUDE.md`, `AGENTS.md`, editor rule linking
+- session save/resume flows
+- generated `.ai/context/agent-context.md`
+- shell integration and health checks
 
-## Data Root
+## Optional Extensions
 
-The default data root is:
-
-```bash
-~/.ai-shadow-vault-data
-```
-
-Legacy installs may still use:
+List available extensions:
 
 ```bash
-~/.gemini-vault
+vault-ext list
 ```
 
-Migration behavior:
+Enable an extension inside a project:
 
-- if `~/.gemini-vault` exists and `~/.ai-shadow-vault-data` does not, it is renamed automatically
-- if both exist, `~/.ai-shadow-vault-data` is primary
-- legacy content can still be read for compatibility
+```bash
+vault-ext enable planning
+vault-ext enable review
+vault-ext enable skills
+```
 
-## Stable Project Resolution
+Current built-in extension groups:
 
-Project identity is resolved in this order:
+- `planning`: user-story breakdown workflow
+- `review`: code review prompt preparation
+- `skills`: universal skills activation and sync
+- `laravel-stack`: reserved for Laravel-specific optional workflows
 
-1. `git remote.origin.url`
-2. `git rev-parse --git-common-dir`
-3. `git rev-parse --show-toplevel`
-4. `basename "$PWD"`
+Catalogued external packages:
 
-This keeps the vault stable across:
+- `superpowers-laravel`: upstream Laravel superpowers package
+- `user-stories-skill`: upstream user-story planning package
+- `code-review-skill`: upstream review package
 
-- normal repositories
-- Git worktrees
-- temporary clones created by tools such as Polyscope
-- non-Git directories
+Inspect an extension:
+
+```bash
+vault-ext info superpowers-laravel
+vault-ext info user-stories-skill
+vault-ext info code-review-skill
+```
+
+Legacy commands such as `vault-review`, `vault-user-stories`, and `vault-skills` still work, but they are now treated as optional workflows rather than core behavior.
 
 ## Installation
-
-1. Clone the project:
 
 ```bash
 git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
 mkdir -p ~/.ai-shadow-vault-data
 ```
 
-2. Add this to `~/.zshrc`:
+Add this to `~/.zshrc`:
 
 ```bash
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
-3. Reload the shell.
-
-If you only need to reload AI Shadow Vault later, prefer:
+Reload the shell, then initialize a project:
 
 ```bash
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-```
-
-Do not repeatedly run `source ~/.zshrc` just to refresh AI Shadow Vault.
-
-4. Inside a project:
-
-```bash
+cd ~/Sites/my-project
 vault-init
 ```
 
-If you need to reopen the interactive project configuration later, use:
+If you need to re-run the interactive configuration:
 
 ```bash
 vault-init --force-config
 ```
 
-## Updating an Existing Install
+## Update Flow
 
-If you already have AI Shadow Vault installed, the recommended update flow is:
-
-```bash
-cd ~/Sites/my-project
-vault-update
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-```
-
-One-time upgrade path from `1.x` to `2.x`:
+Update the package:
 
 ```bash
 cd ~/Sites/my-project
 vault-update
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-vault-init --non-interactive
-vault-skills standardize
-vault-skills sync
-vault-ai-context
 ```
 
-This one-time sequence is necessary because the old `1.x` `vault-update` only performs the package pull. The automatic post-update refresh starts working from `2.x` onward.
+`vault-update` now refreshes only the core project state:
 
-Important:
+- reruns `vault-init --non-interactive`
+- regenerates `.ai/context/agent-context.md`
+- runs hooks for already-enabled extensions
 
-- `vault-update` itself only needs to update the package once
-- the `vault-init --non-interactive`, `vault-skills standardize`, `vault-skills sync`, and `vault-ai-context` steps must be run once for each project you want to migrate
+It no longer auto-runs optional workflow setup by default.
 
-Example with two existing projects:
+## Main Commands
+
+Core:
+
+- `vault-init`
+- `vault-update`
+- `vault-ai-context`
+- `vault-ai-save`
+- `vault-ai-resume`
+- `vault-ai-stats`
+- `vault-check`
+- `cc`
+- `vault-ext`
+
+Optional workflow commands:
+
+- `vault-review`
+- `vault-user-stories`
+- `vault-breakdown`
+- `vault-skills`
+
+## Quick Start
+
+Basic setup:
 
 ```bash
-cd ~/Sites/project-a
-vault-update
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-vault-init --non-interactive
-vault-skills standardize
-vault-skills sync
-vault-ai-context
-
-cd ~/Sites/project-b
-vault-init --non-interactive
-vault-skills standardize
-vault-skills sync
+cd ~/Sites/my-project
+vault-init
 vault-ai-context
 ```
 
-When `vault-update` is executed inside a project, it now does more than `git pull`. It will also:
-
-- refresh the project vault in non-interactive mode
-- standardize managed AI files to the current format
-- re-sync stored skill targets
-- regenerate `.ai/context/agent-context.md`
-
-If you run `vault-update` outside a project, it only updates the package itself.
-
-If you want to run the project refresh steps manually, use:
+Enable planning workflow:
 
 ```bash
-vault-init --non-interactive
-vault-skills standardize
-vault-skills sync
-vault-ai-context
+vault-ext enable planning
+vault-user-stories "Implement OAuth login"
 ```
 
-## OS Compatibility
+Enable review workflow:
+
+```bash
+vault-ext enable review
+vault-review --scope staged
+```
+
+Enable skills workflow:
+
+```bash
+vault-ext enable skills
+vault-skills activate --preset reviewing
+vault-skills sync native context editors
+```
+
+## Local Workspace
+
+Important paths:
+
+| Path | Purpose |
+| :--- | :--- |
+| `.ai/rules.md` | project rules |
+| `.ai/plans/` | local plans |
+| `.ai/docs/` | local documentation |
+| `.ai/context/archive/` | archived sessions |
+| `.ai/context/agent-context.md` | generated summary for agents |
+| `.ai/extensions/enabled.txt` | enabled optional extensions |
+| `.ai/skills/ACTIVE_SKILLS.md` | optional skills bundle, when used |
+
+## OS Support
 
 Current support:
 
@@ -165,270 +179,28 @@ Current support:
 - `Linux`: not supported
 - `Windows`: not supported
 
-Why:
+This package should still be treated as macOS-first for now.
 
-- shell integration depends on `zsh`
-- most scripts are written for `bash`
-- clipboard support expects `pbcopy` on macOS or `xclip` on Linux
-- some generation code still uses macOS-style `sed -i ''`
-- Polyscope integration is macOS-only
+## Migration Notes
 
-At this point, the package should be treated as macOS-only.
+If you are coming from `1.x` or an earlier `2.x` build that assumed batteries-included behavior:
 
-## Local `.ai/` Workspace
+1. Run `vault-update`
+2. Run `vault-init --non-interactive`
+3. Re-enable only the workflows you still want with `vault-ext enable ...`
+4. Regenerate context with `vault-ai-context`
 
-The local `.ai/` directory is the project-side context layer.
-
-Important paths:
-
-| Path | Purpose |
-| :--- | :--- |
-| `.ai/rules.md` | project rules |
-| `.ai/plans/` | implementation plans |
-| `.ai/docs/` | local documentation |
-| `.ai/context/archive/` | archived sessions |
-| `.ai/context/agent-context.md` | portable promptable context |
-| `.ai/reviews/` | saved review artifacts |
-| `.ai/skills/ACTIVE_SKILLS.md` | active skills bundle |
-
-## Main Commands
-
-| Command | Purpose |
-| :--- | :--- |
-| `vault-init` | initialize the project vault, symlinks, and local `.ai/` workspace |
-| `vault-ai-resume` | show the latest archived session and active plans |
-| `vault-ai-save` | archive the current session |
-| `vault-ai-context` | generate `.ai/context/agent-context.md` |
-| `vault-review` | prepare a structured code review prompt and output path |
-| `vault-ai-stats` | show local cache metrics |
-| `vault-check` | verify vault integrity |
-| `cc` | quick Claude-oriented context flow |
-| `vault-skills` | manage universal skills |
-| `vault-user-stories` | prepare a user-stories planning prompt and output path |
-| `vault-breakdown` | alias for `vault-user-stories` |
-
-## Quick Start Examples
-
-### Example 1: Basic project setup
+Examples:
 
 ```bash
-cd ~/Sites/my-project
-vault-init
+vault-ext enable planning review
+vault-ext enable skills
 ```
 
-### Example 2: Start a task with a plan
+## Credits
 
-```bash
-.ai/agents/plan-creator.sh "Refactor billing flow"
-vault-ai-context
-```
+Some optional workflows were inspired by or adapted from:
 
-### Example 2b: Generate a user-stories planning prompt
-
-```bash
-vault-user-stories "Implement OAuth login"
-```
-
-Alias:
-
-```bash
-vault-breakdown "Implement OAuth login"
-```
-
-### Example 3: Prepare Claude context
-
-```bash
-cc
-```
-
-### Example 4: Activate skills for a Laravel Nova project
-
-```bash
-vault-skills activate --preset laravel-nova
-vault-skills sync native context editors
-vault-skills status
-```
-
-### Example 5: Update an older installation
-
-```bash
-cd ~/Sites/my-project
-vault-update
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-```
-
-### Example 6: Prepare a staged code review
-
-```bash
-vault-skills activate --preset reviewing-laravel
-vault-skills sync native context editors
-vault-review --scope staged
-```
-
-## Portable Context File
-
-For tools that do not use clipboard workflows, use:
-
-```text
-.ai/context/agent-context.md
-```
-
-Typical prompt example:
-
-```text
-Use .ai/context/agent-context.md as the current project summary.
-Then follow .ai/plans/refactor-billing-flow.md.
-```
-
-## Universal Skills Layer
-
-AI Shadow Vault uses a hybrid skills model:
-
-- `Gemini` and `Codex`: native global skills
-- `Claude`, `Junie`, and `Opencode`: project-local aggregate bundle
-- `Cursor`, `Windsurf`, and `Copilot`: regenerated local rules
-
-Useful commands:
-
-```bash
-vault-skills status
-vault-skills presets
-vault-skills list
-vault-skills activate --preset planning
-vault-skills activate --preset reviewing
-vault-skills activate --preset reviewing-laravel
-vault-skills activate --preset reviewing-laravel-nova
-vault-skills activate --preset reviewing-filament
-vault-skills activate --preset laravel-nova
-vault-skills activate --preset filament syncfusion-document-editor
-vault-skills sync native context editors
-vault-skills standardize
-```
-
-State files:
-
-- `.ai/skills/active-skills.txt`
-- `.ai/skills/active-skills.json`
-- `.ai/skills/ACTIVE_SKILLS.md`
-
-The `planning` preset currently activates:
-
-- `user-stories`
-
-Review presets:
-
-- `reviewing`
-- `reviewing-laravel`
-- `reviewing-laravel-nova`
-- `reviewing-filament`
-
-Review artifacts are written to:
-
-```text
-.ai/reviews/
-```
-
-## Third-Party Attribution
-
-The built-in `code-review` skill and `vault-review` workflow were adapted from the original [`felipereisdev/code-review-skill`](https://github.com/felipereisdev/code-review-skill) package.
-
-This upstream package is MIT-licensed. AI Shadow Vault reuses and adapts the review flow concepts and prompt structure in compliance with the MIT license.
-
-## Typical Workflows
-
-### Claude workflow
-
-```bash
-cc
-.ai/agents/user-stories.sh "Add audit trail"
-.ai/agents/plan-creator.sh "Add audit trail"
-claude
-vault-ai-save
-```
-
-### Gemini workflow
-
-```bash
-vault-ai-context
-.ai/agents/user-stories.sh "Validate architecture"
-.ai/agents/plan-creator.sh "Validate architecture"
-vault-skills activate --preset laravel-nova
-vault-skills sync gemini
-```
-
-### Review workflow
-
-```bash
-vault-skills activate --preset reviewing-filament
-vault-skills sync native context editors
-vault-review --scope branch --base main
-```
-
-Supported scopes:
-
-- `vault-review --scope working`
-- `vault-review --scope staged`
-- `vault-review --scope branch --base main`
-- `vault-review --scope commit --commit <sha>`
-- `vault-review --scope range --from <sha> --to <sha>`
-
-### Upgrade an older project
-
-```bash
-vault-skills standardize
-```
-
-This creates backups before rewriting managed files into the new standard format.
-
-## Troubleshooting
-
-### `cc` does not copy anything
-
-- On macOS, make sure `pbcopy` is available
-- On Linux, install `xclip`
-- Even without clipboard support, `cc` still regenerates `.ai/context/agent-context.md`
-
-### Skills look duplicated or old files are messy
-
-Run:
-
-```bash
-vault-skills standardize
-```
-
-This backs up managed files and rewrites them to the current format.
-
-### A tool cannot use clipboard-based context
-
-Use:
-
-```text
-.ai/context/agent-context.md
-```
-
-and, when needed:
-
-```text
-.ai/skills/ACTIVE_SKILLS.md
-```
-
-### Linux and Windows
-
-They are not supported targets for this package at the moment.
-
-## Git Safety
-
-Generated and sensitive files are kept out of normal repository flow using:
-
-- `.git/info/exclude`
-- `~/.gitignore_global`
-
-This includes `.ai/`, `.claude/`, local symlinks, and generated artifacts such as `agent-context.md`.
-
-## Related Guides
-
-- [README_PT.md](./README_PT.md)
-- [AI_CACHE_GUIDE.md](./AI_CACHE_GUIDE.md)
-- [SUPERPOWERS_GUIDE.md](./SUPERPOWERS_GUIDE.md)
-- [CLAUDE_WORKFLOW_FAQ.md](./CLAUDE_WORKFLOW_FAQ.md)
-- [GEMINI_WORKFLOW_GUIDE.md](./GEMINI_WORKFLOW_GUIDE.md)
+- `jpcaparas/superpowers-laravel`
+- `felipereisdev/user-stories-skill`
+- `felipereisdev/code-review-skill`

@@ -29,10 +29,6 @@ function set_gemini_context() {
     local cody_context="$project_root/.cody/context.json"
     local cody_ignore="$project_root/.cody/ignore"
 
-    # Laravel Boost files
-    local mcp_config="$project_root/.mcp.json"
-    local boost_config="$project_root/boost.json"
-
     # Cleanup existing symlinks (Universal AI)
     [[ -L "$md_context" ]] && rm "$md_context"
     [[ -L "$md_agents" ]] && rm "$md_agents"
@@ -43,14 +39,6 @@ function set_gemini_context() {
     [[ -L "$windsurf_rules" ]] && rm "$windsurf_rules"
     [[ -L "$cody_context" ]] && rm "$cody_context"
     [[ -L "$cody_ignore" ]] && rm "$cody_ignore"
-
-    # Cleanup Laravel Boost files (real files, not symlinks)
-    [[ -f "$mcp_config" ]] && rm "$mcp_config"
-    [[ -f "$claude_md" && ! -L "$claude_md" ]] && rm "$claude_md"
-    [[ -f "$boost_config" ]] && rm "$boost_config"
-
-    # AGENTS.md can be created by Laravel Boost as a real file
-    [[ -f "$md_agents" && ! -L "$md_agents" ]] && rm "$md_agents"
 
     # 1. Link coding guidelines
     [[ -f "$vault_path/AGENTS.md" ]] && ln -sf "$vault_path/AGENTS.md" "$md_agents"

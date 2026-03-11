@@ -48,9 +48,8 @@ run_post_update() {
     (
         cd "$project_dir"
         "$INSTALL_PATH/bin/vault-init" --non-interactive
-        "$INSTALL_PATH/scripts/install_skills.sh" standardize
-        "$INSTALL_PATH/scripts/install_skills.sh" sync
         "$INSTALL_PATH/bin/vault-ai-context"
+        "$INSTALL_PATH/bin/vault-ext" run-hook post-update >/dev/null 2>&1 || true
     )
 
     log_success "✅ Project refresh completed for: $project_dir"
