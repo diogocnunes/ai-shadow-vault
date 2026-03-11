@@ -46,6 +46,7 @@ initialize_local_ai_workspace() {
     echo "🛡️  Initializing local .ai workspace..."
     echo "📁 Creating local .ai directory..."
     mkdir -p "$PROJECT_ROOT/.ai/plans"
+    mkdir -p "$PROJECT_ROOT/.ai/reviews"
     mkdir -p "$PROJECT_ROOT/.ai/docs"
     mkdir -p "$PROJECT_ROOT/.ai/context/archive"
     mkdir -p "$PROJECT_ROOT/.ai/prompts"
