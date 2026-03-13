@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/../scripts/lib/extensions-resolver.sh"
 
 NON_INTERACTIVE=0
 FORCE_CONFIG=0
+FORCE_HERD=0
 FULL_CONFIG_RAN=0
 
 while [[ "$#" -gt 0 ]]; do
@@ -18,6 +19,10 @@ while [[ "$#" -gt 0 ]]; do
         --force-config)
             FORCE_CONFIG=1
             ;;
+        --herd)
+            FORCE_HERD=1
+            NON_INTERACTIVE=1
+            ;;
         *)
             echo "Unknown option: $1" >&2
             exit 1
@@ -25,6 +30,15 @@ while [[ "$#" -gt 0 ]]; do
     esac
     shift
 done
+
+# Build configurator flags once, used in all calls below
+if [[ "$FORCE_HERD" -eq 1 ]]; then
+    CONFIGURATOR_FLAGS="--herd"
+elif [[ "$NON_INTERACTIVE" -eq 1 ]]; then
+    CONFIGURATOR_FLAGS="--non-interactive"
+else
+    CONFIGURATOR_FLAGS=""
+fi
 
 DATA_ROOT="$(vault_ensure_data_root)"
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
@@ -65,11 +79,7 @@ initialize_local_ai_workspace() {
     elif [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
         (
             cd "$PROJECT_ROOT"
-            if [ "$NON_INTERACTIVE" -eq 1 ]; then
-                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --rules-only --non-interactive
-            else
-                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --rules-only
-            fi
+            bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --rules-only $CONFIGURATOR_FLAGS
         )
     else
         copy_if_missing "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
@@ -118,11 +128,7 @@ if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
     if [ "$FORCE_CONFIG" -eq 1 ] || [ ! -f "$PROJECT_VAULT/GEMINI.md" ] || [ ! -f "$PROJECT_VAULT/CLAUDE.md" ]; then
         (
             cd "$PROJECT_ROOT"
-            if [ "$NON_INTERACTIVE" -eq 1 ]; then
-                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --non-interactive
-            else
-                bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
-            fi
+            bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" $CONFIGURATOR_FLAGS
         )
         [ -f "$PROJECT_ROOT/GEMINI.md" ] && mv -f "$PROJECT_ROOT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
         [ -f "$PROJECT_ROOT/CLAUDE.md" ] && mv -f "$PROJECT_ROOT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
