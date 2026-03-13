@@ -7,6 +7,7 @@ set -euo pipefail
 
 NON_INTERACTIVE=0
 RULES_ONLY=0
+FORCE_HERD=0
 
 while [[ "$#" -gt 0 ]]; do
     case "${1:-}" in
@@ -15,6 +16,10 @@ while [[ "$#" -gt 0 ]]; do
             ;;
         --rules-only)
             RULES_ONLY=1
+            ;;
+        --herd)
+            FORCE_HERD=1
+            NON_INTERACTIVE=1
             ;;
         *)
             echo "Unknown option: $1" >&2
@@ -116,6 +121,12 @@ elif [ -d ".herd" ]; then DEV_ENVIRONMENT="Laravel Herd";
 elif [ -f "docker-compose.yml" ]; then DEV_ENVIRONMENT="Docker (Custom)";
 fi
 
+# --herd flag overrides auto-detection (useful when Sail is present but Herd is the actual dev env)
+if [[ "$FORCE_HERD" -eq 1 ]]; then
+    DEV_ENVIRONMENT="Laravel Herd"
+    DATABASE_STACK="MySQL"
+fi
+
 # 2. Interactive Menu
 echo -e "  🚀 ${BLUE}Detected Stack:${NC} PHP $PHP_VERSION / $FRAMEWORK $FRAMEWORK_VERSION / $ADMIN_PANEL / $DEV_ENVIRONMENT"
 response="n"
@@ -144,6 +155,25 @@ if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
     read -r user_ints
     [ ! -z "$user_ints" ] && KEY_INTEGRATIONS=$user_ints
 fi
+
+# Polyscope values — derived from already-resolved DEV_ENVIRONMENT and commands
+case "$DEV_ENVIRONMENT" in
+    "Laravel Herd")
+        POLYSCOPE_SETUP="\"herd link\", \"herd isolate $PHP_VERSION\""
+        POLYSCOPE_ARCHIVE="\"herd unlink\""
+        POLYSCOPE_PREVIEW_URL="https://{{folder}}.test"
+        ;;
+    "Laravel Valet")
+        POLYSCOPE_SETUP="\"valet link\", \"valet isolate php@$PHP_VERSION\""
+        POLYSCOPE_ARCHIVE="\"valet unlink\""
+        POLYSCOPE_PREVIEW_URL="https://{{folder}}.test"
+        ;;
+    *)
+        POLYSCOPE_SETUP=""
+        POLYSCOPE_ARCHIVE=""
+        POLYSCOPE_PREVIEW_URL="{{PREVIEW_URL}}"
+        ;;
+esac
 
 # 3. Generate Files
 generate_from_template() {
@@ -175,15 +205,63 @@ generate_from_template() {
         sed -i '' "s|{{TEST_WATCH_COMMAND}}|$TEST_WATCH_COMMAND|g" "$output"
         sed -i '' "s|{{PRIMARY_LANGUAGE}}|$PRIMARY_LANGUAGE|g" "$output"
         sed -i '' "s|{{FORMATTING_TOOLS}}|$FORMATTING_TOOLS|g" "$output"
-        
         echo -e "  ✅ Generated: ${GREEN}$output${NC}"
     fi
+}
+
+generate_polyscope_json() {
+    local output="polyscope.json"
+    mkdir -p "$(dirname "$output")"
+
+    POLYSCOPE_SETUP="$POLYSCOPE_SETUP" \
+    POLYSCOPE_ARCHIVE="$POLYSCOPE_ARCHIVE" \
+    POLYSCOPE_PREVIEW_URL="$POLYSCOPE_PREVIEW_URL" \
+    DEV_COMMAND="$DEV_COMMAND" \
+    TEST_WATCH_COMMAND="$TEST_WATCH_COMMAND" \
+    python3 <<'PYEOF' > "$output"
+import json, os
+
+def parse_cmds(raw):
+    if not raw.strip():
+        return []
+    return [s.strip().strip('"') for s in raw.split(",") if s.strip()]
+
+setup   = parse_cmds(os.environ.get("POLYSCOPE_SETUP", ""))
+archive = parse_cmds(os.environ.get("POLYSCOPE_ARCHIVE", ""))
+dev_cmd  = os.environ.get("DEV_COMMAND", "").strip()
+test_cmd = os.environ.get("TEST_WATCH_COMMAND", "").strip()
+preview  = os.environ.get("POLYSCOPE_PREVIEW_URL", "{{PREVIEW_URL}}")
+
+run = []
+if dev_cmd:
+    run.append({"label": "Dev Server", "command": dev_cmd, "autostart": True})
+if test_cmd:
+    run.append({"label": "Tests", "command": test_cmd})
+
+doc = {
+    "scripts": {"setup": setup, "archive": archive, "run": run},
+    "runMode": "replace",
+    "preview": {"url": preview},
+    "tasks": [
+        {"label": "🔒 Security Review", "prompt": "Review the codebase for security vulnerabilities focusing on SQL injection, mass assignment, missing policies, and unprotected routes. Follow the project rules in .ai/rules.md."},
+        {"label": "🧪 Generate Tests",  "prompt": "Generate PHPUnit/Pest tests for the files changed in the last commit. Follow the patterns in .ai/docs/."},
+        {"label": "📋 Sync AI Context", "prompt": "Read .ai/context/, .ai/plans/, and .ai/docs/ and summarize the current project state, active plans, and pending work."},
+        {"label": "🏗️ Code Audit",      "prompt": "Audit the codebase for N+1 queries, missing eager loading, untyped parameters, and magic numbers. Reference .ai/rules.md for standards."}
+    ]
+}
+print(json.dumps(doc, indent=2))
+PYEOF
+    echo -e "  ✅ Generated: ${GREEN}$output${NC}"
 }
 
 generate_from_template "$T_RULES" "$RULES_FILE"
 if [ "$RULES_ONLY" -eq 0 ]; then
     generate_from_template "$T_GEMINI" "$GEMINI_FILE"
     generate_from_template "$T_CLAUDE" "$CLAUDE_FILE"
+    # polyscope.json — preserve existing file; only generate if absent
+    if [[ ! -f "polyscope.json" ]]; then
+        generate_polyscope_json
+    fi
 fi
 
 echo -e "\n✨ Configuration complete! AI context is now project-specific. 🚀"
