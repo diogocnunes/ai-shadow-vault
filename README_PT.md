@@ -162,6 +162,13 @@ vault-skills activate --preset reviewing
 vault-skills sync native context editors
 ```
 
+Diagnóstico de secções geridas e drift de ciclo de vida:
+
+```bash
+vault-debug-sections
+vault-debug-sections --fix
+```
+
 ## Workspace Local
 
 Caminhos importantes:

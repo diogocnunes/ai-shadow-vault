@@ -162,6 +162,13 @@ vault-skills activate --preset reviewing
 vault-skills sync native context editors
 ```
 
+Debug managed sections and lifecycle drift:
+
+```bash
+vault-debug-sections
+vault-debug-sections --fix
+```
+
 ## Local Workspace
 
 Important paths:

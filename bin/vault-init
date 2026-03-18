@@ -12,6 +12,7 @@ FORCE_CONFIG=0
 FORCE_HERD=0
 FULL_CONFIG_RAN=0
 CONFIGURATION_GENERATED=0
+ENABLE_WORKFLOW_ORCHESTRATION="${AI_SHADOW_ENABLE_WORKFLOW_ORCHESTRATION:-0}"
 
 while [[ "$#" -gt 0 ]]; do
     case "${1:-}" in
@@ -24,6 +25,12 @@ while [[ "$#" -gt 0 ]]; do
         --herd)
             FORCE_HERD=1
             NON_INTERACTIVE=1
+            ;;
+        --enable-workflow)
+            ENABLE_WORKFLOW_ORCHESTRATION=1
+            ;;
+        --disable-workflow)
+            ENABLE_WORKFLOW_ORCHESTRATION=0
             ;;
         *)
             echo "Unknown option: $1" >&2
@@ -123,8 +130,13 @@ prompt_existing_file_action() {
     local target_name="$1"
     local action=""
 
+    if [ ! -t 0 ]; then
+        printf 'skip\n'
+        return
+    fi
+
     while :; do
-        printf "⚠️  %s already exists. Choose: [o]verwrite / [a]ppend / [s]kip: " "$target_name"
+        printf "⚠️  %s already exists. Choose: [o]verwrite / [a]ppend / [s]kip: " "$target_name" >&2
         read -r action
         case "$action" in
             o|O|overwrite|Overwrite)
@@ -140,7 +152,7 @@ prompt_existing_file_action() {
                 return
                 ;;
             *)
-                echo "Please choose one of: o, a, s"
+                echo "Please choose one of: o, a, s" >&2
                 ;;
         esac
     done
@@ -149,13 +161,24 @@ prompt_existing_file_action() {
 append_base_content() {
     local destination_path="$1"
     local base_source_path="$2"
+    local append_source="$base_source_path"
 
     vault_mm_trim_file_end "$destination_path"
+
+    if [ "$base_source_path" = "$destination_path" ]; then
+        append_source="$(mktemp)"
+        cp "$base_source_path" "$append_source"
+    fi
+
     {
         printf '\n\n'
-        cat "$base_source_path"
+        cat "$append_source"
         printf '\n'
     } >> "$destination_path"
+
+    if [ "$append_source" != "$base_source_path" ]; then
+        rm -f "$append_source"
+    fi
 }
 
 apply_managed_sections() {
@@ -175,15 +198,15 @@ apply_managed_sections() {
     docs_content="$(docs_first_section_content)"
     if vault_mm_has_section "$target_path" "docs-first"; then
         vault_mm_upsert_section "$target_path" "docs-first" "$docs_content"
-    elif [ "$allow_create_sections" -eq 1 ]; then
+    elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
         vault_mm_append_section_once "$target_path" "docs-first" "$docs_content"
     fi
 
-    if [ "${AI_SHADOW_ENABLE_WORKFLOW_ORCHESTRATION:-0}" = "1" ]; then
+    if [ "$ENABLE_WORKFLOW_ORCHESTRATION" = "1" ]; then
         workflow_content="$(workflow_orchestration_section_content)"
         if vault_mm_has_section "$target_path" "workflow-orchestration"; then
             vault_mm_upsert_section "$target_path" "workflow-orchestration" "$workflow_content"
-        elif [ "$allow_create_sections" -eq 1 ]; then
+        elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
             vault_mm_append_section_once "$target_path" "workflow-orchestration" "$workflow_content"
         fi
     else
@@ -196,7 +219,7 @@ apply_managed_sections() {
         rtk_content="$(rtk_section_content)"
         if vault_mm_has_section "$target_path" "rtk"; then
             vault_mm_upsert_section "$target_path" "rtk" "$rtk_content"
-        elif [ "$allow_create_sections" -eq 1 ]; then
+        elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
             vault_mm_append_section_once "$target_path" "rtk" "$rtk_content"
         fi
     else
@@ -222,7 +245,9 @@ write_instruction_target() {
 
         case "$action" in
             overwrite)
-                cp "$base_source_path" "$destination_path"
+                if [ "$base_source_path" != "$destination_path" ]; then
+                    cp "$base_source_path" "$destination_path"
+                fi
                 allow_create_sections=1
                 ;;
             append)
@@ -342,11 +367,11 @@ if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
     fi
 
     if [ "$CONFIGURATION_GENERATED" -eq 0 ] && [ -f "$PROJECT_VAULT/GEMINI.md" ]; then
-        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md" 0
+        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md" 1
     fi
 
     if [ "$CONFIGURATION_GENERATED" -eq 0 ] && [ -f "$PROJECT_VAULT/CLAUDE.md" ]; then
-        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md" 0
+        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md" 1
     fi
 
     # Create symlinks immediately
