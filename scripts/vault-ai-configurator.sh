@@ -78,6 +78,21 @@ TEST_COMMAND="php artisan test"
 TEST_WATCH_COMMAND="php artisan test --watch"
 PRIMARY_LANGUAGE="PHP / TypeScript"
 FORMATTING_TOOLS="Laravel Pint / ESLint"
+LARAVEL_BOOST_INSTALLED=0
+
+has_composer_package() {
+    local package_name="$1"
+
+    if [ -f "composer.lock" ] && grep -q "\"name\": \"$package_name\"" composer.lock; then
+        return 0
+    fi
+
+    if [ -f "composer.json" ] && grep -q "\"$package_name\"" composer.json; then
+        return 0
+    fi
+
+    return 1
+}
 
 # 1. Detection Logic
 if [ -f "composer.json" ]; then
@@ -89,6 +104,10 @@ if [ -f "composer.json" ]; then
         FRAMEWORK="Laravel"
         DETECTED_LV=$(grep '"laravel/framework":' composer.json | grep -o '[0-9]\+' | head -n 1)
         [ ! -z "$DETECTED_LV" ] && FRAMEWORK_VERSION=$DETECTED_LV
+
+        if has_composer_package "laravel/boost"; then
+            LARAVEL_BOOST_INSTALLED=1
+        fi
     fi
 
     if grep -q "livewire/livewire" composer.json; then
@@ -129,6 +148,13 @@ fi
 
 # 2. Interactive Menu
 echo -e "  🚀 ${BLUE}Detected Stack:${NC} PHP $PHP_VERSION / $FRAMEWORK $FRAMEWORK_VERSION / $ADMIN_PANEL / $DEV_ENVIRONMENT"
+if [ "$FRAMEWORK" = "Laravel" ]; then
+    if [ "$LARAVEL_BOOST_INSTALLED" -eq 1 ]; then
+        echo -e "  ✅ Laravel Boost already installed. Skipping install suggestion."
+    else
+        echo -e "  💡 Optional: install laravel/boost for additional agent workflow support."
+    fi
+fi
 response="n"
 if [ "$NON_INTERACTIVE" -eq 0 ]; then
     echo -ne "  ❓ Do you want to customize or complete the project context? (y/N): "

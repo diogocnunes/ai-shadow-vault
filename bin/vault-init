@@ -5,11 +5,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/vault-resolver.sh"
 source "$SCRIPT_DIR/../scripts/lib/extensions-resolver.sh"
+source "$SCRIPT_DIR/../scripts/lib/managed-markdown.sh"
 
 NON_INTERACTIVE=0
 FORCE_CONFIG=0
 FORCE_HERD=0
 FULL_CONFIG_RAN=0
+CONFIGURATION_GENERATED=0
 
 while [[ "$#" -gt 0 ]]; do
     case "${1:-}" in
@@ -54,6 +56,186 @@ copy_if_missing() {
     if [ ! -e "$destination_path" ]; then
         cp "$source_path" "$destination_path"
     fi
+}
+
+rtk_is_available() {
+    local version
+    version="$(rtk --version 2>/dev/null || true)"
+    [[ "$version" == rtk\ * ]]
+}
+
+docs_first_section_content() {
+    cat <<'EOF_DOCS_FIRST'
+Before implementing changes, inspect project-local documentation first:
+
+1. Relevant root markdown files (`*.md` at project root).
+2. `.ai/` context (`.ai/rules.md`, `.ai/plans/`, `.ai/docs/`, `.ai/context/`).
+3. Any local documentation folders used by this repository.
+4. Existing plans, conventions, and architecture notes already present in the repo.
+
+If external library/API details are required and Context7 MCP is available in this environment, use Context7 before making assumptions.
+Do not invent APIs, method signatures, configuration keys, or undocumented behavior.
+EOF_DOCS_FIRST
+}
+
+workflow_orchestration_section_content() {
+    cat <<'EOF_WORKFLOW'
+Workflow orchestration (optional preset):
+
+1. Default to planning mode for non-trivial tasks.
+2. Re-plan immediately when assumptions break.
+3. Verify outcomes before marking work done (tests/logs/diffs as applicable).
+4. Prefer elegant fixes when complexity is justified; avoid over-engineering simple tasks.
+5. Keep task execution autonomous, but grounded in repository evidence.
+EOF_WORKFLOW
+}
+
+rtk_section_content() {
+    cat <<'EOF_RTK'
+RTK is installed in this environment. Use RTK wrappers instead of raw commands whenever an RTK equivalent exists.
+
+Required rewrites:
+- `git ...` -> `rtk git ...`
+- `gh ...` -> `rtk gh ...`
+- `cargo ...` -> `rtk cargo ...`
+- `cat|head|tail <file>` -> `rtk read <file>`
+- `rg|grep <pattern>` -> `rtk grep <pattern>`
+- `ls` -> `rtk ls`
+- `vitest|jest` -> `rtk vitest run`
+- `tsc` -> `rtk tsc`
+- `eslint|biome` -> `rtk lint`
+- `prettier` -> `rtk prettier`
+- `playwright` -> `rtk playwright`
+- `prisma` -> `rtk prisma`
+- `ruff ...` -> `rtk ruff ...`
+- `pytest` -> `rtk pytest`
+- `pip ...` -> `rtk pip ...`
+- `go ...` -> `rtk go ...`
+- `golangci-lint` -> `rtk golangci-lint`
+- `docker ...` -> `rtk docker ...`
+- `kubectl ...` -> `rtk kubectl ...`
+- `curl` -> `rtk curl`
+- `pnpm ...` -> `rtk pnpm ...`
+EOF_RTK
+}
+
+prompt_existing_file_action() {
+    local target_name="$1"
+    local action=""
+
+    while :; do
+        printf "⚠️  %s already exists. Choose: [o]verwrite / [a]ppend / [s]kip: " "$target_name"
+        read -r action
+        case "$action" in
+            o|O|overwrite|Overwrite)
+                printf 'overwrite\n'
+                return
+                ;;
+            a|A|append|Append)
+                printf 'append\n'
+                return
+                ;;
+            s|S|skip|Skip|"")
+                printf 'skip\n'
+                return
+                ;;
+            *)
+                echo "Please choose one of: o, a, s"
+                ;;
+        esac
+    done
+}
+
+append_base_content() {
+    local destination_path="$1"
+    local base_source_path="$2"
+
+    vault_mm_trim_file_end "$destination_path"
+    {
+        printf '\n\n'
+        cat "$base_source_path"
+        printf '\n'
+    } >> "$destination_path"
+}
+
+apply_managed_sections() {
+    local target_path="$1"
+    local allow_create_sections="$2"
+    local skip_updates="$3"
+    local docs_content workflow_content rtk_content
+
+    if [ "$skip_updates" -eq 1 ] || [ ! -f "$target_path" ]; then
+        return
+    fi
+
+    if [ "$allow_create_sections" -eq 0 ] && ! vault_mm_has_any_section "$target_path"; then
+        return
+    fi
+
+    docs_content="$(docs_first_section_content)"
+    if vault_mm_has_section "$target_path" "docs-first"; then
+        vault_mm_upsert_section "$target_path" "docs-first" "$docs_content"
+    elif [ "$allow_create_sections" -eq 1 ]; then
+        vault_mm_append_section_once "$target_path" "docs-first" "$docs_content"
+    fi
+
+    if [ "${AI_SHADOW_ENABLE_WORKFLOW_ORCHESTRATION:-0}" = "1" ]; then
+        workflow_content="$(workflow_orchestration_section_content)"
+        if vault_mm_has_section "$target_path" "workflow-orchestration"; then
+            vault_mm_upsert_section "$target_path" "workflow-orchestration" "$workflow_content"
+        elif [ "$allow_create_sections" -eq 1 ]; then
+            vault_mm_append_section_once "$target_path" "workflow-orchestration" "$workflow_content"
+        fi
+    else
+        if vault_mm_has_section "$target_path" "workflow-orchestration"; then
+            vault_mm_remove_section "$target_path" "workflow-orchestration"
+        fi
+    fi
+
+    if rtk_is_available; then
+        rtk_content="$(rtk_section_content)"
+        if vault_mm_has_section "$target_path" "rtk"; then
+            vault_mm_upsert_section "$target_path" "rtk" "$rtk_content"
+        elif [ "$allow_create_sections" -eq 1 ]; then
+            vault_mm_append_section_once "$target_path" "rtk" "$rtk_content"
+        fi
+    else
+        if vault_mm_has_section "$target_path" "rtk"; then
+            vault_mm_remove_section "$target_path" "rtk"
+        fi
+    fi
+}
+
+write_instruction_target() {
+    local destination_path="$1"
+    local base_source_path="$2"
+    local prompt_existing="$3"
+    local allow_create_sections=0
+    local skip_updates=0
+    local action=""
+
+    if [ ! -f "$destination_path" ]; then
+        cp "$base_source_path" "$destination_path"
+        allow_create_sections=1
+    elif [ "$NON_INTERACTIVE" -eq 0 ] && [ "$prompt_existing" -eq 1 ] && ! vault_mm_has_any_section "$destination_path"; then
+        action="$(prompt_existing_file_action "$(basename "$destination_path")")"
+
+        case "$action" in
+            overwrite)
+                cp "$base_source_path" "$destination_path"
+                allow_create_sections=1
+                ;;
+            append)
+                append_base_content "$destination_path" "$base_source_path"
+                allow_create_sections=1
+                ;;
+            skip)
+                skip_updates=1
+                ;;
+        esac
+    fi
+
+    apply_managed_sections "$destination_path" "$allow_create_sections" "$skip_updates"
 }
 
 initialize_local_ai_workspace() {
@@ -116,10 +298,10 @@ echo "📍 Project Root: $PROJECT_ROOT"
 # 1. Create Vault structure
 mkdir -p "$PROJECT_VAULT"
 
-copy_if_missing "$SCRIPT_DIR/../templates/AGENTS.md" "$PROJECT_VAULT/AGENTS.md"
-copy_if_missing "$SCRIPT_DIR/../templates/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md"
-copy_if_missing "$SCRIPT_DIR/../templates/.cursorrules" "$PROJECT_VAULT/.cursorrules"
-copy_if_missing "$SCRIPT_DIR/../templates/.windsurfrules" "$PROJECT_VAULT/.windsurfrules"
+write_instruction_target "$PROJECT_VAULT/AGENTS.md" "$SCRIPT_DIR/../templates/AGENTS.md" 1
+write_instruction_target "$PROJECT_VAULT/copilot-instructions.md" "$SCRIPT_DIR/../templates/copilot-instructions.md" 1
+write_instruction_target "$PROJECT_VAULT/.cursorrules" "$SCRIPT_DIR/../templates/.cursorrules" 1
+write_instruction_target "$PROJECT_VAULT/.windsurfrules" "$SCRIPT_DIR/../templates/.windsurfrules" 1
 copy_if_missing "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
 copy_if_missing "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
 
@@ -130,12 +312,41 @@ if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
             cd "$PROJECT_ROOT"
             bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" $CONFIGURATOR_FLAGS
         )
-        [ -f "$PROJECT_ROOT/GEMINI.md" ] && mv -f "$PROJECT_ROOT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-        [ -f "$PROJECT_ROOT/CLAUDE.md" ] && mv -f "$PROJECT_ROOT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+
+        GENERATED_GEMINI="$(mktemp)"
+        GENERATED_CLAUDE="$(mktemp)"
+
+        if [ -f "$PROJECT_ROOT/GEMINI.md" ]; then
+            cp "$PROJECT_ROOT/GEMINI.md" "$GENERATED_GEMINI"
+            rm -f "$PROJECT_ROOT/GEMINI.md"
+        else
+            cp "$SCRIPT_DIR/../templates/GEMINI.md" "$GENERATED_GEMINI"
+        fi
+
+        if [ -f "$PROJECT_ROOT/CLAUDE.md" ]; then
+            cp "$PROJECT_ROOT/CLAUDE.md" "$GENERATED_CLAUDE"
+            rm -f "$PROJECT_ROOT/CLAUDE.md"
+        else
+            cp "$SCRIPT_DIR/../templates/CLAUDE.md" "$GENERATED_CLAUDE"
+        fi
+
+        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$GENERATED_GEMINI" 1
+        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$GENERATED_CLAUDE" 1
+
+        rm -f "$GENERATED_GEMINI" "$GENERATED_CLAUDE"
         FULL_CONFIG_RAN=1
+        CONFIGURATION_GENERATED=1
     else
         echo "✅ Existing Gemini and Claude context found. Skipping configurator."
         echo "💡 Use --force-config to re-run the interactive project configuration."
+    fi
+
+    if [ "$CONFIGURATION_GENERATED" -eq 0 ] && [ -f "$PROJECT_VAULT/GEMINI.md" ]; then
+        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md" 0
+    fi
+
+    if [ "$CONFIGURATION_GENERATED" -eq 0 ] && [ -f "$PROJECT_VAULT/CLAUDE.md" ]; then
+        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md" 0
     fi
 
     # Create symlinks immediately
@@ -143,8 +354,8 @@ if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
     ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
     ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
 else
-    copy_if_missing "$SCRIPT_DIR/../templates/GEMINI.md" "$PROJECT_VAULT/GEMINI.md"
-    copy_if_missing "$SCRIPT_DIR/../templates/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md"
+    write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$SCRIPT_DIR/../templates/GEMINI.md" 1
+    write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$SCRIPT_DIR/../templates/CLAUDE.md" 1
     ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
     ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
     ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
@@ -196,7 +407,5 @@ elif [ -f "$PROJECT_ROOT/.gitignore" ]; then
 fi
 
 echo "✅ Git Safety Net updated (Global + Local Exclude)."
-
-
 
 initialize_local_ai_workspace

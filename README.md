@@ -108,22 +108,27 @@ It no longer auto-runs optional workflow setup by default.
 
 Core:
 
-- `vault-init`
-- `vault-update`
-- `vault-ai-context`
-- `vault-ai-save`
-- `vault-ai-resume`
-- `vault-ai-stats`
-- `vault-check`
-- `cc`
-- `vault-ext`
+| Command | What it does | When to use it |
+| :--- | :--- | :--- |
+| `vault-init` | Bootstraps vault files, local `.ai/` workspace, symlinks, and base context/configuration. | First-time project setup or when re-initializing vault-managed files. |
+| `vault-update` | Updates AI Shadow Vault package, then refreshes current project via `vault-init --non-interactive`, `vault-ai-context`, and extension hooks. | Pulling latest tool updates and refreshing project context. |
+| `vault-ai-context` | Regenerates `.ai/context/agent-context.md` with session, plans, extensions, docs, and rules summary. | Before handing work to agents or after relevant context changes. |
+| `vault-ai-save` | Archives current `.ai/session.md`, rebuilds `.ai/docs/INDEX.md`, and shows vault stats. | End of session or checkpointing context. |
+| `vault-ai-resume` | Shows latest archived session recap plus active plans and available docs. | Start of a new session to recover project state quickly. |
+| `vault-ai-stats` | Prints vault storage stats (docs/cache/plans counts and estimated token savings). | Quick health/size check of local AI workspace. |
+| `vault-check` | Runs health checks against vault-linked instruction/context files. | Verifying vault links and required files are present. |
+| `vault-debug-sections` | Audits managed markers, RTK lifecycle consistency, and cross-root skill conflicts; supports safe auto-fixes with `--fix`. | Diagnosing marker drift, broken sections, and skills duplication issues. |
+| `cc` | Runs `claude-start` (refreshes context, prints recap, copies `.ai/rules.md` when clipboard tools exist). | Starting a Claude session with current vault context. |
+| `vault-ext` | Lists, enables/disables, inspects, syncs, and runs hooks for optional extensions. | Managing optional workflows per project. |
 
 Optional workflow commands:
 
-- `vault-review`
-- `vault-user-stories`
-- `vault-breakdown`
-- `vault-skills`
+| Command | What it does | When to use it |
+| :--- | :--- | :--- |
+| `vault-review` | Builds a scope-based review prompt from Git diff targets and writes intended review output path under `.ai/reviews/`. | Preparing structured code-review prompts for agents. |
+| `vault-user-stories` | Builds a planning prompt from a goal and targets `.ai/plans/<slug>.user-stories.md`. | Breaking down a feature goal into actionable user stories. |
+| `vault-breakdown` | Alias wrapper for `vault-user-stories`. | Same use case as `vault-user-stories`, with shorter naming. |
+| `vault-skills` | Activates/syncs optional skill bundles and updates target instruction surfaces. | Managing optional skills overlays for supported tools/editors. |
 
 ## Quick Start
 
