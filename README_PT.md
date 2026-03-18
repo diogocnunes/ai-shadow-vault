@@ -108,22 +108,27 @@ Ele deixou de executar setup de workflows opcionais por omissão.
 
 Core:
 
-- `vault-init`
-- `vault-update`
-- `vault-ai-context`
-- `vault-ai-save`
-- `vault-ai-resume`
-- `vault-ai-stats`
-- `vault-check`
-- `cc`
-- `vault-ext`
+| Comando | O que faz | Quando usar |
+| :--- | :--- | :--- |
+| `vault-init` | Faz bootstrap dos ficheiros do vault, workspace local `.ai/`, symlinks e contexto/configuração base. | Setup inicial do projeto ou reinicialização de ficheiros geridos pelo vault. |
+| `vault-update` | Atualiza o pacote AI Shadow Vault e refresca o projeto atual com `vault-init --non-interactive`, `vault-ai-context` e hooks de extensões. | Aplicar updates da ferramenta e regenerar o estado core do projeto. |
+| `vault-ai-context` | Regenera `.ai/context/agent-context.md` com resumo de sessão, planos, extensões, docs e regras. | Antes de passar trabalho para agentes ou após mudanças relevantes no contexto. |
+| `vault-ai-save` | Arquiva `.ai/session.md`, atualiza `.ai/docs/INDEX.md` e mostra estatísticas do vault. | Encerrar sessão ou criar checkpoint de contexto. |
+| `vault-ai-resume` | Mostra recap da última sessão arquivada + planos ativos e docs disponíveis. | Início de sessão para retomar rapidamente o estado do projeto. |
+| `vault-ai-stats` | Exibe estatísticas da workspace `.ai/` (docs/cache/planos e estimativa de tokens poupados). | Verificação rápida de saúde/tamanho do contexto local. |
+| `vault-check` | Executa health checks dos ficheiros de contexto/instruções ligados ao vault. | Validar links e presença dos ficheiros esperados do Shadow Vault. |
+| `vault-debug-sections` | Audita markers geridos, consistência do ciclo RTK e conflitos de skills entre roots; suporta correções seguras com `--fix`. | Diagnosticar drift de markers, secções quebradas e duplicação de skills. |
+| `cc` | Executa `claude-start` (refresca contexto, mostra recap e copia `.ai/rules.md` se houver clipboard tool). | Arrancar sessão Claude com o contexto atual do vault. |
+| `vault-ext` | Lista, ativa/desativa, inspeciona, sincroniza e executa hooks de extensões opcionais. | Gerir workflows opcionais por projeto. |
 
 Workflows opcionais:
 
-- `vault-review`
-- `vault-user-stories`
-- `vault-breakdown`
-- `vault-skills`
+| Comando | O que faz | Quando usar |
+| :--- | :--- | :--- |
+| `vault-review` | Prepara prompt de review por escopo de diff Git e define output em `.ai/reviews/`. | Preparar code review estruturado para agentes. |
+| `vault-user-stories` | Prepara prompt de planeamento a partir de um objetivo e destino `.ai/plans/<slug>.user-stories.md`. | Partir uma feature em user stories acionáveis. |
+| `vault-breakdown` | Alias para `vault-user-stories`. | Mesmo uso do `vault-user-stories`, com nome alternativo. |
+| `vault-skills` | Ativa/sincroniza bundles de skills opcionais e atualiza superfícies de instrução dos targets. | Gerir overlays de skills para ferramentas/editores suportados. |
 
 ## Quick Start
 

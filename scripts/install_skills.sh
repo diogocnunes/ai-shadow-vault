@@ -13,8 +13,10 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m'
 
-SKILLS_MANAGED_START="<!-- AI Shadow Vault: managed skills start -->"
-SKILLS_MANAGED_END="<!-- AI Shadow Vault: managed skills end -->"
+SKILLS_MANAGED_START="<!-- AI_SHADOW_VAULT:START:skills -->"
+SKILLS_MANAGED_END="<!-- AI_SHADOW_VAULT:END:skills -->"
+SKILLS_LEGACY_MANAGED_START="<!-- AI Shadow Vault: managed skills start -->"
+SKILLS_LEGACY_MANAGED_END="<!-- AI Shadow Vault: managed skills end -->"
 
 PROJECT_ROOT="$(skills_project_root "$PWD")"
 vault_extension_notice_if_disabled "$PROJECT_ROOT" "skills" "vault-skills" || true
@@ -294,9 +296,9 @@ sanitize_existing_file() {
     local file_path="$2"
     local stripped_content
     stripped_content="$(
-        awk -v managed_start="$SKILLS_MANAGED_START" -v managed_end="$SKILLS_MANAGED_END" '
-            $0 == managed_start { in_managed = 1; next }
-            $0 == managed_end { in_managed = 0; next }
+        awk -v managed_start="$SKILLS_MANAGED_START" -v managed_end="$SKILLS_MANAGED_END" -v legacy_start="$SKILLS_LEGACY_MANAGED_START" -v legacy_end="$SKILLS_LEGACY_MANAGED_END" '
+            $0 == managed_start || $0 == legacy_start { in_managed = 1; next }
+            $0 == managed_end || $0 == legacy_end { in_managed = 0; next }
             !in_managed { print }
         ' "$file_path"
     )"
@@ -430,7 +432,7 @@ classify_file() {
         return
     fi
 
-    if grep -qF "$SKILLS_MANAGED_START" "$file_path"; then
+    if grep -qF "$SKILLS_MANAGED_START" "$file_path" || grep -qF "$SKILLS_LEGACY_MANAGED_START" "$file_path"; then
         echo "canonical"
         return
     fi
