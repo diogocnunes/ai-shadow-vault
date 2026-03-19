@@ -80,6 +80,59 @@ PRIMARY_LANGUAGE="PHP / TypeScript"
 FORMATTING_TOOLS="Laravel Pint / ESLint"
 LARAVEL_BOOST_INSTALLED=0
 
+extract_existing_gemini_context() {
+    local gemini_file="$1"
+    [ -f "$gemini_file" ] || return 1
+
+    awk '
+        /^## Context$/ { capture=1; next }
+        capture && /^## / { exit }
+        capture { print }
+    ' "$gemini_file" | sed -e '/^[[:space:]]*$/d'
+}
+
+extract_existing_claude_integrations() {
+    local claude_file="$1"
+    [ -f "$claude_file" ] || return 1
+
+    local line
+    line="$(grep -E '^- Integrations:' "$claude_file" | head -n 1 || true)"
+    line="${line#- Integrations: }"
+    [ -n "${line:-}" ] || return 1
+    printf '%s\n' "$line"
+}
+
+extract_existing_claude_goal() {
+    local claude_file="$1"
+    [ -f "$claude_file" ] || return 1
+
+    local line
+    line="$(grep -E '^- Goal:' "$claude_file" | head -n 1 || true)"
+    line="${line#- Goal: }"
+    [ -n "${line:-}" ] || return 1
+    printf '%s\n' "$line"
+}
+
+load_existing_context_defaults() {
+    local existing_context=""
+    local existing_integrations=""
+
+    existing_context="$(extract_existing_gemini_context "$GEMINI_FILE" || true)"
+    if [ -z "$existing_context" ]; then
+        existing_context="$(extract_existing_claude_goal "$CLAUDE_FILE" || true)"
+    fi
+
+    existing_integrations="$(extract_existing_claude_integrations "$CLAUDE_FILE" || true)"
+
+    if [ -n "${existing_context:-}" ] && [ "$existing_context" != "[Provide a brief description of the business goal here]" ]; then
+        PROJECT_CONTEXT="$existing_context"
+    fi
+
+    if [ -n "${existing_integrations:-}" ] && [ "$existing_integrations" != "[List integrations like Stripe, AWS, etc.]" ]; then
+        KEY_INTEGRATIONS="$existing_integrations"
+    fi
+}
+
 has_composer_package() {
     local package_name="$1"
 
@@ -145,6 +198,8 @@ if [[ "$FORCE_HERD" -eq 1 ]]; then
     DEV_ENVIRONMENT="Laravel Herd"
     DATABASE_STACK="MySQL"
 fi
+
+load_existing_context_defaults
 
 # 2. Interactive Menu
 echo -e "  🚀 ${BLUE}Detected Stack:${NC} PHP $PHP_VERSION / $FRAMEWORK $FRAMEWORK_VERSION / $ADMIN_PANEL / $DEV_ENVIRONMENT"

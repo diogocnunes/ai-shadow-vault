@@ -233,11 +233,15 @@ write_instruction_target() {
     local destination_path="$1"
     local base_source_path="$2"
     local prompt_existing="$3"
+    local force_overwrite_existing="${4:-0}"
     local allow_create_sections=0
     local skip_updates=0
     local action=""
 
     if [ ! -f "$destination_path" ]; then
+        cp "$base_source_path" "$destination_path"
+        allow_create_sections=1
+    elif [ "$force_overwrite_existing" -eq 1 ] && [ "$base_source_path" != "$destination_path" ]; then
         cp "$base_source_path" "$destination_path"
         allow_create_sections=1
     elif [ "$NON_INTERACTIVE" -eq 0 ] && [ "$prompt_existing" -eq 1 ] && ! vault_mm_has_any_section "$destination_path"; then
@@ -355,8 +359,8 @@ if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
             cp "$SCRIPT_DIR/../templates/CLAUDE.md" "$GENERATED_CLAUDE"
         fi
 
-        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$GENERATED_GEMINI" 1
-        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$GENERATED_CLAUDE" 1
+        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$GENERATED_GEMINI" 1 "$FORCE_CONFIG"
+        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$GENERATED_CLAUDE" 1 "$FORCE_CONFIG"
 
         rm -f "$GENERATED_GEMINI" "$GENERATED_CLAUDE"
         FULL_CONFIG_RAN=1
