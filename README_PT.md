@@ -117,7 +117,7 @@ Core:
 | `vault-ai-resume` | Mostra recap da última sessão arquivada + planos ativos e docs disponíveis. | Início de sessão para retomar rapidamente o estado do projeto. |
 | `vault-ai-stats` | Exibe estatísticas da workspace `.ai/` (docs/cache/planos e estimativa de tokens poupados). | Verificação rápida de saúde/tamanho do contexto local. |
 | `vault-check` | Executa health checks dos ficheiros de contexto/instruções ligados ao vault. | Validar links e presença dos ficheiros esperados do Shadow Vault. |
-| `vault-debug-sections` | Audita markers geridos, consistência do ciclo RTK e conflitos de skills entre roots; suporta correções seguras com `--fix`. | Diagnosticar drift de markers, secções quebradas e duplicação de skills. |
+| `vault-debug-sections` | Audita markers geridos, consistência do ciclo RTK e conflitos de skills entre roots; suporta correções seguras com `--fix` e limpeza forçada de conflitos com `--fix --force-conflicts` (mantém a cópia de maior precedência). | Diagnosticar drift de markers, secções quebradas e duplicação de skills. |
 | `cc` | Executa `claude-start` (refresca contexto, mostra recap e copia `.ai/rules.md` se houver clipboard tool). | Arrancar sessão Claude com o contexto atual do vault. |
 | `vault-ext` | Lista, ativa/desativa, inspeciona, sincroniza e executa hooks de extensões opcionais. | Gerir workflows opcionais por projeto. |
 
@@ -167,6 +167,7 @@ Diagnóstico de secções geridas e drift de ciclo de vida:
 ```bash
 vault-debug-sections
 vault-debug-sections --fix
+vault-debug-sections --fix --force-conflicts
 ```
 
 ## Workspace Local

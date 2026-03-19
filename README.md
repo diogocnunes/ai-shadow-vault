@@ -117,7 +117,7 @@ Core:
 | `vault-ai-resume` | Shows latest archived session recap plus active plans and available docs. | Start of a new session to recover project state quickly. |
 | `vault-ai-stats` | Prints vault storage stats (docs/cache/plans counts and estimated token savings). | Quick health/size check of local AI workspace. |
 | `vault-check` | Runs health checks against vault-linked instruction/context files. | Verifying vault links and required files are present. |
-| `vault-debug-sections` | Audits managed markers, RTK lifecycle consistency, and cross-root skill conflicts; supports safe auto-fixes with `--fix`. | Diagnosing marker drift, broken sections, and skills duplication issues. |
+| `vault-debug-sections` | Audits managed markers, RTK lifecycle consistency, and cross-root skill conflicts; supports safe auto-fixes with `--fix` and forced conflict pruning with `--fix --force-conflicts` (keeps highest-precedence copy). | Diagnosing marker drift, broken sections, and skills duplication issues. |
 | `cc` | Runs `claude-start` (refreshes context, prints recap, copies `.ai/rules.md` when clipboard tools exist). | Starting a Claude session with current vault context. |
 | `vault-ext` | Lists, enables/disables, inspects, syncs, and runs hooks for optional extensions. | Managing optional workflows per project. |
 
@@ -167,6 +167,7 @@ Debug managed sections and lifecycle drift:
 ```bash
 vault-debug-sections
 vault-debug-sections --fix
+vault-debug-sections --fix --force-conflicts
 ```
 
 ## Local Workspace
