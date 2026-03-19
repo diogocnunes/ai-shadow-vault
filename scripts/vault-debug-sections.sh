@@ -13,6 +13,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 FIX_MODE=0
+FORCE_CONFLICTS=0
 EXIT_CODE=0
 OK_COUNT=0
 WARN_COUNT=0
@@ -22,10 +23,11 @@ FIX_COUNT=0
 usage() {
     cat <<'EOF'
 Usage:
-  vault-debug-sections [--fix]
+  vault-debug-sections [--fix] [--force-conflicts]
 
 Options:
-  --fix     Apply safe automatic fixes.
+  --fix              Apply safe automatic fixes.
+  --force-conflicts  With --fix, remove duplicate conflicting skill copies even when content differs.
   -h, --help  Show this help.
 EOF
 }
@@ -304,6 +306,20 @@ Required rewrites:
 EOF_RTK
 }
 
+docs_first_section_content() {
+    cat <<'EOF_DOCS_FIRST'
+Before implementing changes, inspect project-local documentation first:
+
+1. Relevant root markdown files (`*.md` at project root).
+2. `.ai/` context (`.ai/rules.md`, `.ai/plans/`, `.ai/docs/`, `.ai/context/`).
+3. Any local documentation folders used by this repository.
+4. Existing plans, conventions, and architecture notes already present in the repo.
+
+If external library/API details are required and Context7 MCP is available in this environment, use Context7 before making assumptions.
+Do not invent APIs, method signatures, configuration keys, or undocumented behavior.
+EOF_DOCS_FIRST
+}
+
 resolve_target_path() {
     local vault_candidate="$1"
     local root_candidate="$2"
@@ -323,15 +339,19 @@ resolve_target_path() {
 
 scan_skill_roots() {
     local output_path="$1"
-    local root priority label
+    local root path priority label
     local project_agents="$PROJECT_ROOT/.agents/skills"
+    local project_codex="$PROJECT_ROOT/.codex/skills"
+    local project_gemini="$PROJECT_ROOT/.gemini/skills"
 
     : > "$output_path"
 
     for root in \
-        "$project_agents:1:.agents" \
-        "$HOME/.codex/skills:2:.codex" \
-        "$HOME/.gemini/skills:3:.gemini"; do
+        "$project_agents:1:project/.agents" \
+        "$project_codex:2:project/.codex" \
+        "$project_gemini:3:project/.gemini" \
+        "$HOME/.codex/skills:4:home/.codex" \
+        "$HOME/.gemini/skills:5:home/.gemini"; do
         IFS=':' read -r path priority label <<< "$root"
         [ -d "$path" ] || continue
 
@@ -347,6 +367,9 @@ for arg in "$@"; do
         --fix)
             FIX_MODE=1
             ;;
+        --force-conflicts)
+            FORCE_CONFLICTS=1
+            ;;
         -h|--help)
             usage
             exit 0
@@ -358,6 +381,12 @@ for arg in "$@"; do
             ;;
     esac
 done
+
+if [ "$FORCE_CONFLICTS" -eq 1 ] && [ "$FIX_MODE" -ne 1 ]; then
+    echo "--force-conflicts requires --fix" >&2
+    usage
+    exit 1
+fi
 
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
 PROJECT_VAULT="$(vault_resolve_existing_project_vault "$PROJECT_ROOT")"
@@ -462,6 +491,13 @@ for target in "${MANAGED_TARGETS[@]}"; do
         fi
 
         if [ "$can_modify" -eq 1 ] && vault_mm_has_any_section "$file_path"; then
+            docs_content="$(docs_first_section_content)"
+            if vault_mm_has_section "$file_path" "docs-first"; then
+                vault_mm_upsert_section "$file_path" "docs-first" "$docs_content"
+            else
+                vault_mm_append_section_once "$file_path" "docs-first" "$docs_content"
+            fi
+
             if [ "$rtk_available" -eq 1 ]; then
                 if vault_mm_has_section "$file_path" "rtk"; then
                     content="$(rtk_section_content)"
@@ -535,7 +571,7 @@ else
 
             used_path="$(head -n1 "$entries_tmp" | awk -F'\t' '{print $4}')"
             used_label="$(head -n1 "$entries_tmp" | awk -F'\t' '{print $3}')"
-            echo "  Precedence used for debug: .agents > .codex > .gemini"
+            echo "  Precedence used for debug: project/.agents > project/.codex > project/.gemini > home/.codex > home/.gemini"
 
             while IFS=$'\t' read -r _skill _priority root_label skill_path; do
                 [ -n "$skill_path" ] || continue
@@ -563,6 +599,14 @@ else
                         rm -f "$skill_path"
                         rmdir "$skill_dir" 2>/dev/null || true
                         fixed "removed duplicate identical skill copy: $skill_path"
+                    done < "$entries_tmp"
+                elif [ "$FORCE_CONFLICTS" -eq 1 ]; then
+                    while IFS=$'\t' read -r _skill _priority _root skill_path; do
+                        [ "$skill_path" = "$used_path" ] && continue
+                        skill_dir="$(dirname "$skill_path")"
+                        rm -f "$skill_path"
+                        rmdir "$skill_dir" 2>/dev/null || true
+                        fixed "force-removed conflicting skill copy (kept $used_label): $skill_path"
                     done < "$entries_tmp"
                 else
                     warn "Cannot auto-fix conflict for $skill_name: content differs"

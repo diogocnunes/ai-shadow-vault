@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
 source "$SCRIPT_DIR/lib/skills-resolver.sh"
 source "$SCRIPT_DIR/lib/extensions-resolver.sh"
+source "$SCRIPT_DIR/lib/managed-markdown.sh"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -20,6 +21,55 @@ SKILLS_LEGACY_MANAGED_END="<!-- AI Shadow Vault: managed skills end -->"
 
 PROJECT_ROOT="$(skills_project_root "$PWD")"
 vault_extension_notice_if_disabled "$PROJECT_ROOT" "skills" "vault-skills" || true
+
+docs_first_section_content() {
+    cat <<'EOF_DOCS_FIRST'
+Before implementing changes, inspect project-local documentation first:
+
+1. Relevant root markdown files (`*.md` at project root).
+2. `.ai/` context (`.ai/rules.md`, `.ai/plans/`, `.ai/docs/`, `.ai/context/`).
+3. Any local documentation folders used by this repository.
+4. Existing plans, conventions, and architecture notes already present in the repo.
+
+If external library/API details are required and Context7 MCP is available in this environment, use Context7 before making assumptions.
+Do not invent APIs, method signatures, configuration keys, or undocumented behavior.
+EOF_DOCS_FIRST
+}
+
+rtk_is_available() {
+    local version
+    version="$(rtk --version 2>/dev/null || true)"
+    [[ "$version" == rtk\ * ]]
+}
+
+rtk_section_content() {
+    cat <<'EOF_RTK'
+RTK is installed in this environment. Use RTK wrappers instead of raw commands whenever an RTK equivalent exists.
+
+Required rewrites:
+- `git ...` -> `rtk git ...`
+- `gh ...` -> `rtk gh ...`
+- `cargo ...` -> `rtk cargo ...`
+- `cat|head|tail <file>` -> `rtk read <file>`
+- `rg|grep <pattern>` -> `rtk grep <pattern>`
+- `ls` -> `rtk ls`
+- `vitest|jest` -> `rtk vitest run`
+- `tsc` -> `rtk tsc`
+- `eslint|biome` -> `rtk lint`
+- `prettier` -> `rtk prettier`
+- `playwright` -> `rtk playwright`
+- `prisma` -> `rtk prisma`
+- `ruff ...` -> `rtk ruff ...`
+- `pytest` -> `rtk pytest`
+- `pip ...` -> `rtk pip ...`
+- `go ...` -> `rtk go ...`
+- `golangci-lint` -> `rtk golangci-lint`
+- `docker ...` -> `rtk docker ...`
+- `kubectl ...` -> `rtk kubectl ...`
+- `curl` -> `rtk curl`
+- `pnpm ...` -> `rtk pnpm ...`
+EOF_RTK
+}
 
 normalize_target_name() {
     local target
@@ -274,13 +324,25 @@ render_base_template() {
             fi
             ;;
         cursor)
-            cat "$SCRIPT_DIR/../templates/.cursorrules"
+            if [[ -f "$PROJECT_ROOT/.cursorrules" ]]; then
+                sanitize_existing_file "cursor" "$PROJECT_ROOT/.cursorrules"
+            else
+                cat "$SCRIPT_DIR/../templates/.cursorrules"
+            fi
             ;;
         windsurf)
-            cat "$SCRIPT_DIR/../templates/.windsurfrules"
+            if [[ -f "$PROJECT_ROOT/.windsurfrules" ]]; then
+                sanitize_existing_file "windsurf" "$PROJECT_ROOT/.windsurfrules"
+            else
+                cat "$SCRIPT_DIR/../templates/.windsurfrules"
+            fi
             ;;
         copilot)
-            sed "s/{Project Name}/$slug/g" "$SCRIPT_DIR/../templates/copilot-instructions.md"
+            if [[ -f "$PROJECT_ROOT/.github/copilot-instructions.md" ]]; then
+                sanitize_existing_file "copilot" "$PROJECT_ROOT/.github/copilot-instructions.md"
+            else
+                sed "s/{Project Name}/$slug/g" "$SCRIPT_DIR/../templates/copilot-instructions.md"
+            fi
             ;;
         opencode)
             sed "s/{Project Name}/$slug/g" "$SCRIPT_DIR/../templates/opencode.sample.json"
@@ -289,6 +351,40 @@ render_base_template() {
             return 1
             ;;
     esac
+}
+
+upsert_standard_sections_if_supported() {
+    local target="$1"
+    local destination="$2"
+    local docs_content rtk_content
+
+    case "$target" in
+        claude|gemini|cursor|windsurf|copilot)
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    [[ -f "$destination" ]] || return 0
+
+    docs_content="$(docs_first_section_content)"
+    if vault_mm_has_section "$destination" "docs-first"; then
+        vault_mm_upsert_section "$destination" "docs-first" "$docs_content"
+    else
+        vault_mm_append_section_once "$destination" "docs-first" "$docs_content"
+    fi
+
+    if rtk_is_available; then
+        rtk_content="$(rtk_section_content)"
+        if vault_mm_has_section "$destination" "rtk"; then
+            vault_mm_upsert_section "$destination" "rtk" "$rtk_content"
+        else
+            vault_mm_append_section_once "$destination" "rtk" "$rtk_content"
+        fi
+    else
+        vault_mm_remove_section "$destination" "rtk"
+    fi
 }
 
 sanitize_existing_file() {
@@ -361,6 +457,8 @@ write_target_file() {
         echo
         managed_skills_block "$bundle_path"
     } > "$destination"
+
+    upsert_standard_sections_if_supported "$target" "$destination"
 }
 
 install_skill_gemini() {
