@@ -31,6 +31,22 @@ vault-skills sync gemini
 
 Isto instala skills nativas em `~/.gemini/skills/` e mantém o bundle agregado no projeto.
 
+## Regra opcional para análise de codebase grande
+
+Para adicionar automaticamente uma secção gerida com boas práticas de `gemini -p` em ficheiros de instruções:
+
+```bash
+vault-init --use-gemini
+```
+
+Para remover essa secção:
+
+```bash
+vault-init --no-use-gemini
+```
+
+Nota: valide sempre as flags suportadas no seu ambiente (`gemini --help`) antes de usar exemplos como `--all_files`.
+
 ## Fluxo recomendado
 
 ```bash

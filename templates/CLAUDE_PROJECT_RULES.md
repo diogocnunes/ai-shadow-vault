@@ -7,6 +7,7 @@
 3. **Search local `.ai/plans/`** for ongoing work.
 4. **Search local `.ai/reviews/`** for previous review findings when relevant.
 5. **Only then** use external tools or general knowledge.
+6. If `vault-init --use-gemini` is enabled for this project, use Gemini CLI for large-scale analysis only after steps 1-5 and validate local CLI flags first.
 
 ## 🏁 Mandatory Session Start
 At the beginning of every session:

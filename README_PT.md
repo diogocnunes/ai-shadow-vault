@@ -80,10 +80,22 @@ cd ~/Sites/meu-projeto
 vault-init
 ```
 
+Se usar Gemini CLI para análise de codebases grandes, ative a secção gerida:
+
+```bash
+vault-init --use-gemini
+```
+
 Se quiser refazer a configuração interativa:
 
 ```bash
 vault-init --force-config
+```
+
+Para remover a secção gerida do Gemini mais tarde:
+
+```bash
+vault-init --no-use-gemini
 ```
 
 ## Fluxo de Update
@@ -110,7 +122,7 @@ Core:
 
 | Comando | O que faz | Quando usar |
 | :--- | :--- | :--- |
-| `vault-init` | Faz bootstrap dos ficheiros do vault, workspace local `.ai/`, symlinks e contexto/configuração base. | Setup inicial do projeto ou reinicialização de ficheiros geridos pelo vault. |
+| `vault-init` | Faz bootstrap dos ficheiros do vault, workspace local `.ai/`, symlinks e contexto/configuração base. Suporta secções geridas opcionais como `--use-gemini` / `--no-use-gemini`. | Setup inicial do projeto ou reinicialização de ficheiros geridos pelo vault. |
 | `vault-update` | Atualiza o pacote AI Shadow Vault e refresca o projeto atual com `vault-init --non-interactive`, `vault-ai-context` e hooks de extensões. | Aplicar updates da ferramenta e regenerar o estado core do projeto. |
 | `vault-ai-context` | Regenera `.ai/context/agent-context.md` com resumo de sessão, planos, extensões, docs e regras. | Antes de passar trabalho para agentes ou após mudanças relevantes no contexto. |
 | `vault-ai-save` | Arquiva `.ai/session.md`, atualiza `.ai/docs/INDEX.md` e mostra estatísticas do vault. | Encerrar sessão ou criar checkpoint de contexto. |

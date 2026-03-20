@@ -80,10 +80,22 @@ cd ~/Sites/my-project
 vault-init
 ```
 
+If you use Gemini CLI for large-codebase analysis, opt in to the managed section:
+
+```bash
+vault-init --use-gemini
+```
+
 If you need to re-run the interactive configuration:
 
 ```bash
 vault-init --force-config
+```
+
+Disable the managed Gemini section later if needed:
+
+```bash
+vault-init --no-use-gemini
 ```
 
 ## Update Flow
@@ -110,7 +122,7 @@ Core:
 
 | Command | What it does | When to use it |
 | :--- | :--- | :--- |
-| `vault-init` | Bootstraps vault files, local `.ai/` workspace, symlinks, and base context/configuration. | First-time project setup or when re-initializing vault-managed files. |
+| `vault-init` | Bootstraps vault files, local `.ai/` workspace, symlinks, and base context/configuration. Supports optional managed sections such as `--use-gemini` / `--no-use-gemini`. | First-time project setup or when re-initializing vault-managed files. |
 | `vault-update` | Updates AI Shadow Vault package, then refreshes current project via `vault-init --non-interactive`, `vault-ai-context`, and extension hooks. | Pulling latest tool updates and refreshing project context. |
 | `vault-ai-context` | Regenerates `.ai/context/agent-context.md` with session, plans, extensions, docs, and rules summary. | Before handing work to agents or after relevant context changes. |
 | `vault-ai-save` | Archives current `.ai/session.md`, rebuilds `.ai/docs/INDEX.md`, and shows vault stats. | End of session or checkpointing context. |
