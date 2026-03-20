@@ -24,6 +24,59 @@ fi
 
 TIMESTAMP=$(date +"%Y%m%d-%H%M")
 INDEX_FILE="$AI_DIR/docs/INDEX.md"
+PLAN_ARCHIVE_DIR="$AI_DIR/context/archive/plans"
+
+status_is_completed() {
+    local status_line="$1"
+    local normalized_status
+
+    [ -n "$status_line" ] || return 1
+
+    normalized_status="$(printf '%s' "$status_line" | tr '[:upper:]' '[:lower:]')"
+    if printf '%s' "$normalized_status" | grep -Eq 'complet|conclu[ií]d|done'; then
+        return 0
+    fi
+
+    return 1
+}
+
+archive_completed_plans() {
+    local archived_count=0
+    local plan_file status_line base_name target_path suffix=1
+    local -a archived_names=()
+
+    [ -d "$AI_DIR/plans" ] || return 0
+
+    while IFS= read -r -d '' plan_file; do
+        status_line="$(grep -im1 '^Status:[[:space:]]*' "$plan_file" || true)"
+        if ! status_is_completed "$status_line"; then
+            continue
+        fi
+
+        mkdir -p "$PLAN_ARCHIVE_DIR"
+        base_name="$(basename "$plan_file")"
+        target_path="$PLAN_ARCHIVE_DIR/$base_name"
+
+        while [ -e "$target_path" ]; do
+            target_path="$PLAN_ARCHIVE_DIR/${base_name%.md}-$TIMESTAMP-$suffix.md"
+            suffix=$((suffix + 1))
+        done
+
+        mv "$plan_file" "$target_path"
+        archived_names+=("$(basename "$target_path")")
+        archived_count=$((archived_count + 1))
+        suffix=1
+    done < <(find "$AI_DIR/plans" -type f -name "*.md" -print0)
+
+    if [ "$archived_count" -gt 0 ]; then
+        echo -e "🧹 Archived completed plans: ${GREEN}$archived_count${NC}"
+        for base_name in "${archived_names[@]}"; do
+            echo -e "   - ${GREEN}context/archive/plans/$base_name${NC}"
+        done
+    else
+        echo -e "ℹ️  No completed plans found in .ai/plans."
+    fi
+}
 
 echo -e "${BLUE}🛡️  Saving AI Shadow Vault Context...${NC}"
 
@@ -58,6 +111,8 @@ if [ -f "$AI_DIR/session.md" ]; then
 else
     echo -e "ℹ️  Session skipped (no file to archive)."
 fi
+
+archive_completed_plans
 
 # 2. Update Knowledge Index (INDEX.md)
 echo -e "🗂️  Updating Document Index..."

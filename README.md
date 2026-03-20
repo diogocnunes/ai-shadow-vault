@@ -125,7 +125,7 @@ Core:
 | `vault-init` | Bootstraps vault files, local `.ai/` workspace, symlinks, and base context/configuration. Supports optional managed sections such as `--use-gemini` / `--no-use-gemini`. | First-time project setup or when re-initializing vault-managed files. |
 | `vault-update` | Updates AI Shadow Vault package, then refreshes current project via `vault-init --non-interactive`, `vault-ai-context`, and extension hooks. | Pulling latest tool updates and refreshing project context. |
 | `vault-ai-context` | Regenerates `.ai/context/agent-context.md` with session, plans, extensions, docs, and rules summary. | Before handing work to agents or after relevant context changes. |
-| `vault-ai-save` | Archives current `.ai/session.md`, rebuilds `.ai/docs/INDEX.md`, and shows vault stats. | End of session or checkpointing context. |
+| `vault-ai-save` | Archives current `.ai/session.md`, moves completed plans from `.ai/plans` to `.ai/context/archive/plans`, rebuilds `.ai/docs/INDEX.md`, and shows vault stats. | End of session or checkpointing context. |
 | `vault-ai-resume` | Shows latest archived session recap plus active plans and available docs. | Start of a new session to recover project state quickly. |
 | `vault-ai-stats` | Prints vault storage stats (docs/cache/plans counts and estimated token savings). | Quick health/size check of local AI workspace. |
 | `vault-check` | Runs health checks against vault-linked instruction/context files. | Verifying vault links and required files are present. |
