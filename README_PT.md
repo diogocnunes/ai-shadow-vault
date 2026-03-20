@@ -125,7 +125,7 @@ Core:
 | `vault-init` | Faz bootstrap dos ficheiros do vault, workspace local `.ai/`, symlinks e contexto/configuração base. Suporta secções geridas opcionais como `--use-gemini` / `--no-use-gemini`. | Setup inicial do projeto ou reinicialização de ficheiros geridos pelo vault. |
 | `vault-update` | Atualiza o pacote AI Shadow Vault e refresca o projeto atual com `vault-init --non-interactive`, `vault-ai-context` e hooks de extensões. | Aplicar updates da ferramenta e regenerar o estado core do projeto. |
 | `vault-ai-context` | Regenera `.ai/context/agent-context.md` com resumo de sessão, planos, extensões, docs e regras. | Antes de passar trabalho para agentes ou após mudanças relevantes no contexto. |
-| `vault-ai-save` | Arquiva `.ai/session.md`, atualiza `.ai/docs/INDEX.md` e mostra estatísticas do vault. | Encerrar sessão ou criar checkpoint de contexto. |
+| `vault-ai-save` | Arquiva `.ai/session.md`, move planos concluídos de `.ai/plans` para `.ai/context/archive/plans`, atualiza `.ai/docs/INDEX.md` e mostra estatísticas do vault. | Encerrar sessão ou criar checkpoint de contexto. |
 | `vault-ai-resume` | Mostra recap da última sessão arquivada + planos ativos e docs disponíveis. | Início de sessão para retomar rapidamente o estado do projeto. |
 | `vault-ai-stats` | Exibe estatísticas da workspace `.ai/` (docs/cache/planos e estimativa de tokens poupados). | Verificação rápida de saúde/tamanho do contexto local. |
 | `vault-check` | Executa health checks dos ficheiros de contexto/instruções ligados ao vault. | Validar links e presença dos ficheiros esperados do Shadow Vault. |
