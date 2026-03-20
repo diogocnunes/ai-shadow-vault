@@ -21,6 +21,23 @@ SKILLS_LEGACY_MANAGED_END="<!-- AI Shadow Vault: managed skills end -->"
 
 PROJECT_ROOT="$(skills_project_root "$PWD")"
 vault_extension_notice_if_disabled "$PROJECT_ROOT" "skills" "vault-skills" || true
+USE_GEMINI_CONTEXT_MODE_RAW="${AI_SHADOW_USE_GEMINI_CONTEXT:-preserve}"
+USE_GEMINI_CONTEXT_MODE="preserve"
+GEMINI_CLI_CHECKED=0
+GEMINI_CLI_AVAILABLE=0
+GEMINI_CLI_WARNED=0
+
+case "${USE_GEMINI_CONTEXT_MODE_RAW,,}" in
+    1|true|yes|on|enable|enabled)
+        USE_GEMINI_CONTEXT_MODE="enable"
+        ;;
+    0|false|no|off|disable|disabled)
+        USE_GEMINI_CONTEXT_MODE="disable"
+        ;;
+    *)
+        USE_GEMINI_CONTEXT_MODE="preserve"
+        ;;
+esac
 
 docs_first_section_content() {
     cat <<'EOF_DOCS_FIRST'
@@ -34,6 +51,93 @@ Before implementing changes, inspect project-local documentation first:
 If external library/API details are required and Context7 MCP is available in this environment, use Context7 before making assumptions.
 Do not invent APIs, method signatures, configuration keys, or undocumented behavior.
 EOF_DOCS_FIRST
+}
+
+gemini_cli_available() {
+    if [ "$GEMINI_CLI_CHECKED" -eq 1 ]; then
+        [ "$GEMINI_CLI_AVAILABLE" -eq 1 ]
+        return
+    fi
+
+    if command -v gemini >/dev/null 2>&1; then
+        GEMINI_CLI_AVAILABLE=1
+    else
+        GEMINI_CLI_AVAILABLE=0
+    fi
+
+    GEMINI_CLI_CHECKED=1
+    [ "$GEMINI_CLI_AVAILABLE" -eq 1 ]
+}
+
+warn_missing_gemini_cli_once() {
+    if [ "$GEMINI_CLI_WARNED" -eq 1 ]; then
+        return
+    fi
+
+    echo -e "${YELLOW}Gemini section requested, but \`gemini\` CLI was not found in PATH. Skipping section update.${NC}"
+    GEMINI_CLI_WARNED=1
+}
+
+gemini_large_context_section_content() {
+    cat <<'EOF_GEMINI'
+Use Gemini CLI for large codebase analysis when regular context is insufficient.
+
+When to use it:
+1. Whole-directory or multi-directory analysis.
+2. Cross-file pattern audits (security, auth, error handling, caching, tests).
+3. Workloads likely to exceed normal context windows (for example, more than ~100KB total).
+
+Command patterns (validate your local Gemini CLI flags first via `gemini --help`):
+- Single file: `gemini -p "@src/main.py Explain this file's purpose and structure"`
+- Multiple files: `gemini -p "@package.json @src/index.js Analyze dependencies used"`
+- Directory: `gemini -p "@src/ Summarize architecture and key modules"`
+- Whole project (if supported by your installed version): `gemini --all_files -p "Analyze project structure and dependencies"`
+
+Safety and verification:
+- Prefer targeted `@path` scopes over full-repo scans.
+- Ask Gemini to return concrete file paths/functions.
+- Verify findings locally with RTK (`rtk grep`, `rtk read`) before acting.
+- Do not assume undocumented Gemini flags, APIs, or behavior.
+EOF_GEMINI
+}
+
+apply_gemini_large_context_section() {
+    local destination="$1"
+    local preserve_from_previous="${2:-0}"
+    local should_keep_in_preserve=0
+    local gemini_content
+
+    case "$USE_GEMINI_CONTEXT_MODE" in
+        enable)
+            if gemini_cli_available; then
+                gemini_content="$(gemini_large_context_section_content)"
+                if vault_mm_has_section "$destination" "gemini-large-context"; then
+                    vault_mm_upsert_section "$destination" "gemini-large-context" "$gemini_content"
+                else
+                    vault_mm_append_section_once "$destination" "gemini-large-context" "$gemini_content"
+                fi
+            else
+                warn_missing_gemini_cli_once
+            fi
+            ;;
+        disable)
+            vault_mm_remove_section "$destination" "gemini-large-context"
+            ;;
+        preserve)
+            if [ "$preserve_from_previous" -eq 1 ] || vault_mm_has_section "$destination" "gemini-large-context"; then
+                should_keep_in_preserve=1
+            fi
+
+            if [ "$should_keep_in_preserve" -eq 1 ]; then
+                gemini_content="$(gemini_large_context_section_content)"
+                if vault_mm_has_section "$destination" "gemini-large-context"; then
+                    vault_mm_upsert_section "$destination" "gemini-large-context" "$gemini_content"
+                else
+                    vault_mm_append_section_once "$destination" "gemini-large-context" "$gemini_content"
+                fi
+            fi
+            ;;
+    esac
 }
 
 rtk_is_available() {
@@ -356,6 +460,7 @@ render_base_template() {
 upsert_standard_sections_if_supported() {
     local target="$1"
     local destination="$2"
+    local preserve_gemini_from_previous="${3:-0}"
     local docs_content rtk_content
 
     case "$target" in
@@ -385,6 +490,8 @@ upsert_standard_sections_if_supported() {
     else
         vault_mm_remove_section "$destination" "rtk"
     fi
+
+    apply_gemini_large_context_section "$destination" "$preserve_gemini_from_previous"
 }
 
 sanitize_existing_file() {
@@ -448,6 +555,11 @@ write_target_file() {
     local destination="$2"
     local bundle_path="$3"
     local base_content
+    local preserve_gemini_from_previous=0
+
+    if vault_mm_has_section "$destination" "gemini-large-context"; then
+        preserve_gemini_from_previous=1
+    fi
 
     mkdir -p "$(dirname "$destination")"
     base_content="$(render_base_template "$target")"
@@ -458,7 +570,7 @@ write_target_file() {
         managed_skills_block "$bundle_path"
     } > "$destination"
 
-    upsert_standard_sections_if_supported "$target" "$destination"
+    upsert_standard_sections_if_supported "$target" "$destination" "$preserve_gemini_from_previous"
 }
 
 install_skill_gemini() {
