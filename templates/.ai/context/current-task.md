@@ -19,6 +19,9 @@ mode: execute
 - <measurable outcome 1>
 - <measurable outcome 2>
 
+## Validation Instructions
+- <how this task should be validated>
+
 ## Private Deliverables (Optional)
 - none
 

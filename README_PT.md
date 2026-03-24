@@ -184,7 +184,9 @@ O `vault-update` refresca o estado com:
 - `vault-context`
   - `refresh`, `trim`
 - `vault-task`
-  - `new` (wizard interativo), `quick` (rápido), `show`, `mode`, `done`, `clear`, `archive`
+  - `new` (wizard interativo), `quick` (rápido), `compile` (compila pedido natural para tarefa estruturada), `show`, `mode`, `done`, `clear`, `archive`
+  - `compile` suporta pedidos em PT/EN (texto livre ou semi-estruturado), faz preview por default e só escreve com `--apply`
+  - `compile` preserva referências explícitas como `@app/...`, `@lang/...` e URLs no contexto compilado
 - `vault-ai-context`
 - `vault-ai-save`
 - `vault-ai-resume`
@@ -237,6 +239,10 @@ vault-task done
 
 # Variante para automação
 vault-task quick "Implementar login OAuth" --mode plan
+
+# Compilar pedido natural (PT/EN) para task estruturada
+vault-task compile --input "Dado que ... Para testar, aceder via Playwright ..."
+vault-task compile --file pedido.md --apply
 ```
 
 No `vault-task new`, o assistente pergunta e já inclui texto de ajuda:
@@ -245,6 +251,7 @@ No `vault-task new`, o assistente pergunta e já inclui texto de ajuda:
 - `Context` (com ajuda sobre factos/estado/dependências)
 - `Constraints` (com ajuda sobre limites e regras)
 - `Success Criteria` (com ajuda de Definition of Done)
+- `Validation Instructions` (como validar conclusão, com comandos/browser/tooling)
 - `Private Deliverables (Optional)` (artefatos internos)
 
 Após criar a tarefa (`new` e `quick`), executa automaticamente:
@@ -268,6 +275,9 @@ Help: Hard requirements, scope limits, non-goals, and rules that must not be vio
 (finish with an empty line)
 Success Criteria (one item per line):
 Help: Definition of Done: measurable outcomes that prove completion.
+(finish with an empty line)
+Validation Instructions (one item per line):
+Help: How to verify task completion (commands, browser/tooling steps, and expected checks).
 (finish with an empty line)
 Private Deliverables (Optional):
 Help: Internal-only artifacts/paths/checklists (not shown to end users).
