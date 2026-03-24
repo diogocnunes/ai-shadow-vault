@@ -40,3 +40,10 @@ Project context is evaluated before agent context so stable facts frame session 
 - Optional tools must never appear as hard requirements.
 - Fallback behavior must be defined inline where a tool is mentioned.
 - Removing a tool must not break vault operation.
+
+## 6) Capability Usage (When Available)
+- Read `.ai/context/capabilities.json` before selecting tooling.
+- If `rtk.available` is `1`, use RTK wrappers by default whenever an equivalent exists.
+- If `gemini_cli.available` is `1`, use Gemini CLI for large-context or cross-file analysis.
+- If `context7.available` is `1`, use Context7/MCP for external library or API facts before making assumptions.
+- If any capability is unavailable, continue with native/local fallback and do not block execution.
