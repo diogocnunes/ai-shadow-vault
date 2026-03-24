@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# AI Shadow Vault - Session Resumer
-# Displays context from the last session and available resources.
+# AI Shadow Vault - Context Resumer
+# Displays current working context from canonical vault files.
 
-# Colors
+set -euo pipefail
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Find project root with .ai directory
 CURRENT_DIR="$PWD"
 while [[ "$CURRENT_DIR" != "/" && ! -d "$CURRENT_DIR/.ai" ]]; do
     CURRENT_DIR=$(dirname "$CURRENT_DIR")
@@ -22,44 +22,40 @@ if [[ "$CURRENT_DIR" == "/" || ! -d "$AI_DIR" ]]; then
     exit 1
 fi
 
+ARCHIVE_DIR="$AI_DIR/archive"
+LEGACY_ARCHIVE_DIR="$AI_DIR/context/archive"
+
 echo -e "${BLUE}🔄 Resuming AI Shadow Vault Context${NC}"
 echo "------------------------------------------"
 
-# 1. Show Last Archived Session
-LAST_SESSION=$(ls -t "$AI_DIR/context/archive" | head -n 1)
-if [ -n "$LAST_SESSION" ]; then
-    echo -e "${BLUE}📝 Last Session:${NC} $LAST_SESSION"
-    echo -e "${YELLOW}Context Recap:${NC}"
-    # Show the first 10 lines of the last session, skipping the title
-    grep -v "^# " "$AI_DIR/context/archive/$LAST_SESSION" | grep -v "^Date: " | head -n 10 | sed 's/^/  /'
-    echo "  ..."
-else
-    echo -e "ℹ️  No archived sessions found."
+if [[ -f "$AI_DIR/context/current-task.md" ]]; then
+    echo -e "${BLUE}🎯 Current Task:${NC}"
+    awk '
+        /^## Goal$/ { capture=1; next }
+        capture && /^## / { exit }
+        capture && NF { print "  - " $0; exit }
+    ' "$AI_DIR/context/current-task.md" || true
 fi
 
 echo ""
 
-# 2. List Active Plans
-echo -e "${BLUE}🎯 Active Plans:${NC}"
-PLANS=$(find "$AI_DIR/plans" -type f -name "*.md" | wc -l | xargs)
-if [ "$PLANS" -gt 0 ]; then
-    find "$AI_DIR/plans" -type f -name "*.md" -exec basename {} \; | sed 's/^/  ✅ /'
+echo -e "${BLUE}📝 Working State:${NC}"
+if [[ -f "$AI_DIR/context/agent-context.md" ]]; then
+    grep -E '^- (Current focus|Active plan refs|Open blockers/risks|Active branch):' "$AI_DIR/context/agent-context.md" | sed 's/^- /  - /' || true
 else
-    echo -e "  ${YELLOW}No active plans found.${NC}"
+    echo "  - No agent-context file found."
 fi
 
 echo ""
 
-# 3. List Key Documents
-echo -e "${BLUE}📚 Available Documents:${NC}"
-if [ -f "$AI_DIR/docs/INDEX.md" ]; then
-    grep "^- " "$AI_DIR/docs/INDEX.md" | head -n 5 | sed 's/^- /  📄 /'
-    DOC_TOTAL=$(grep "^- " "$AI_DIR/docs/INDEX.md" | wc -l | xargs)
-    [ "$DOC_TOTAL" -gt 5 ] && echo "  ... ($DOC_TOTAL total)"
+echo -e "${BLUE}📦 Recent Archive:${NC}"
+if [[ -d "$ARCHIVE_DIR" ]]; then
+    find "$ARCHIVE_DIR" -type f | sort | tail -n 5 | sed "s|$AI_DIR/|  - |" || true
+elif [[ -d "$LEGACY_ARCHIVE_DIR" ]]; then
+    find "$LEGACY_ARCHIVE_DIR" -type f | sort | tail -n 5 | sed "s|$AI_DIR/|  - |" || true
 else
-    find "$AI_DIR/docs" -type f -name "*.md" -maxdepth 1 | head -n 5 | xargs -n 1 basename | sed 's/^/  📄 /'
+    echo "  - No archive entries found."
 fi
 
 echo "------------------------------------------"
-echo -e "💡 ${YELLOW}AI Tip:${NC} If the AI can't read symlinks (GEMINI.md), tell it to use 'cat'."
-echo -e "🚀 Run ${GREEN}vault-ai-save${NC} when you finish your next task!"
+echo -e "💡 ${YELLOW}Tip:${NC} Use ${GREEN}vault-ai-context${NC} to refresh working-state context."

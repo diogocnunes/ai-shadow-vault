@@ -5,30 +5,46 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../scripts/lib/vault-resolver.sh"
 source "$SCRIPT_DIR/../scripts/lib/extensions-resolver.sh"
-source "$SCRIPT_DIR/../scripts/lib/managed-markdown.sh"
 
-NON_INTERACTIVE=0
-FORCE_CONFIG=0
+# Defaults: safe, minimal, non-invasive.
+NON_INTERACTIVE=1
 FORCE_HERD=0
-FULL_CONFIG_RAN=0
-CONFIGURATION_GENERATED=0
-ENABLE_WORKFLOW_ORCHESTRATION="${AI_SHADOW_ENABLE_WORKFLOW_ORCHESTRATION:-0}"
+FORCE_CONFIG=0
+OPTIMIZE_MODE=0
+INTERACTIVE_MODE=0
+ASSUME_YES=0
+DRY_RUN=0
+
+# Compatibility flags
 USE_GEMINI_CONTEXT_MODE="preserve"
-GEMINI_CLI_CHECKED=0
-GEMINI_CLI_AVAILABLE=0
-GEMINI_CLI_WARNED=0
+ENABLE_WORKFLOW_ORCHESTRATION="${AI_SHADOW_ENABLE_WORKFLOW_ORCHESTRATION:-0}"
 
 while [[ "$#" -gt 0 ]]; do
     case "${1:-}" in
         --non-interactive)
             NON_INTERACTIVE=1
             ;;
+        --interactive)
+            INTERACTIVE_MODE=1
+            NON_INTERACTIVE=0
+            ;;
+        --yes)
+            ASSUME_YES=1
+            ;;
+        --optimize)
+            OPTIMIZE_MODE=1
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            ;;
         --force-config)
             FORCE_CONFIG=1
+            OPTIMIZE_MODE=1
+            INTERACTIVE_MODE=1
+            NON_INTERACTIVE=0
             ;;
         --herd)
             FORCE_HERD=1
-            NON_INTERACTIVE=1
             ;;
         --enable-workflow)
             ENABLE_WORKFLOW_ORCHESTRATION=1
@@ -50,483 +66,550 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-# Build configurator flags once, used in all calls below
-if [[ "$FORCE_HERD" -eq 1 ]]; then
-    CONFIGURATOR_FLAGS="--herd"
-elif [[ "$NON_INTERACTIVE" -eq 1 ]]; then
-    CONFIGURATOR_FLAGS="--non-interactive"
-else
-    CONFIGURATOR_FLAGS=""
+if [[ "$FORCE_CONFIG" -eq 1 ]]; then
+    echo "ℹ️  --force-config is deprecated. Using: vault-init --optimize --interactive"
 fi
 
-DATA_ROOT="$(vault_ensure_data_root)"
+if [[ "$USE_GEMINI_CONTEXT_MODE" != "preserve" ]]; then
+    echo "ℹ️  --use-gemini/--no-use-gemini are compatibility flags only. Optional tool behavior is controlled by .ai/rules.md."
+fi
+
+if [[ "$ENABLE_WORKFLOW_ORCHESTRATION" != "0" ]]; then
+    echo "ℹ️  workflow orchestration section injection is deprecated in adapter files."
+fi
+
+if [[ "$DRY_RUN" -eq 1 && "$OPTIMIZE_MODE" -eq 0 ]]; then
+    echo "ℹ️  --dry-run is only meaningful with --optimize. Continuing with safe default init."
+fi
+
+CONFIGURATOR_FLAGS=()
+if [[ "$FORCE_HERD" -eq 1 ]]; then
+    CONFIGURATOR_FLAGS+=(--herd)
+fi
+if [[ "$NON_INTERACTIVE" -eq 1 ]]; then
+    CONFIGURATOR_FLAGS+=(--non-interactive)
+fi
+
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
 PROJECT_SLUG="$(vault_resolve_project_slug "$PROJECT_ROOT")"
 PROJECT_VAULT="$(vault_resolve_project_vault "$PROJECT_ROOT")"
-AI_VAULT="$PROJECT_VAULT/.ai"
 TEMPLATES_DIR="$SCRIPT_DIR/../templates"
 
-copy_if_missing() {
+MANAGED_MARKER="<!-- AI-SHADOW-VAULT: MANAGED FILE -->"
+OPTIMIZE_PLAN_FILES=()
+OPTIMIZE_PLAN_SKILLS_AUTO=()
+OPTIMIZE_PLAN_SKILLS_SUGGEST=()
+OPTIMIZE_PLAN_CONTEXT=()
+OPTIMIZE_PLAN_MISC=()
+OPTIMIZE_APPLIED=0
+
+file_is_managed() {
+    local path="$1"
+    [[ -f "$path" ]] || return 1
+    grep -q '^<!-- AI-SHADOW-VAULT: MANAGED FILE -->' "$path"
+}
+
+copy_managed_template() {
     local source_path="$1"
     local destination_path="$2"
+    local force_overwrite="${3:-0}"
 
-    if [ ! -e "$destination_path" ]; then
+    mkdir -p "$(dirname "$destination_path")"
+
+    if [[ ! -e "$destination_path" ]]; then
         cp "$source_path" "$destination_path"
-    fi
-}
-
-rtk_is_available() {
-    local version
-    version="$(rtk --version 2>/dev/null || true)"
-    [[ "$version" == rtk\ * ]]
-}
-
-gemini_cli_available() {
-    if [ "$GEMINI_CLI_CHECKED" -eq 1 ]; then
-        [ "$GEMINI_CLI_AVAILABLE" -eq 1 ]
         return
     fi
 
-    if command -v gemini >/dev/null 2>&1; then
-        GEMINI_CLI_AVAILABLE=1
+    if [[ "$force_overwrite" -eq 1 ]] || file_is_managed "$destination_path"; then
+        cp "$source_path" "$destination_path"
+        return
+    fi
+
+    echo "⚠️  Preserving user-authored file: $destination_path"
+}
+
+ensure_link() {
+    local source="$1"
+    local target="$2"
+    ln -sf "$source" "$target"
+}
+
+migrate_archive_layout() {
+    local local_ai="$1"
+    local legacy_archive="$local_ai/context/archive"
+    local modern_archive="$local_ai/archive"
+
+    mkdir -p "$modern_archive"
+
+    if [[ -d "$legacy_archive" ]]; then
+        while IFS= read -r -d '' legacy_file; do
+            rel_path="${legacy_file#$legacy_archive/}"
+            target_path="$modern_archive/$rel_path"
+            mkdir -p "$(dirname "$target_path")"
+            [[ -e "$target_path" ]] || mv "$legacy_file" "$target_path"
+        done < <(find "$legacy_archive" -type f -print0)
+    fi
+}
+
+write_capabilities_file() {
+    local project_root="$1"
+    local cap_file="$project_root/.ai/context/capabilities.json"
+
+    mkdir -p "$(dirname "$cap_file")"
+
+    local has_rtk=0
+    local has_gemini=0
+    local has_context7=0
+
+    command -v rtk >/dev/null 2>&1 && has_rtk=1
+    command -v gemini >/dev/null 2>&1 && has_gemini=1
+    command -v context7 >/dev/null 2>&1 && has_context7=1
+
+    cat > "$cap_file" <<EOF_CAP
+{
+  "generated_by": "vault-init",
+  "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "capabilities": {
+    "rtk": { "available": $has_rtk, "required": false },
+    "gemini_cli": { "available": $has_gemini, "required": false },
+    "context7": { "available": $has_context7, "required": false }
+  },
+  "fallback_policy": "Missing optional tools must not block vault operation."
+}
+EOF_CAP
+}
+
+install_optional_new_task_commands() {
+    local project_root="$1"
+    local source_prompt="$project_root/.ai/prompts/new-task.md"
+
+    [[ -f "$source_prompt" ]] || return 0
+
+    mkdir -p "$project_root/.claude/commands"
+    copy_managed_template "$source_prompt" "$project_root/.claude/commands/new-task.md" 1
+
+    local target_dir
+    for target_dir in \
+        "$project_root/.gemini/commands" \
+        "$project_root/.codex/commands" \
+        "$project_root/.opencode/commands"; do
+        if [[ -d "$(dirname "$target_dir")" ]]; then
+            mkdir -p "$target_dir"
+            copy_managed_template "$source_prompt" "$target_dir/new-task.md" 1
+        fi
+    done
+}
+
+initialize_vault_adapters() {
+    mkdir -p "$PROJECT_VAULT"
+
+    copy_managed_template "$TEMPLATES_DIR/AGENTS.md" "$PROJECT_VAULT/AGENTS.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/GEMINI.md" "$PROJECT_VAULT/GEMINI.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.cursorrules" "$PROJECT_VAULT/.cursorrules" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.windsurfrules" "$PROJECT_VAULT/.windsurfrules" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/copilot-instructions.md" "$PROJECT_VAULT/copilot-instructions.md" "$FORCE_CONFIG"
+
+    [[ -f "$PROJECT_VAULT/cody-context.json" ]] || cp "$TEMPLATES_DIR/cody-context.json" "$PROJECT_VAULT/cody-context.json"
+    [[ -f "$PROJECT_VAULT/cody-ignore" ]] || cp "$TEMPLATES_DIR/cody-ignore" "$PROJECT_VAULT/cody-ignore"
+
+    ensure_link "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
+    ensure_link "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
+    ensure_link "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
+    ensure_link "$PROJECT_VAULT/.cursorrules" "$PROJECT_ROOT/.cursorrules"
+    ensure_link "$PROJECT_VAULT/.windsurfrules" "$PROJECT_ROOT/.windsurfrules"
+
+    echo "✅ Vault adapters initialized at: $PROJECT_VAULT"
+}
+
+run_configurator() {
+    if [[ ! -x "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]]; then
+        copy_managed_template "$TEMPLATES_DIR/.ai/rules.md" "$PROJECT_ROOT/.ai/rules.md" 1
+        copy_managed_template "$TEMPLATES_DIR/.ai/context/project-context.md" "$PROJECT_ROOT/.ai/context/project-context.md" 1
+        return
+    fi
+
+    (
+        cd "$PROJECT_ROOT"
+        if [[ -n "${CONFIGURATOR_FLAGS[*]-}" ]]; then
+            bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" "${CONFIGURATOR_FLAGS[@]}"
+        else
+            bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh"
+        fi
+    )
+}
+
+prompt_yes_no() {
+    local prompt="$1"
+    local default_yes="$2"
+    local answer=""
+
+    if [[ "$ASSUME_YES" -eq 1 || "$NON_INTERACTIVE" -eq 1 ]]; then
+        [[ "$default_yes" -eq 1 ]] && return 0 || return 1
+    fi
+
+    if [[ "$default_yes" -eq 1 ]]; then
+        read -r -p "$prompt [Y/n]: " answer
+        [[ -z "$answer" || "$answer" =~ ^([yY][eE][sS]|[yY])$ ]]
     else
-        GEMINI_CLI_AVAILABLE=0
+        read -r -p "$prompt [y/N]: " answer
+        [[ "$answer" =~ ^([yY][eE][sS]|[yY])$ ]]
     fi
-
-    GEMINI_CLI_CHECKED=1
-    [ "$GEMINI_CLI_AVAILABLE" -eq 1 ]
 }
 
-warn_missing_gemini_cli_once() {
-    if [ "$GEMINI_CLI_WARNED" -eq 1 ]; then
-        return
-    fi
+opt_plan_add_unique() {
+    local array_name="$1"
+    local item="$2"
+    local existing
 
-    echo "⚠️  Gemini section requested, but \`gemini\` CLI was not found in PATH. Skipping section update."
-    GEMINI_CLI_WARNED=1
-}
-
-docs_first_section_content() {
-    cat <<'EOF_DOCS_FIRST'
-Before implementing changes, inspect project-local documentation first:
-
-1. Relevant root markdown files (`*.md` at project root).
-2. `.ai/` context (`.ai/rules.md`, `.ai/plans/`, `.ai/docs/`, `.ai/context/`).
-3. Any local documentation folders used by this repository.
-4. Existing plans, conventions, and architecture notes already present in the repo.
-
-If external library/API details are required and Context7 MCP is available in this environment, use Context7 before making assumptions.
-Do not invent APIs, method signatures, configuration keys, or undocumented behavior.
-EOF_DOCS_FIRST
-}
-
-workflow_orchestration_section_content() {
-    cat <<'EOF_WORKFLOW'
-Workflow orchestration (optional preset):
-
-1. Default to planning mode for non-trivial tasks.
-2. Re-plan immediately when assumptions break.
-3. Verify outcomes before marking work done (tests/logs/diffs as applicable).
-4. Prefer elegant fixes when complexity is justified; avoid over-engineering simple tasks.
-5. Keep task execution autonomous, but grounded in repository evidence.
-EOF_WORKFLOW
-}
-
-gemini_large_context_section_content() {
-    cat <<'EOF_GEMINI'
-Use Gemini CLI for large codebase analysis when regular context is insufficient.
-
-When to use it:
-1. Whole-directory or multi-directory analysis.
-2. Cross-file pattern audits (security, auth, error handling, caching, tests).
-3. Workloads likely to exceed normal context windows (for example, more than ~100KB total).
-
-Command patterns (validate your local Gemini CLI flags first via `gemini --help`):
-- Single file: `gemini -p "@src/main.py Explain this file's purpose and structure"`
-- Multiple files: `gemini -p "@package.json @src/index.js Analyze dependencies used"`
-- Directory: `gemini -p "@src/ Summarize architecture and key modules"`
-- Whole project (if supported by your installed version): `gemini --all_files -p "Analyze project structure and dependencies"`
-
-Safety and verification:
-- Prefer targeted `@path` scopes over full-repo scans.
-- Ask Gemini to return concrete file paths/functions.
-- Verify findings locally with RTK (`rtk grep`, `rtk read`) before acting.
-- Do not assume undocumented Gemini flags, APIs, or behavior.
-EOF_GEMINI
-}
-
-apply_gemini_large_context_section() {
-    local target_path="$1"
-    local allow_create_sections="$2"
-    local gemini_content
-
-    case "$USE_GEMINI_CONTEXT_MODE" in
-        enable)
-            if gemini_cli_available; then
-                gemini_content="$(gemini_large_context_section_content)"
-                if vault_mm_has_section "$target_path" "gemini-large-context"; then
-                    vault_mm_upsert_section "$target_path" "gemini-large-context" "$gemini_content"
-                elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
-                    vault_mm_append_section_once "$target_path" "gemini-large-context" "$gemini_content"
-                fi
-            else
-                warn_missing_gemini_cli_once
-            fi
+    case "$array_name" in
+        OPTIMIZE_PLAN_FILES)
+            for existing in "${OPTIMIZE_PLAN_FILES[@]:-}"; do
+                [[ "$existing" == "$item" ]] && return 0
+            done
+            OPTIMIZE_PLAN_FILES+=("$item")
             ;;
-        disable)
-            if vault_mm_has_section "$target_path" "gemini-large-context"; then
-                vault_mm_remove_section "$target_path" "gemini-large-context"
-            fi
+        OPTIMIZE_PLAN_SKILLS_AUTO)
+            for existing in "${OPTIMIZE_PLAN_SKILLS_AUTO[@]:-}"; do
+                [[ "$existing" == "$item" ]] && return 0
+            done
+            OPTIMIZE_PLAN_SKILLS_AUTO+=("$item")
             ;;
-        preserve)
-            if vault_mm_has_section "$target_path" "gemini-large-context" && gemini_cli_available; then
-                gemini_content="$(gemini_large_context_section_content)"
-                vault_mm_upsert_section "$target_path" "gemini-large-context" "$gemini_content"
-            fi
+        OPTIMIZE_PLAN_SKILLS_SUGGEST)
+            for existing in "${OPTIMIZE_PLAN_SKILLS_SUGGEST[@]:-}"; do
+                [[ "$existing" == "$item" ]] && return 0
+            done
+            OPTIMIZE_PLAN_SKILLS_SUGGEST+=("$item")
+            ;;
+        OPTIMIZE_PLAN_CONTEXT)
+            for existing in "${OPTIMIZE_PLAN_CONTEXT[@]:-}"; do
+                [[ "$existing" == "$item" ]] && return 0
+            done
+            OPTIMIZE_PLAN_CONTEXT+=("$item")
+            ;;
+        OPTIMIZE_PLAN_MISC)
+            for existing in "${OPTIMIZE_PLAN_MISC[@]:-}"; do
+                [[ "$existing" == "$item" ]] && return 0
+            done
+            OPTIMIZE_PLAN_MISC+=("$item")
             ;;
     esac
 }
 
-rtk_section_content() {
-    cat <<'EOF_RTK'
-RTK is installed in this environment. Use RTK wrappers instead of raw commands whenever an RTK equivalent exists.
+would_rewrite_file() {
+    local destination_path="$1"
+    local force_overwrite="${2:-0}"
 
-Required rewrites:
-- `git ...` -> `rtk git ...`
-- `gh ...` -> `rtk gh ...`
-- `cargo ...` -> `rtk cargo ...`
-- `cat|head|tail <file>` -> `rtk read <file>`
-- `rg|grep <pattern>` -> `rtk grep <pattern>`
-- `ls` -> `rtk ls`
-- `vitest|jest` -> `rtk vitest run`
-- `tsc` -> `rtk tsc`
-- `eslint|biome` -> `rtk lint`
-- `prettier` -> `rtk prettier`
-- `playwright` -> `rtk playwright`
-- `prisma` -> `rtk prisma`
-- `ruff ...` -> `rtk ruff ...`
-- `pytest` -> `rtk pytest`
-- `pip ...` -> `rtk pip ...`
-- `go ...` -> `rtk go ...`
-- `golangci-lint` -> `rtk golangci-lint`
-- `docker ...` -> `rtk docker ...`
-- `kubectl ...` -> `rtk kubectl ...`
-- `curl` -> `rtk curl`
-- `pnpm ...` -> `rtk pnpm ...`
-EOF_RTK
+    if [[ ! -e "$destination_path" ]]; then
+        return 0
+    fi
+
+    if [[ "$force_overwrite" -eq 1 ]]; then
+        return 0
+    fi
+
+    if file_is_managed "$destination_path"; then
+        return 0
+    fi
+
+    return 1
 }
 
-prompt_existing_file_action() {
-    local target_name="$1"
-    local action=""
+collect_optimize_skill_decisions() {
+    OPTIMIZE_PLAN_SKILLS_AUTO=()
+    OPTIMIZE_PLAN_SKILLS_SUGGEST=()
 
-    if [ ! -t 0 ]; then
-        printf 'skip\n'
+    if [[ ! -x "$SCRIPT_DIR/../bin/vault-skills" ]]; then
         return
     fi
 
-    while :; do
-        printf "⚠️  %s already exists. Choose: [o]verwrite / [a]ppend / [s]kip: " "$target_name" >&2
-        read -r action
-        case "$action" in
-            o|O|overwrite|Overwrite)
-                printf 'overwrite\n'
-                return
-                ;;
-            a|A|append|Append)
-                printf 'append\n'
-                return
-                ;;
-            s|S|skip|Skip|"")
-                printf 'skip\n'
-                return
-                ;;
-            *)
-                echo "Please choose one of: o, a, s" >&2
-                ;;
-        esac
+    local line decision skill confidence formatted
+    while IFS= read -r line; do
+        [[ -n "$line" ]] || continue
+        IFS='|' read -r decision skill confidence <<< "$line"
+        [[ -n "$decision" && -n "$skill" && -n "$confidence" ]] || continue
+
+        if [[ "$decision" == "auto" ]]; then
+            formatted="$skill (confidence: $confidence, auto-enabled)"
+            opt_plan_add_unique OPTIMIZE_PLAN_SKILLS_AUTO "$formatted"
+        elif [[ "$decision" == "suggest" ]]; then
+            formatted="$skill (confidence: $confidence, suggested only)"
+            opt_plan_add_unique OPTIMIZE_PLAN_SKILLS_SUGGEST "$formatted"
+        fi
+    done < <(VAULT_SKILLS_NO_WRITE=1 "$SCRIPT_DIR/../bin/vault-skills" suggest --plan 2>/dev/null || true)
+}
+
+collect_optimize_plan() {
+    local local_ai="$PROJECT_ROOT/.ai"
+    local legacy_archive="$local_ai/context/archive"
+    local modern_archive="$local_ai/archive"
+
+    OPTIMIZE_PLAN_FILES=()
+    OPTIMIZE_PLAN_CONTEXT=()
+    OPTIMIZE_PLAN_MISC=()
+    OPTIMIZE_PLAN_SKILLS_AUTO=()
+    OPTIMIZE_PLAN_SKILLS_SUGGEST=()
+
+    local adapter_targets=(
+        "$PROJECT_VAULT/AGENTS.md|$FORCE_CONFIG"
+        "$PROJECT_VAULT/CLAUDE.md|$FORCE_CONFIG"
+        "$PROJECT_VAULT/GEMINI.md|$FORCE_CONFIG"
+        "$PROJECT_VAULT/.cursorrules|$FORCE_CONFIG"
+        "$PROJECT_VAULT/.windsurfrules|$FORCE_CONFIG"
+        "$PROJECT_VAULT/copilot-instructions.md|$FORCE_CONFIG"
+        "$local_ai/session-template.md|$FORCE_CONFIG"
+        "$local_ai/context/current-task.template.md|$FORCE_CONFIG"
+        "$local_ai/context/current-task.md|$FORCE_CONFIG"
+        "$local_ai/context/agent-context.md|$FORCE_CONFIG"
+        "$local_ai/docs/vault-rules.md|$FORCE_CONFIG"
+        "$local_ai/prompts/new-task.md|$FORCE_CONFIG"
+        "$local_ai/rules.md|1"
+        "$local_ai/context/project-context.md|1"
+    )
+
+    local spec destination force_value
+    for spec in "${adapter_targets[@]}"; do
+        IFS='|' read -r destination force_value <<< "$spec"
+        if would_rewrite_file "$destination" "$force_value"; then
+            opt_plan_add_unique OPTIMIZE_PLAN_FILES "$destination"
+        fi
     done
+
+    if [[ -d "$legacy_archive" ]] && find "$legacy_archive" -type f -print -quit | grep -q .; then
+        opt_plan_add_unique OPTIMIZE_PLAN_MISC "Migrate legacy archive files to .ai/archive"
+    fi
+
+    opt_plan_add_unique OPTIMIZE_PLAN_CONTEXT "Refresh .ai/context/agent-context.md"
+    opt_plan_add_unique OPTIMIZE_PLAN_CONTEXT "Run vault-doctor --fix guardrails pass"
+
+    collect_optimize_skill_decisions
 }
 
-append_base_content() {
-    local destination_path="$1"
-    local base_source_path="$2"
-    local append_source="$base_source_path"
+print_optimize_plan() {
+    local files_count="${#OPTIMIZE_PLAN_FILES[@]}"
+    local auto_skills_count="${#OPTIMIZE_PLAN_SKILLS_AUTO[@]}"
+    local suggest_skills_count="${#OPTIMIZE_PLAN_SKILLS_SUGGEST[@]}"
+    local context_count="${#OPTIMIZE_PLAN_CONTEXT[@]}"
+    local misc_count="${#OPTIMIZE_PLAN_MISC[@]}"
+    local item
 
-    vault_mm_trim_file_end "$destination_path"
-
-    if [ "$base_source_path" = "$destination_path" ]; then
-        append_source="$(mktemp)"
-        cp "$base_source_path" "$append_source"
+    echo ""
+    echo "Optimization plan:"
+    echo ""
+    echo "- Rewrite $files_count managed files"
+    if (( files_count > 0 )); then
+        for item in "${OPTIMIZE_PLAN_FILES[@]:0:6}"; do
+            echo "  - $item"
+        done
+        if (( files_count > 6 )); then
+            echo "  - ... and $((files_count - 6)) more"
+        fi
     fi
 
-    {
-        printf '\n\n'
-        cat "$append_source"
-        printf '\n'
-    } >> "$destination_path"
+    echo "- Skills decisions:"
+    if (( auto_skills_count > 0 )); then
+        for item in "${OPTIMIZE_PLAN_SKILLS_AUTO[@]}"; do
+            echo "  - $item"
+        done
+    fi
+    if (( suggest_skills_count > 0 )); then
+        for item in "${OPTIMIZE_PLAN_SKILLS_SUGGEST[@]}"; do
+            echo "  - $item"
+        done
+    fi
+    if (( auto_skills_count == 0 && suggest_skills_count == 0 )); then
+        echo "  - none"
+    fi
+    echo "  - auto threshold: >= 0.80"
+    echo "  - suggested threshold: >= 0.50 and < 0.80"
 
-    if [ "$append_source" != "$base_source_path" ]; then
-        rm -f "$append_source"
+    echo "- Apply $context_count context optimizations"
+    if (( context_count > 0 )); then
+        for item in "${OPTIMIZE_PLAN_CONTEXT[@]}"; do
+            echo "  - $item"
+        done
+    fi
+
+    if (( misc_count > 0 )); then
+        echo "- Apply $misc_count migration actions"
+        for item in "${OPTIMIZE_PLAN_MISC[@]}"; do
+            echo "  - $item"
+        done
     fi
 }
 
-apply_managed_sections() {
-    local target_path="$1"
-    local allow_create_sections="$2"
-    local skip_updates="$3"
-    local docs_content workflow_content rtk_content
-
-    if [ "$skip_updates" -eq 1 ] || [ ! -f "$target_path" ]; then
-        return
+confirm_optimize_plan() {
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+        echo ""
+        echo "Dry-run mode enabled. No changes applied."
+        return 1
     fi
 
-    if [ "$allow_create_sections" -eq 0 ] && ! vault_mm_has_any_section "$target_path"; then
-        return
+    if prompt_yes_no "Apply optimization plan?" 1; then
+        return 0
     fi
 
-    docs_content="$(docs_first_section_content)"
-    if vault_mm_has_section "$target_path" "docs-first"; then
-        vault_mm_upsert_section "$target_path" "docs-first" "$docs_content"
-    elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
-        vault_mm_append_section_once "$target_path" "docs-first" "$docs_content"
-    fi
-
-    if [ "$ENABLE_WORKFLOW_ORCHESTRATION" = "1" ]; then
-        workflow_content="$(workflow_orchestration_section_content)"
-        if vault_mm_has_section "$target_path" "workflow-orchestration"; then
-            vault_mm_upsert_section "$target_path" "workflow-orchestration" "$workflow_content"
-        elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
-            vault_mm_append_section_once "$target_path" "workflow-orchestration" "$workflow_content"
-        fi
-    else
-        if vault_mm_has_section "$target_path" "workflow-orchestration"; then
-            vault_mm_remove_section "$target_path" "workflow-orchestration"
-        fi
-    fi
-
-    if rtk_is_available; then
-        rtk_content="$(rtk_section_content)"
-        if vault_mm_has_section "$target_path" "rtk"; then
-            vault_mm_upsert_section "$target_path" "rtk" "$rtk_content"
-        elif [ "$allow_create_sections" -eq 1 ] || vault_mm_has_any_section "$target_path"; then
-            vault_mm_append_section_once "$target_path" "rtk" "$rtk_content"
-        fi
-    else
-        if vault_mm_has_section "$target_path" "rtk"; then
-            vault_mm_remove_section "$target_path" "rtk"
-        fi
-    fi
-
-    apply_gemini_large_context_section "$target_path" "$allow_create_sections"
+    echo "Optimization canceled by user."
+    return 1
 }
 
-write_instruction_target() {
-    local destination_path="$1"
-    local base_source_path="$2"
-    local prompt_existing="$3"
-    local force_overwrite_existing="${4:-0}"
-    local allow_create_sections=0
-    local skip_updates=0
-    local action=""
-
-    if [ ! -f "$destination_path" ]; then
-        cp "$base_source_path" "$destination_path"
-        allow_create_sections=1
-    elif [ "$force_overwrite_existing" -eq 1 ] && [ "$base_source_path" != "$destination_path" ]; then
-        cp "$base_source_path" "$destination_path"
-        allow_create_sections=1
-    elif [ "$NON_INTERACTIVE" -eq 0 ] && [ "$prompt_existing" -eq 1 ] && ! vault_mm_has_any_section "$destination_path"; then
-        action="$(prompt_existing_file_action "$(basename "$destination_path")")"
-
-        case "$action" in
-            overwrite)
-                if [ "$base_source_path" != "$destination_path" ]; then
-                    cp "$base_source_path" "$destination_path"
-                fi
-                allow_create_sections=1
-                ;;
-            append)
-                append_base_content "$destination_path" "$base_source_path"
-                allow_create_sections=1
-                ;;
-            skip)
-                skip_updates=1
-                ;;
-        esac
-    fi
-
-    apply_managed_sections "$destination_path" "$allow_create_sections" "$skip_updates"
+print_optimize_next_steps() {
+    echo ""
+    echo "Next steps:"
+    echo "- vault-task new"
+    echo "- vault-doctor"
+    echo "- vault-test"
 }
 
 initialize_local_ai_workspace() {
+    local local_ai="$PROJECT_ROOT/.ai"
+
     echo ""
     echo "🛡️  Initializing local .ai workspace..."
-    echo "📁 Creating local .ai directory..."
-    mkdir -p "$PROJECT_ROOT/.ai/plans"
-    mkdir -p "$PROJECT_ROOT/.ai/reviews"
-    mkdir -p "$PROJECT_ROOT/.ai/docs"
-    mkdir -p "$PROJECT_ROOT/.ai/context/archive"
-    mkdir -p "$PROJECT_ROOT/.ai/prompts"
-    mkdir -p "$PROJECT_ROOT/.ai/cache"
-    mkdir -p "$PROJECT_ROOT/.ai/agents"
-    mkdir -p "$PROJECT_ROOT/.ai/extensions"
 
-    echo "📄 Installing base templates..."
-    copy_if_missing "$TEMPLATES_DIR/session-template.md" "$PROJECT_ROOT/.ai/session-template.md"
+    mkdir -p "$local_ai/plans" "$local_ai/reviews" "$local_ai/docs" "$local_ai/context" "$local_ai/prompts" "$local_ai/cache" "$local_ai/agents" "$local_ai/extensions" "$local_ai/skills" "$local_ai/archive"
 
-    if [ "$FULL_CONFIG_RAN" -eq 1 ]; then
-        echo "✅ Rules file already refreshed by the main configurator."
-    elif [ "$FORCE_CONFIG" -eq 0 ] && [ -s "$PROJECT_ROOT/.ai/rules.md" ]; then
-        echo "✅ Rules file already exists. Skipping .ai rules configuration."
-    elif [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
-        (
-            cd "$PROJECT_ROOT"
-            bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" --rules-only $CONFIGURATOR_FLAGS
-        )
+    migrate_archive_layout "$local_ai"
+
+    copy_managed_template "$TEMPLATES_DIR/session-template.md" "$local_ai/session-template.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.ai/context/current-task.md" "$local_ai/context/current-task.template.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.ai/context/current-task.md" "$local_ai/context/current-task.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.ai/context/agent-context.md" "$local_ai/context/agent-context.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.ai/docs/vault-rules.md" "$local_ai/docs/vault-rules.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.ai/prompts/new-task.md" "$local_ai/prompts/new-task.md" "$FORCE_CONFIG"
+
+    if [[ "$FORCE_CONFIG" -eq 1 || ! -f "$local_ai/rules.md" || ! -f "$local_ai/context/project-context.md" || "$OPTIMIZE_MODE" -eq 1 ]]; then
+        run_configurator
     else
-        copy_if_missing "$TEMPLATES_DIR/rules.md" "$PROJECT_ROOT/.ai/rules.md"
+        echo "✅ Existing rules and project-context detected. Skipping configurator."
     fi
 
-    echo "🤖 Installing AI agents..."
+    write_capabilities_file "$PROJECT_ROOT"
+
+    echo "🤖 Installing local helper agents..."
+    local agent_script
     for agent_script in "$TEMPLATES_DIR/agents/"*.sh; do
-        if [ "$(basename "$agent_script")" = "user-stories.sh" ]; then
+        if [[ "$(basename "$agent_script")" == "user-stories.sh" ]]; then
             continue
         fi
-        copy_if_missing "$agent_script" "$PROJECT_ROOT/.ai/agents/$(basename "$agent_script")"
-        chmod +x "$PROJECT_ROOT/.ai/agents/$(basename "$agent_script")"
+        copy_managed_template "$agent_script" "$local_ai/agents/$(basename "$agent_script")" "$FORCE_CONFIG"
+        chmod +x "$local_ai/agents/$(basename "$agent_script")"
     done
 
     ln -sf ".ai/agents/plan-creator.sh" "$PROJECT_ROOT/plan"
-    echo "🔗 Symlink 'plan' created for easy access."
 
-    echo "🤖 Setting up Claude Code integration..."
     mkdir -p "$PROJECT_ROOT/.claude"
-    cp "$TEMPLATES_DIR/CLAUDE_PROJECT_RULES.md" "$PROJECT_ROOT/.claude/project-rules.md"
-    echo "✅ Updated $PROJECT_ROOT/.claude/project-rules.md"
+    copy_managed_template "$TEMPLATES_DIR/CLAUDE_PROJECT_RULES.md" "$PROJECT_ROOT/.claude/project-rules.md" 1
 
-    echo ""
-    echo "✨ Local .ai workspace initialized successfully!"
-    echo "📍 Vault: $AI_VAULT"
-    echo "🔗 Local Link: .ai/"
-    echo "🤖 Claude Rules: .claude/project-rules.md"
-    echo "🧩 Optional workflows: use vault-ext to enable extensions when needed."
+    install_optional_new_task_commands "$PROJECT_ROOT"
+
+    if [[ -x "$SCRIPT_DIR/../scripts/build-active-skills.sh" ]]; then
+        "$SCRIPT_DIR/../scripts/build-active-skills.sh" "$PROJECT_ROOT" >/dev/null || true
+    fi
+
+    if [[ -x "$SCRIPT_DIR/../scripts/vault-ai-context-file.sh" ]]; then
+        "$SCRIPT_DIR/../scripts/vault-ai-context-file.sh" >/dev/null || true
+    fi
+
+    if [[ "$OPTIMIZE_MODE" -eq 1 ]]; then
+        echo ""
+        echo "⚙️  Optimize mode: detect → confirm → refine"
+
+        if [[ -x "$SCRIPT_DIR/../bin/vault-skills" ]]; then
+            "$SCRIPT_DIR/../bin/vault-skills" auto || true
+            "$SCRIPT_DIR/../bin/vault-skills" suggest >/dev/null 2>&1 || true
+        fi
+
+        if [[ -x "$SCRIPT_DIR/../bin/vault-doctor" ]]; then
+            "$SCRIPT_DIR/../bin/vault-doctor" --fix || true
+        fi
+    fi
+
+    echo "✨ Local .ai workspace initialized successfully."
+}
+
+configure_git_safety_net() {
+    if [[ "${AI_SHADOW_SKIP_GIT_SAFETY:-0}" == "1" ]]; then
+        echo "ℹ️  Skipping Git Safety Net update (AI_SHADOW_SKIP_GIT_SAFETY=1)."
+        return
+    fi
+
+    echo "🔒 Configuring Global Git Safety Net..."
+
+    GLOBAL_IGNORE="$HOME/.gitignore_global"
+    touch "$GLOBAL_IGNORE"
+
+    FILES_TO_IGNORE=(
+        "GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md"
+        "boost.json" ".ai" ".ai/" ".ai/context/agent-context.md" ".ai/context/current-task.md"
+        ".ai/context/current-task.template.md" ".ai/archive/" "copilot-instructions.md" ".cursorrules"
+        ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/"
+        ".cursor/" ".gemini/" ".junie/" ".opencode/" "polyscope.json" "plan"
+    )
+
+    local file
+    for file in "${FILES_TO_IGNORE[@]}"; do
+        if ! grep -q "$file" "$GLOBAL_IGNORE"; then
+            echo "**/$file" >> "$GLOBAL_IGNORE"
+        fi
+    done
+
+    git config --global core.excludesfile "$GLOBAL_IGNORE"
+
+    if [[ -d "$PROJECT_ROOT/.git" ]]; then
+        echo "🙈 Updating .git/info/exclude..."
+        GIT_EXCLUDE="$PROJECT_ROOT/.git/info/exclude"
+        touch "$GIT_EXCLUDE"
+
+        for file in "${FILES_TO_IGNORE[@]}"; do
+            if ! grep -q "$file" "$GIT_EXCLUDE"; then
+                echo "$file" >> "$GIT_EXCLUDE"
+            fi
+        done
+    elif [[ -f "$PROJECT_ROOT/.gitignore" ]]; then
+        echo "📝 Updating local .gitignore..."
+        for file in "${FILES_TO_IGNORE[@]}"; do
+            if ! grep -q "$file" "$PROJECT_ROOT/.gitignore"; then
+                echo "$file" >> "$PROJECT_ROOT/.gitignore"
+            fi
+        done
+    fi
+
+    echo "✅ Git Safety Net updated (Global + Local Exclude)."
 }
 
 echo "🛡️  Initializing AI Shadow Vault for: $PROJECT_SLUG"
 echo "📍 Project Root: $PROJECT_ROOT"
 
-# 1. Create Vault structure
-mkdir -p "$PROJECT_VAULT"
-
-write_instruction_target "$PROJECT_VAULT/AGENTS.md" "$SCRIPT_DIR/../templates/AGENTS.md" 1
-write_instruction_target "$PROJECT_VAULT/copilot-instructions.md" "$SCRIPT_DIR/../templates/copilot-instructions.md" 1
-write_instruction_target "$PROJECT_VAULT/.cursorrules" "$SCRIPT_DIR/../templates/.cursorrules" 1
-write_instruction_target "$PROJECT_VAULT/.windsurfrules" "$SCRIPT_DIR/../templates/.windsurfrules" 1
-copy_if_missing "$SCRIPT_DIR/../templates/cody-context.json" "$PROJECT_VAULT/cody-context.json"
-copy_if_missing "$SCRIPT_DIR/../templates/cody-ignore" "$PROJECT_VAULT/cody-ignore"
-
-# 2.1 Dynamic Configuration for rules, Gemini and Claude
-if [ -f "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" ]; then
-    if [ "$FORCE_CONFIG" -eq 1 ] || [ ! -f "$PROJECT_VAULT/GEMINI.md" ] || [ ! -f "$PROJECT_VAULT/CLAUDE.md" ]; then
-        (
-            cd "$PROJECT_ROOT"
-            bash "$SCRIPT_DIR/../scripts/vault-ai-configurator.sh" $CONFIGURATOR_FLAGS
-        )
-
-        GENERATED_GEMINI="$(mktemp)"
-        GENERATED_CLAUDE="$(mktemp)"
-
-        if [ -f "$PROJECT_ROOT/GEMINI.md" ]; then
-            cp "$PROJECT_ROOT/GEMINI.md" "$GENERATED_GEMINI"
-            rm -f "$PROJECT_ROOT/GEMINI.md"
-        else
-            cp "$SCRIPT_DIR/../templates/GEMINI.md" "$GENERATED_GEMINI"
-        fi
-
-        if [ -f "$PROJECT_ROOT/CLAUDE.md" ]; then
-            cp "$PROJECT_ROOT/CLAUDE.md" "$GENERATED_CLAUDE"
-            rm -f "$PROJECT_ROOT/CLAUDE.md"
-        else
-            cp "$SCRIPT_DIR/../templates/CLAUDE.md" "$GENERATED_CLAUDE"
-        fi
-
-        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$GENERATED_GEMINI" 1 "$FORCE_CONFIG"
-        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$GENERATED_CLAUDE" 1 "$FORCE_CONFIG"
-
-        rm -f "$GENERATED_GEMINI" "$GENERATED_CLAUDE"
-        FULL_CONFIG_RAN=1
-        CONFIGURATION_GENERATED=1
-    else
-        echo "✅ Existing Gemini and Claude context found. Skipping configurator."
-        echo "💡 Use --force-config to re-run the interactive project configuration."
-    fi
-
-    if [ "$CONFIGURATION_GENERATED" -eq 0 ] && [ -f "$PROJECT_VAULT/GEMINI.md" ]; then
-        write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$PROJECT_VAULT/GEMINI.md" 1
-    fi
-
-    if [ "$CONFIGURATION_GENERATED" -eq 0 ] && [ -f "$PROJECT_VAULT/CLAUDE.md" ]; then
-        write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_VAULT/CLAUDE.md" 1
-    fi
-
-    # Create symlinks immediately
-    ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
-    ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
-    ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
+if [[ "$OPTIMIZE_MODE" -eq 1 ]]; then
+    echo "Mode: optimize"
 else
-    write_instruction_target "$PROJECT_VAULT/GEMINI.md" "$SCRIPT_DIR/../templates/GEMINI.md" 1
-    write_instruction_target "$PROJECT_VAULT/CLAUDE.md" "$SCRIPT_DIR/../templates/CLAUDE.md" 1
-    ln -sf "$PROJECT_VAULT/GEMINI.md" "$PROJECT_ROOT/GEMINI.md"
-    ln -sf "$PROJECT_VAULT/CLAUDE.md" "$PROJECT_ROOT/CLAUDE.md"
-    ln -sf "$PROJECT_VAULT/AGENTS.md" "$PROJECT_ROOT/AGENTS.md"
+    echo "Mode: safe default"
 fi
 
-echo "✅ Vault directory created at: $PROJECT_VAULT"
+if [[ "$OPTIMIZE_MODE" -eq 1 ]]; then
+    collect_optimize_plan
+    print_optimize_plan
+    if ! confirm_optimize_plan; then
+        exit 0
+    fi
+    OPTIMIZE_APPLIED=1
+fi
 
-# 3. Run optional post-init hooks for extensions already enabled in the project.
-if [ -x "$SCRIPT_DIR/../bin/vault-ext" ]; then
+initialize_vault_adapters
+initialize_local_ai_workspace
+configure_git_safety_net
+
+if [[ -x "$SCRIPT_DIR/../bin/vault-ext" ]]; then
     (
         cd "$PROJECT_ROOT"
         "$SCRIPT_DIR/../bin/vault-ext" run-hook post-init >/dev/null 2>&1 || true
     )
 fi
 
-# 4. Global Git Safety Net
-echo "🔒 Configuring Global Git Safety Net..."
-GLOBAL_IGNORE="$HOME/.gitignore_global"
-touch "$GLOBAL_IGNORE"
+echo "✅ Initialization completed."
 
-# Added GEMINI.md to the ignore list (+ Laravel Boost and Universal AI files)
-FILES_TO_IGNORE=("GEMINI.md" ".opencode-context.md" "AGENTS.md" ".opencode.json" ".mcp.json" "CLAUDE.md" "boost.json" ".ai" ".ai/" ".ai/context/agent-context.md" "copilot-instructions.md" ".cursorrules" ".windsurfrules" "cody-context.json" "cody-ignore" ".github/" ".cody/" ".claude/" ".codex/" ".cursor/" ".gemini/" ".junie/" ".opencode/" "polyscope.json" "plan")
-
-for file in "${FILES_TO_IGNORE[@]}"; do
-    if ! grep -q "$file" "$GLOBAL_IGNORE"; then
-        echo "**/$file" >> "$GLOBAL_IGNORE"
-    fi
-done
-
-git config --global core.excludesfile "$GLOBAL_IGNORE"
-
-# 4.1 Local Git Safety Net (Silent Ignore)
-if [ -d "$PROJECT_ROOT/.git" ]; then
-    echo "🙈 Updating .git/info/exclude..."
-    GIT_EXCLUDE="$PROJECT_ROOT/.git/info/exclude"
-    touch "$GIT_EXCLUDE"
-    for file in "${FILES_TO_IGNORE[@]}"; do
-        if ! grep -q "$file" "$GIT_EXCLUDE"; then
-            echo "$file" >> "$GIT_EXCLUDE"
-        fi
-    done
-elif [ -f "$PROJECT_ROOT/.gitignore" ]; then
-    echo "📝 Updating local .gitignore..."
-    for file in "${FILES_TO_IGNORE[@]}"; do
-        if ! grep -q "$file" "$PROJECT_ROOT/.gitignore"; then
-            echo "$file" >> "$PROJECT_ROOT/.gitignore"
-        fi
-    done
+if [[ "$OPTIMIZE_MODE" -eq 1 && "$OPTIMIZE_APPLIED" -eq 1 ]]; then
+    print_optimize_next_steps
 fi
-
-echo "✅ Git Safety Net updated (Global + Local Exclude)."
-
-initialize_local_ai_workspace

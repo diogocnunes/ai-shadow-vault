@@ -7,3 +7,5 @@ node_modules/
 .ai
 .claude/
 .claude
+!templates/.ai/
+!templates/.ai/**

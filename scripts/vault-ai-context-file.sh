@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # AI Shadow Vault - Agent Context File Generator
-# Generates a promptable context artifact for tools without clipboard integration.
+# Generates a compact working-state context for cross-session continuity.
 
 set -euo pipefail
 
@@ -12,7 +12,6 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
-source "$SCRIPT_DIR/lib/extensions-resolver.sh"
 
 CURRENT_DIR="$PWD"
 while [[ "$CURRENT_DIR" != "/" && ! -d "$CURRENT_DIR/.ai" ]]; do
@@ -30,75 +29,90 @@ CONTEXT_FILE="$AI_DIR/context/agent-context.md"
 PROJECT_ROOT="$CURRENT_DIR"
 PROJECT_KEY="$(vault_resolve_project_key "$PROJECT_ROOT" || true)"
 PROJECT_SLUG="$(vault_resolve_project_slug "$PROJECT_ROOT")"
+ARCHIVE_DIR="$AI_DIR/archive"
+LEGACY_ARCHIVE_DIR="$AI_DIR/context/archive"
+ACTIVE_TASK_FILE="$AI_DIR/context/current-task.md"
 
 mkdir -p "$(dirname "$CONTEXT_FILE")"
+mkdir -p "$ARCHIVE_DIR"
+
+if [[ -d "$LEGACY_ARCHIVE_DIR" ]]; then
+    LAST_ARCHIVE=$(ls -t "$LEGACY_ARCHIVE_DIR" 2>/dev/null | head -n 1 || true)
+else
+    LAST_ARCHIVE=$(ls -t "$ARCHIVE_DIR" 2>/dev/null | head -n 1 || true)
+fi
+
+CURRENT_BRANCH="$(git -C "$PROJECT_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'unknown')"
+
+extract_current_task_field() {
+    local field="$1"
+    local file="$2"
+
+    [[ -f "$file" ]] || return 0
+
+    awk -v field="$field" '
+        $0 == "## " field { capture=1; next }
+        capture && /^## / { exit }
+        capture && NF { print; exit }
+    ' "$file"
+}
+
+TASK_GOAL="$(extract_current_task_field "Goal" "$ACTIVE_TASK_FILE" || true)"
+TASK_CONTEXT="$(extract_current_task_field "Context" "$ACTIVE_TASK_FILE" || true)"
+TASK_MODE="$(grep '^mode:' "$ACTIVE_TASK_FILE" 2>/dev/null | head -n 1 | awk -F': *' '{print $2}' || true)"
+
+if [[ -z "$TASK_GOAL" || "$TASK_GOAL" == "<one clear desired outcome>" || "$TASK_GOAL" == "<clear desired outcome>" ]]; then
+    CURRENT_FOCUS="No active task defined"
+else
+    CURRENT_FOCUS="$TASK_GOAL"
+fi
+
+if [[ -z "$TASK_CONTEXT" || "$TASK_CONTEXT" == "<only facts needed for this task>" || "$TASK_CONTEXT" == "<facts needed to execute safely>" ]]; then
+    BLOCKERS="none"
+else
+    BLOCKERS="See current-task context"
+fi
+
+ACTIVE_PLAN_REFS="none"
+if [[ -d "$AI_DIR/plans" ]]; then
+    PLAN_LIST="$(find "$AI_DIR/plans" -maxdepth 1 -type f -name '*.md' -exec basename {} \; | sort | head -n 3 | paste -sd ', ' - || true)"
+    if [[ -n "$PLAN_LIST" ]]; then
+        ACTIVE_PLAN_REFS="$PLAN_LIST"
+    fi
+fi
+
+SKILL_IDS="none"
+if [[ -f "$AI_DIR/skills/ACTIVE_SKILLS.md" ]]; then
+    SKILL_IDS="$(grep -E '^- `[^`]+`' "$AI_DIR/skills/ACTIVE_SKILLS.md" | sed -E 's/^- `([^`]+)`/\1/' | head -n 5 | paste -sd ', ' - || true)"
+    [[ -z "$SKILL_IDS" ]] && SKILL_IDS="index present"
+fi
 
 {
-    echo "# Agent Context"
+    echo "<!-- AI-SHADOW-VAULT: MANAGED FILE -->"
     echo
-    echo "> Generated automatically by AI Shadow Vault. Regenerate with \`$SCRIPT_DIR/vault-ai-context-file.sh\` or \`cc\`."
+    echo "# Agent Context (Working-State Continuity)"
     echo
     echo "- Project: $PROJECT_SLUG"
     if [[ -n "$PROJECT_KEY" ]]; then
         echo "- Repository: $PROJECT_KEY"
     fi
-    echo "- Generated: $(date)"
+    echo "- Last updated: $(date +'%Y-%m-%d %H:%M:%S %Z')"
+    if [[ -n "$TASK_MODE" ]]; then
+        echo "- Task mode: $TASK_MODE"
+    fi
+    echo "- Active branch: $CURRENT_BRANCH"
+    echo "- Current focus: $CURRENT_FOCUS"
+    echo "- Active plan refs: $ACTIVE_PLAN_REFS"
+    echo "- Open blockers/risks: $BLOCKERS"
+    echo "- Active skills: $SKILL_IDS"
+    if [[ -n "$LAST_ARCHIVE" ]]; then
+        echo "- Last archive entry: $LAST_ARCHIVE"
+    fi
     echo
-    echo "## Session Recap"
-
-    LAST_SESSION=""
-    if [[ -d "$AI_DIR/context/archive" ]]; then
-        LAST_SESSION=$(ls -t "$AI_DIR/context/archive" 2>/dev/null | head -n 1 || true)
-    fi
-
-    if [[ -n "$LAST_SESSION" && -f "$AI_DIR/context/archive/$LAST_SESSION" ]]; then
-        echo "- Last archive: $LAST_SESSION"
-        grep -v "^# " "$AI_DIR/context/archive/$LAST_SESSION" | grep -v "^Date: " | sed '/^$/d' | head -n 10 | sed 's/^/  /' || true
-    else
-        echo "- No archived sessions found."
-    fi
-
-    echo
-    echo "## Active Plans"
-    if [[ -d "$AI_DIR/plans" ]] && find "$AI_DIR/plans" -type f -name "*.md" -print -quit | grep -q .; then
-        find "$AI_DIR/plans" -type f -name "*.md" -exec basename {} \; | sort | sed 's/^/- /'
-    else
-        echo "- No active plans found."
-    fi
-
-    echo
-    echo "## Enabled Extensions"
-    if [[ -f "$AI_DIR/extensions/enabled.txt" ]]; then
-        sed 's/^/- /' "$AI_DIR/extensions/enabled.txt"
-    else
-        echo "- No optional extensions enabled."
-    fi
-
-    echo
-    echo "## Optional Bundles"
-    if [[ -f "$AI_DIR/skills/ACTIVE_SKILLS.md" ]]; then
-        echo "- Skills bundle available at .ai/skills/ACTIVE_SKILLS.md"
-    else
-        echo "- No optional bundles detected."
-    fi
-
-    echo
-    echo "## Local Docs"
-    if [[ -f "$AI_DIR/docs/INDEX.md" ]]; then
-        grep "^- " "$AI_DIR/docs/INDEX.md" | head -n 5 || true
-    elif [[ -d "$AI_DIR/docs" ]] && find "$AI_DIR/docs" -maxdepth 1 -type f -name "*.md" -print -quit | grep -q .; then
-        find "$AI_DIR/docs" -maxdepth 1 -type f -name "*.md" -exec basename {} \; | head -n 5 | sed 's/^/- /'
-    else
-        echo "- No local docs indexed yet."
-    fi
-
-    echo
-    echo "## Rules"
-    if [[ -f "$AI_DIR/rules.md" ]]; then
-        cat "$AI_DIR/rules.md"
-    else
-        echo "No .ai/rules.md found."
-    fi
+    echo "Rules:"
+    echo "- Keep short and meaningful."
+    echo "- No policy duplication."
+    echo "- No historical log accumulation."
 } > "$CONTEXT_FILE"
 
-echo -e "${GREEN}✅ Agent context generated:${NC} $CONTEXT_FILE"
+echo -e "${GREEN}✅ Agent context refreshed:${NC} $CONTEXT_FILE"

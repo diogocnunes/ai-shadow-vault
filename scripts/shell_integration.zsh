@@ -200,4 +200,4 @@ set_gemini_context
 check_ai_cache
 
 # Aliases
-alias vault-skills="$HOME/.ai-shadow-vault/scripts/install_skills.sh"
+alias vault-skills="$HOME/.ai-shadow-vault/bin/vault-skills"

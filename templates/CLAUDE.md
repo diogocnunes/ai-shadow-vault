@@ -1,23 +1,9 @@
-# {Project Name} - Claude AI Guidelines
+<!-- AI-SHADOW-VAULT: MANAGED FILE -->
 
-## Context Priority
+# Claude Adapter
 
-Use this order when gathering context:
+Follow canonical authority from `AGENTS.md`.
 
-1. `.ai/plans/`
-2. `.ai/skills/ACTIVE_SKILLS.md`
-3. `.ai/rules.md`
-4. `.ai/context/agent-context.md`
-5. `.ai/docs/`
-
-## Shadow Vault Rules
-
-- The `.ai/` directory is the project's local context layer.
-- If Git ignore rules hide files, read them explicitly instead of assuming they do not exist.
-- Treat `CLAUDE.md` as orchestration guidance, not as the place to accumulate appended raw skills forever.
-
-## Working Style
-
-- Prefer focused changes tied to an explicit plan.
-- Reuse existing patterns before introducing new abstractions.
-- Keep recommendations aligned with the active skills bundle when present.
+- Keep this file adapter-only.
+- Any tool mention must include fallback behavior inline.
+- If optional tools are unavailable, continue with local vault sources.

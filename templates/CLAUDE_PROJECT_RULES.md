@@ -1,33 +1,10 @@
-# Claude Project Rules
+<!-- AI-SHADOW-VAULT: MANAGED FILE -->
 
-## 🚀 Query Priority
-**MANDATORY:** You must check the local cache and project documentation before making any external queries or assumptions.
-1. **Search local `.ai/cache/`** for previous solutions.
-2. **Search local `.ai/docs/`** for project-specific patterns.
-3. **Search local `.ai/plans/`** for ongoing work.
-4. **Search local `.ai/reviews/`** for previous review findings when relevant.
-5. **Only then** use external tools or general knowledge.
-6. If `vault-init --use-gemini` is enabled for this project, use Gemini CLI for large-scale analysis only after steps 1-5 and validate local CLI flags first.
+# Claude Project Adapter
 
-## 🏁 Mandatory Session Start
-At the beginning of every session:
-1. Load and review `.ai/rules.md`.
-2. Check `.ai/plans/` for the current roadmap.
-3. Check `.ai/reviews/` for recent review findings when they affect the current task.
-4. If no active session exists, propose creating one using `.ai/session-template.md`.
+Use canonical authority from `AGENTS.md`.
+This file is intentionally thin to avoid policy drift.
 
-## 💾 Session Context Management
-**MANDATORY:** You must maintain a running log of your activities in `.ai/session.md`.
-1. Use `.ai/session-template.md` to initialize it if it doesn't exist.
-2. Update it after every significant change or milestone.
-3. When the user says "Save context", "Wrap up", or "Checkpoint":
-    - Ensure `.ai/session.md` is complete and accurate.
-    - Execute `scripts/vault-ai-save.sh`.
-
-**User Triggers:** "New Session", "Start fresh", "Init AI"
-**Action:**
-1. Execute `bin/vault-init`.
-
-## 🛡️ Git Safety
-- Never suggest committing files inside `.ai/` or `.claude/`.
-- Ensure all AI-generated context remains in the vault via symlinks.
+- Do not duplicate `.ai/rules.md` policy here.
+- Optional tools are never hard requirements.
+- If optional capabilities are unavailable, proceed with local vault context.

@@ -1,31 +1,42 @@
-# AI Shadow Vault - Project Rules
+<!-- AI-SHADOW-VAULT: MANAGED FILE -->
 
-## 🧬 Core Architecture & Patterns
-- **Standard:** {{FRAMEWORK}} {{FRAMEWORK_VERSION}} / PHP {{PHP_VERSION}}
-- **Patterns:** Service Layer for business logic, Actions for single-purpose operations, DTOs for type-safe data transfer.
-- **Admin Panel:** {{ADMIN_PANEL}} {{ADMIN_VERSION}}
-- **Frontend:** {{FRONTEND_STACK}} {{FRONTEND_VERSION}} ({{UI_LIBRARY}})
+# Vault Rules (Canonical Policy)
 
-## 💎 Code Quality Standards
-- **Type Safety:** Strict typing is mandatory. Every parameter, return, and property must be typed (PHP {{PHP_VERSION}}+).
-- **Static Analysis:** Code must pass Larastan Level 9. Use PHPDoc generics for collections: `Collection<int, Model>`.
-- **Magic Numbers:** No magic numbers. Use class constants with descriptive names.
-- **Refactoring:** Prefer early returns, match expressions, and constructor property promotion.
+## 1) Authority
+Use sources in this order:
+1. `.ai/rules.md`
+2. `.ai/context/current-task.md`
+3. `.ai/plans/`
+4. `.ai/context/project-context.md`
+5. `.ai/context/agent-context.md`
+6. `.ai/skills/ACTIVE_SKILLS.md`
+7. `.ai/docs/`
+8. `.ai/archive/` (manual lookup only)
 
-## 🛠️ Backend Implementation
-- **Eloquent:** Prevent N+1 by eager loading in `indexQuery`. Use `withCount` for aggregations.
-- **Security:** Always use Eloquent or parameter binding to prevent SQL injection. Implement mass assignment protection via `$fillable`.
-- **Authorization:** Mandatory Policies for all models. Use `Gate` only for global checks.
-- **Migrations:** Use foreign key constraints and appropriate indexes for performance.
+Project context is evaluated before agent context so stable facts frame session state.
 
-## 💾 Cache & Performance Rules
-- **Cache Priority:** Before performing any external search or documentation query, **ALWAYS** check the local cache in `.ai/cache/` and `.ai/docs/`.
-- **Documentation:** Prioritize existing documentation in the `.ai/` folder over general knowledge.
-- **Optimization:** Cache expensive queries and Nova permissions when necessary.
+## 2) Separation of Concerns
+- Policy: `.ai/rules.md` only.
+- Stable project facts: `.ai/context/project-context.md`.
+- Working-state continuity: `.ai/context/agent-context.md`.
+- Single active task: `.ai/context/current-task.md`.
+- Active plans: `.ai/plans/`.
+- Skills index: `.ai/skills/ACTIVE_SKILLS.md`.
+- Durable references: `.ai/docs/`.
+- History: `.ai/archive/`.
 
-## 📝 Query Priority
-1. **Local Context:** `.ai/context/`
-2. **Local Cache:** `.ai/cache/`
-3. **Local Docs:** `.ai/docs/`
-4. **Local Plans:** `.ai/plans/`
-5. **External Search:** Only if information is missing locally.
+## 3) Task Lifecycle
+- `current-task.md` holds one active task only.
+- `current-task.md` must declare `mode: plan|execute` in frontmatter.
+- Completed tasks are cleared or archived.
+- Active context must never accumulate history.
+
+## 4) Active Context Hygiene
+- No policy duplication in context or adapter files.
+- Keep active files concise and current.
+- Move stale or completed material to archive.
+
+## 5) Tool Handling
+- Optional tools must never appear as hard requirements.
+- Fallback behavior must be defined inline where a tool is mentioned.
+- Removing a tool must not break vault operation.
