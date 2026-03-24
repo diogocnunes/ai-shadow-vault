@@ -139,6 +139,15 @@ JSON
         return
     }
 
+    cat <<'EOF_COMPILE' | "$BIN_DIR/vault-task" compile --stdin --apply --mode execute >/tmp/vault-test-task-compile.log 2>&1 || {
+Dado que ação @app/Nova/Actions/Absence/ApproveReject.php apresenta textos não traduzidos, gostaria que fossem alterados os termos hardcoded em português para inglês e que os textos fossem adicionados para @lang/vendor/nova/pt.json.
+Para testar, aceder via Playwright a http://sigmmp.test e clicar em 'Aceder via Janus'.
+Não modificar outros componentes.
+EOF_COMPILE
+        record_result fail task "vault-task compile failed"
+        return
+    }
+
     "$BIN_DIR/vault-task" mode execute >/tmp/vault-test-task-mode.log 2>&1 || {
         record_result fail task "vault-task mode failed"
         return
@@ -149,8 +158,25 @@ JSON
         return
     }
 
-    if ls "$root/.ai/archive/tasks"/*.md >/dev/null 2>&1; then
-        record_result pass task "task done archived current task"
+    local latest_archive
+    latest_archive="$(ls -t "$root/.ai/archive/tasks"/*.md 2>/dev/null | head -n 1 || true)"
+    if [[ -z "$latest_archive" ]]; then
+        record_result fail task "task archive file not created"
+        return
+    fi
+
+    if ! grep -q '^## Validation Instructions$' "$latest_archive" >/dev/null 2>&1; then
+        record_result fail task "compiled task archive is missing Validation Instructions section"
+        return
+    fi
+
+    if ! grep -q '@app/Nova/Actions/Absence/ApproveReject.php' "$latest_archive" >/dev/null 2>&1; then
+        record_result fail task "compiled task archive did not preserve @ file references"
+        return
+    fi
+
+    if [[ -f "$latest_archive" ]]; then
+        record_result pass task "task compile + done archived current task with structured sections"
     else
         record_result fail task "task archive file not created"
     fi

@@ -408,6 +408,7 @@ Subcommands:
 
 - `new [--mode plan|execute]`
 - `quick "<goal>" [--mode plan|execute]`
+- `compile [--stdin|--input "<text>"|--file <path>] [--mode plan|execute] [--output-lang en|pt|auto] [--enrich conservative|repo-aware] [--format markdown|json] [--apply]`
 - `show`
 - `mode [plan|execute]`
 - `done`
@@ -416,8 +417,11 @@ Subcommands:
 
 What each does:
 
-- `new`: interactive wizard that asks Goal, Context, Constraints, Success Criteria, and optional Private Deliverables
+- `new`: interactive wizard that asks Goal, Context, Constraints, Success Criteria, Validation Instructions, and optional Private Deliverables
 - `quick`: fast non-interactive task creation (automation-friendly)
+- `compile`: converts freeform/semi-structured engineering requests (English/Portuguese) into a structured task prompt; preview by default, write with `--apply`
+  - supports freeform text, semi-structured sections, and mixed EN/PT instructions
+  - preserves explicit references such as `@app/...`, `@lang/...`, and URLs in compiled context
 - `show`: prints current task
 - `mode`: reads or changes task mode (`plan` / `execute`)
 - `done`: archives current task + runs save flow
@@ -433,6 +437,8 @@ Examples:
 
 ```bash
 vault-task new --mode plan
+vault-task compile --input "Para testar, aceder via Playwright a http://sigmmp.test..." --output-lang en
+vault-task compile --file request.md --apply
 vault-task show
 vault-task mode execute
 vault-task done
