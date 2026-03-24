@@ -1,6 +1,7 @@
-# Cursor Project Rules
+<!-- AI-SHADOW-VAULT: MANAGED FILE -->
 
-- Follow the existing project structure and naming conventions.
-- Prioritize small, maintainable changes over broad rewrites.
-- Read `.ai/plans/`, `.ai/rules.md`, and `.ai/skills/ACTIVE_SKILLS.md` when they exist before proposing complex changes.
-- Treat `.ai/context/agent-context.md` as the portable session summary for cross-agent continuity.
+# Cursor Adapter
+
+Follow canonical authority from `AGENTS.md`.
+Do not duplicate policy here.
+Optional tools are never hard requirements.

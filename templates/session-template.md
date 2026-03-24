@@ -1,23 +1,10 @@
-# AI Session: {Session Name}
+<!-- AI-SHADOW-VAULT: MANAGED FILE -->
+
+# Context Checkpoint (Optional)
 Date: {Date}
-Goal: {Brief description of the session goal}
+Focus: {Short summary}
 
-## 🔍 Context & Research
-- [ ] Checked `.ai/cache/` for related tasks
-- [ ] Reviewed `.ai/docs/` for relevant patterns
-- [ ] Verified existing `.ai/plans/`
-
-## 🎯 Objectives
-1. 
-2. 
-
-## 🏗️ Implementation Plan
-- 
-
-## 🧪 Verification
-- [ ] Tests created/updated
-- [ ] Linting/Type checking passed
-- [ ] Performance verified
-
-## 📦 Deliverables
-- 
+## Notes
+- Use this only for ad-hoc checkpointing.
+- Do not keep running history in active context files.
+- Archive snapshots under `.ai/archive/` when needed.

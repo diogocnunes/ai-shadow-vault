@@ -1,230 +1,409 @@
 # AI Shadow Vault
 
-AI Shadow Vault é uma camada local de contexto para desenvolvimento com IA. Ele guarda o contexto do projeto fora do repositório, liga os ficheiros certos de volta ao projeto e gera um resumo portátil em `.ai/context/agent-context.md`.
+O AI Shadow Vault é um sistema de contexto portátil e agnóstico de agente para projetos de software.
+Ele mantém as instruções de IA organizadas, compactas e consistentes entre ferramentas como Claude Code, Codex, Gemini, Opencode e similares.
 
-## Forma do Produto
+## Índice
 
-O AI Shadow Vault passa a ter duas camadas:
+- [O Que É o AI Shadow Vault](#o-que-é-o-ai-shadow-vault)
+- [Para Que Serve](#para-que-serve)
+- [Vantagens](#vantagens)
+- [A Quem Se Destina](#a-quem-se-destina)
+- [Princípios Base](#princípios-base)
+- [Ordem Canónica de Autoridade](#ordem-canónica-de-autoridade)
+- [Estrutura do Vault](#estrutura-do-vault)
+- [Instalação](#instalação)
+- [Inicializar um Projeto](#inicializar-um-projeto)
+- [Atualização](#atualização)
+- [Comandos](#comandos)
+- [Workflows do Dia a Dia](#workflows-do-dia-a-dia)
+- [Skills e Auto-Deteção](#skills-e-auto-deteção)
+- [Extensões Opcionais](#extensões-opcionais)
+- [Resolução de Problemas](#resolução-de-problemas)
+- [Suporte de SO](#suporte-de-so)
+- [Créditos](#créditos)
 
-- `core`: resolução do vault, workspace local `.ai/`, symlinks, sessões/histórico e contexto gerado
-- `extensions`: workflows opcionais como review, user stories e sincronização de skills
+## O Que É o AI Shadow Vault
 
-A instalação padrão agora é intencionalmente enxuta. Workflows opcionais precisam ser ativados por projeto.
+O AI Shadow Vault é uma camada local de contexto que:
 
-## O que fica no Core
+- mantém contexto de IA fora do histórico principal do repositório
+- liga ficheiros adaptadores leves ao projeto (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, etc.)
+- mantém ficheiros canónicos de contexto em `.ai/`
+- ajuda os agentes a seguirem o mesmo modelo de autoridade, com o mínimo de duplicação
 
-- resolução estável do projeto e de worktrees
-- storage externo em `~/.ai-shadow-vault-data`
-- bootstrap da workspace local `.ai/`
-- ligação de `GEMINI.md`, `CLAUDE.md`, `AGENTS.md` e regras de editores
-- fluxo de salvar/retomar sessão
-- geração de `.ai/context/agent-context.md`
-- integração de shell e health checks
+## Para Que Serve
 
-## Extensões Opcionais
+Serve para:
 
-Listar extensões disponíveis:
+- padronizar instruções entre agentes de IA diferentes
+- evitar conflitos de regras espalhadas por vários ficheiros
+- manter contexto ativo curto e útil
+- preservar continuidade de trabalho sem transformar contexto em logs gigantes
+- migrar layouts antigos de contexto com segurança
 
-```bash
-vault-ext list
-```
+## Vantagens
 
-Ativar uma extensão dentro do projeto:
+Principais benefícios:
 
-```bash
-vault-ext enable planning
-vault-ext enable review
-vault-ext enable skills
-```
+- modelo único de autoridade
+- contexto ativo compacto e otimizado para IA
+- ferramentas opcionais continuam opcionais (com fallback)
+- regeneração mais segura com marcadores de ficheiro gerido
+- validação e correção com `vault-doctor` e `vault-test`
 
-Grupos embutidos atualmente:
+## A Quem Se Destina
 
-- `planning`: workflow de breakdown com user stories
-- `review`: preparação de prompts de code review
-- `skills`: ativação e sync de skills universais
-- `laravel-stack`: reservado para workflows opcionais específicos de Laravel
+O AI Shadow Vault é indicado para:
 
-Pacotes externos catalogados:
+- developers que usam IA diariamente em projetos reais
+- equipas que precisam de consistência entre ferramentas de IA
+- projetos que querem defaults seguros e otimização AI-first opcional
 
-- `superpowers-laravel`: pacote upstream de superpowers para Laravel
-- `user-stories-skill`: pacote upstream de planeamento com user stories
-- `code-review-skill`: pacote upstream de review
+## Princípios Base
 
-Inspecionar uma extensão:
+- Agnóstico de agente: sem lock-in num único fornecedor
+- Agnóstico de ferramenta: RTK/Gemini CLI/Context7 e similares são opcionais
+- Contexto compacto: ficheiros ativos não são histórico
+- Segurança entre gerido e autoral: ficheiros geridos podem ser regenerados com segurança
+- Comportamento explícito, sem magia oculta
 
-```bash
-vault-ext info superpowers-laravel
-vault-ext info user-stories-skill
-vault-ext info code-review-skill
-```
+## Ordem Canónica de Autoridade
 
-Comandos legados como `vault-review`, `vault-user-stories` e `vault-skills` continuam a funcionar, mas agora são tratados como workflows opcionais, não como parte implícita do core.
+Os agentes devem seguir exatamente esta ordem:
+
+1. `.ai/rules.md`
+2. `.ai/context/current-task.md`
+3. `.ai/plans/`
+4. `.ai/context/project-context.md`
+5. `.ai/context/agent-context.md`
+6. `.ai/skills/ACTIVE_SKILLS.md`
+7. `.ai/docs/`
+8. `.ai/archive/` (consulta manual)
+
+## Estrutura do Vault
+
+Caminhos principais:
+
+- `.ai/rules.md`: política canónica
+- `.ai/context/current-task.md`: uma única tarefa ativa
+- `.ai/context/project-context.md`: factos estáveis do projeto
+- `.ai/context/agent-context.md`: continuidade compacta de estado (sem histórico)
+- `.ai/plans/`: planos ativos
+- `.ai/docs/`: documentação de suporte
+- `.ai/skills/ACTIVE_SKILLS.md`: índice de skills ativas
+- `.ai/archive/`: material histórico
+
+Ciclo de vida da tarefa:
+
+- `current-task.md` contém apenas a tarefa ativa
+- ao concluir, o material da tarefa deve ir para arquivo
+- ficheiros ativos não devem acumular histórico
 
 ## Instalação
+
+Clonar e preparar diretório base:
 
 ```bash
 git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
 mkdir -p ~/.ai-shadow-vault-data
 ```
 
-Adicione isto ao `~/.zshrc`:
+Adicionar integração no `~/.zshrc`:
 
 ```bash
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
-Reabra o terminal e inicialize o projeto:
+Recarregar shell:
+
+```bash
+source ~/.zshrc
+```
+
+## Inicializar um Projeto
+
+Setup padrão (seguro e não invasivo):
 
 ```bash
 cd ~/Sites/meu-projeto
 vault-init
 ```
 
-Se usar Gemini CLI para análise de codebases grandes, ative a secção gerida:
+Modo AI-first (detetar -> pré-visualizar -> aplicar):
 
 ```bash
-vault-init --use-gemini
+vault-init --optimize
 ```
 
-Se quiser refazer a configuração interativa:
+Apenas preview (sem aplicar alterações):
+
+```bash
+vault-init --optimize --dry-run --non-interactive
+```
+
+Fluxo interativo de otimização:
+
+```bash
+vault-init --optimize --interactive
+```
+
+Alias de compatibilidade:
 
 ```bash
 vault-init --force-config
 ```
 
-Para remover a secção gerida do Gemini mais tarde:
+## Atualização
+
+Atualizar pacote e refrescar projeto atual:
 
 ```bash
-vault-init --no-use-gemini
-```
-
-## Fluxo de Update
-
-Atualizar o pacote:
-
-```bash
-cd ~/Sites/meu-projeto
 vault-update
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
-Agora o `vault-update` refresca apenas o estado core do projeto:
+O `vault-update` refresca o estado com:
 
-- corre `vault-init --non-interactive`
-- regenera `.ai/context/agent-context.md`
-- executa hooks de extensões já ativadas
+- `vault-init --non-interactive`
+- `vault-ai-context`
+- hooks de pós-update das extensões ativas
 
-Ele deixou de executar setup de workflows opcionais por omissão.
+## Comandos
 
-## Comandos Principais
+### Comandos core
 
-Core:
+- `vault-init`
+  - opções: `--optimize`, `--interactive`, `--non-interactive`, `--dry-run`, `--yes`, `--force-config`
+- `vault-update`
+- `vault-doctor`
+  - opções: `--fix`, `--fix-strict`, `--interactive`, `--strict`, `--json`, `--check <nome>`, `--explain <código>`
+- `vault-test`
+  - default: suite rápida
+  - `--all`: suite completa
+- `vault-context`
+  - `refresh`, `trim`
+- `vault-task`
+  - `new` (wizard interativo), `quick` (rápido), `show`, `mode`, `done`, `clear`, `archive`
+- `vault-ai-context`
+- `vault-ai-save`
+- `vault-ai-resume`
+- `vault-ai-stats`
 
-| Comando | O que faz | Quando usar |
-| :--- | :--- | :--- |
-| `vault-init` | Faz bootstrap dos ficheiros do vault, workspace local `.ai/`, symlinks e contexto/configuração base. Suporta secções geridas opcionais como `--use-gemini` / `--no-use-gemini`. | Setup inicial do projeto ou reinicialização de ficheiros geridos pelo vault. |
-| `vault-update` | Atualiza o pacote AI Shadow Vault e refresca o projeto atual com `vault-init --non-interactive`, `vault-ai-context` e hooks de extensões. | Aplicar updates da ferramenta e regenerar o estado core do projeto. |
-| `vault-ai-context` | Regenera `.ai/context/agent-context.md` com resumo de sessão, planos, extensões, docs e regras. | Antes de passar trabalho para agentes ou após mudanças relevantes no contexto. |
-| `vault-ai-save` | Arquiva `.ai/session.md`, move planos concluídos de `.ai/plans` para `.ai/context/archive/plans`, atualiza `.ai/docs/INDEX.md` e mostra estatísticas do vault. | Encerrar sessão ou criar checkpoint de contexto. |
-| `vault-ai-resume` | Mostra recap da última sessão arquivada + planos ativos e docs disponíveis. | Início de sessão para retomar rapidamente o estado do projeto. |
-| `vault-ai-stats` | Exibe estatísticas da workspace `.ai/` (docs/cache/planos e estimativa de tokens poupados). | Verificação rápida de saúde/tamanho do contexto local. |
-| `vault-check` | Executa health checks dos ficheiros de contexto/instruções ligados ao vault. | Validar links e presença dos ficheiros esperados do Shadow Vault. |
-| `vault-debug-sections` | Audita markers geridos, consistência do ciclo RTK e conflitos de skills entre roots; suporta correções seguras com `--fix` e limpeza forçada de conflitos com `--fix --force-conflicts` (mantém a cópia de maior precedência). | Diagnosticar drift de markers, secções quebradas e duplicação de skills. |
-| `cc` | Executa `claude-start` (refresca contexto, mostra recap e copia `.ai/rules.md` se houver clipboard tool). | Arrancar sessão Claude com o contexto atual do vault. |
-| `vault-ext` | Lista, ativa/desativa, inspeciona, sincroniza e executa hooks de extensões opcionais. | Gerir workflows opcionais por projeto. |
+### Comandos de skills
 
-Workflows opcionais:
+- `vault-skills status`
+- `vault-skills suggest`
+- `vault-skills suggest --json`
+- `vault-skills suggest --plan`
+- `vault-skills auto`
+- `vault-skills set <skill...>`
+- `vault-skills sync`
+- `vault-skills explain <skill-id>`
+- `vault-skills legacy ...` (modo compatível)
 
-| Comando | O que faz | Quando usar |
-| :--- | :--- | :--- |
-| `vault-review` | Prepara prompt de review por escopo de diff Git e define output em `.ai/reviews/`. | Preparar code review estruturado para agentes. |
-| `vault-user-stories` | Prepara prompt de planeamento a partir de um objetivo e destino `.ai/plans/<slug>.user-stories.md`. | Partir uma feature em user stories acionáveis. |
-| `vault-breakdown` | Alias para `vault-user-stories`. | Mesmo uso do `vault-user-stories`, com nome alternativo. |
-| `vault-skills` | Ativa/sincroniza bundles de skills opcionais e atualiza superfícies de instrução dos targets. | Gerir overlays de skills para ferramentas/editores suportados. |
+### Comandos de extensões
 
-## Quick Start
+- `vault-ext list`
+- `vault-ext info <extensão>`
+- `vault-ext status`
+- `vault-ext enable <extensão...>`
+- `vault-ext disable <extensão...>`
+- `vault-ext sync [extensão...]`
+- `vault-ext run-hook <hook>`
 
-Setup base:
+### Comandos opcionais de workflow
 
-```bash
-cd ~/Sites/meu-projeto
-vault-init
-vault-ai-context
-```
+- `vault-review` (também `vault-code-review`, `vault-pr-review`)
+- `vault-user-stories` (também `vault-breakdown`)
 
-Ativar workflow de planning:
+## Workflows do Dia a Dia
 
-```bash
-vault-ext enable planning
-vault-user-stories "Implementar login OAuth"
-```
-
-Ativar workflow de review:
-
-```bash
-vault-ext enable review
-vault-review --scope staged
-```
-
-Ativar workflow de skills:
+### 1) Iniciar/refrescar contexto
 
 ```bash
-vault-ext enable skills
-vault-skills activate --preset reviewing
-vault-skills sync native context editors
+vault-context refresh
+vault-task show
 ```
 
-Diagnóstico de secções geridas e drift de ciclo de vida:
+### 2) Executar uma tarefa nova
 
 ```bash
-vault-debug-sections
-vault-debug-sections --fix
-vault-debug-sections --fix --force-conflicts
+vault-task new --mode plan
+# ... trabalho de planeamento
+vault-task mode execute
+# ... trabalho de execução
+vault-task done
+
+# Variante para automação
+vault-task quick "Implementar login OAuth" --mode plan
 ```
 
-## Workspace Local
+No `vault-task new`, o assistente pergunta e já inclui texto de ajuda:
 
-Caminhos importantes:
+- `Goal (What you need to deliver?)`
+- `Context` (com ajuda sobre factos/estado/dependências)
+- `Constraints` (com ajuda sobre limites e regras)
+- `Success Criteria` (com ajuda de Definition of Done)
+- `Private Deliverables (Optional)` (artefatos internos)
 
-| Caminho | Função |
-| :--- | :--- |
-| `.ai/rules.md` | regras do projeto |
-| `.ai/plans/` | planos locais |
-| `.ai/docs/` | documentação local |
-| `.ai/context/archive/` | sessões arquivadas |
-| `.ai/context/agent-context.md` | resumo gerado para agentes |
-| `.ai/extensions/enabled.txt` | extensões opcionais ativadas |
-| `.ai/skills/ACTIVE_SKILLS.md` | bundle opcional de skills, quando usado |
+Após criar a tarefa (`new` e `quick`), executa automaticamente:
+
+- `vault-context refresh`
+- `vault-doctor --fix`
+
+Exemplo resumido do diálogo:
+
+```text
+$ vault-task new --mode plan
+Creating a new task interactively.
+Mode help: plan = define strategy first, execute = implementation-focused task.
+Mode [plan/execute] [plan]:
+Goal (What you need to deliver?):
+Context:
+Help: Facts needed to execute safely (scope, flow, current state, dependencies).
+(finish with an empty line)
+Constraints:
+Help: Hard requirements, scope limits, non-goals, and rules that must not be violated.
+(finish with an empty line)
+Success Criteria (one item per line):
+Help: Definition of Done: measurable outcomes that prove completion.
+(finish with an empty line)
+Private Deliverables (Optional):
+Help: Internal-only artifacts/paths/checklists (not shown to end users).
+(finish with an empty line)
+Created: .ai/context/current-task.md
+Running post-create maintenance...
+- vault-context refresh: ok
+- vault-doctor --fix: ok
+```
+
+### 3) Verificação de saúde
+
+```bash
+vault-doctor
+vault-test
+```
+
+### 4) Limpeza estrita de adapters legados
+
+Se `vault-doctor --strict` reportar warnings de adapters (`D010`, `D030`), use:
+
+```bash
+vault-doctor --fix-strict
+```
+
+Este comando substitui os 5 adapters por templates thin-managed e cria backup em:
+
+- `.ai/archive/doctor-backups/adapters-<timestamp>/`
+
+## Skills e Auto-Deteção
+
+O `vault-skills suggest` deteta sinais de stack em ficheiros como:
+
+- `composer.json`
+- `package.json`
+- `pyproject.toml`
+- `requirements.txt`
+- `go.mod`
+
+Modelo de decisão:
+
+- `>= 0.80`: candidatos a auto-enable
+- `>= 0.50 e < 0.80`: candidatos sugeridos
+
+Use `vault-skills explain <skill-id>` para transparência da recomendação.
+
+## Extensões Opcionais
+
+Extensões são opcionais e por projeto.
+
+Grupos embutidos:
+
+- `planning`
+- `review`
+- `skills`
+- `laravel-stack` (reservado)
+
+Ative apenas o que faz sentido para o projeto.
+
+## Resolução de Problemas
+
+### `vault-doctor --strict` devolve código 1
+
+É esperado quando existem warnings. O `--strict` falha com warnings por design.
+
+### Quero eliminar warnings estritos dos adapters
+
+Execute:
+
+```bash
+vault-doctor --fix-strict
+vault-doctor --strict
+```
+
+### Skills só mostra fallback de baixa confiança
+
+Execute:
+
+```bash
+vault-skills suggest --json
+```
+
+Confirme se os manifestos existem e têm dependências esperadas.
+
+### `No .ai directory found`
+
+Corra `vault-init` na raiz do projeto primeiro.
 
 ## Suporte de SO
 
-Suporte atual:
+Alvo atual:
 
-- `macOS`: suportado
-- `Linux`: não suportado
-- `Windows`: não suportado
+- macOS: suportado
 
-O pacote continua a ser macOS-first por enquanto.
+Outros SO podem funcionar parcialmente, mas não são alvo oficial.
 
-## Notas de Migração
+## Como Deixar o Repositório AI-Friendly
 
-Se vem da `1.x` ou de uma `2.x` anterior com comportamento “batteries included”:
+Use este checklist para manter os ficheiros `.ai/` e os adapters markdown no estado ideal para agentes.
 
-1. Corra `vault-update`
-2. Corra `vault-init --non-interactive`
-3. Reative apenas os workflows que ainda quer com `vault-ext enable ...`
-4. Regere o contexto com `vault-ai-context`
-
-Exemplos:
+Sequência recomendada:
 
 ```bash
-vault-ext enable planning review
-vault-ext enable skills
+# 1) Ver preview da otimização sem alterar nada
+vault-init --optimize --dry-run --non-interactive
+
+# 2) Aplicar estrutura gerida otimizada
+vault-init --optimize --interactive
+
+# 3) Se projeto for legado, normalizar adapters em modo estrito
+vault-doctor --fix-strict
+
+# 4) Atualizar contexto e validar tudo
+vault-context refresh
+vault-doctor --strict
+vault-test --all
 ```
+
+Para uso diário após setup:
+
+```bash
+vault-task new --mode plan
+vault-task mode execute
+vault-task done
+```
+
+Isto mantém:
+
+- ficheiros canónicos de autoridade compactos e alinhados
+- adapters finos e geridos
+- contexto ativo limpo (sem acumular histórico)
+- ciclo de vida/arquivo consistente para handoff entre agentes
 
 ## Créditos
 
-Alguns workflows opcionais foram inspirados por ou adaptados de:
+Alguns workflows opcionais foram inspirados por:
 
 - `jpcaparas/superpowers-laravel`
 - `felipereisdev/user-stories-skill`

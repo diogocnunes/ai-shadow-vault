@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# AI Shadow Vault - Session Saver
-# Archives active sessions and updates the knowledge index.
+# AI Shadow Vault - Context Saver
+# Archives completed work artifacts and keeps active context compact.
 
-# Colors
+set -euo pipefail
+
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Find project root with .ai directory
 CURRENT_DIR="$PWD"
 while [[ "$CURRENT_DIR" != "/" && ! -d "$CURRENT_DIR/.ai" ]]; do
     CURRENT_DIR=$(dirname "$CURRENT_DIR")
@@ -23,14 +23,41 @@ if [[ "$CURRENT_DIR" == "/" || ! -d "$AI_DIR" ]]; then
 fi
 
 TIMESTAMP=$(date +"%Y%m%d-%H%M")
+ARCHIVE_DIR="$AI_DIR/archive"
+LEGACY_ARCHIVE_DIR="$AI_DIR/context/archive"
+PLAN_ARCHIVE_DIR="$ARCHIVE_DIR/plans"
+TASK_ARCHIVE_DIR="$ARCHIVE_DIR/tasks"
 INDEX_FILE="$AI_DIR/docs/INDEX.md"
-PLAN_ARCHIVE_DIR="$AI_DIR/context/archive/plans"
+CURRENT_TASK_FILE="$AI_DIR/context/current-task.md"
+CURRENT_TASK_TEMPLATE="$AI_DIR/context/current-task.template.md"
+
+mkdir -p "$ARCHIVE_DIR" "$PLAN_ARCHIVE_DIR" "$TASK_ARCHIVE_DIR" "$AI_DIR/docs"
+
+migrate_legacy_archive_once() {
+    local migrated=0
+
+    [[ -d "$LEGACY_ARCHIVE_DIR" ]] || return 0
+
+    while IFS= read -r -d '' legacy_file; do
+        rel_path="${legacy_file#$LEGACY_ARCHIVE_DIR/}"
+        target_path="$ARCHIVE_DIR/$rel_path"
+        mkdir -p "$(dirname "$target_path")"
+        if [[ ! -e "$target_path" ]]; then
+            mv "$legacy_file" "$target_path"
+            migrated=1
+        fi
+    done < <(find "$LEGACY_ARCHIVE_DIR" -type f -print0)
+
+    if [[ "$migrated" -eq 1 ]]; then
+        echo -e "📦 Migrated legacy archive files to ${GREEN}.ai/archive/${NC}"
+    fi
+}
 
 status_is_completed() {
     local status_line="$1"
     local normalized_status
 
-    [ -n "$status_line" ] || return 1
+    [[ -n "$status_line" ]] || return 1
 
     normalized_status="$(printf '%s' "$status_line" | tr '[:upper:]' '[:lower:]')"
     if printf '%s' "$normalized_status" | grep -Eq 'complet|conclu[ií]d|done'; then
@@ -43,9 +70,8 @@ status_is_completed() {
 archive_completed_plans() {
     local archived_count=0
     local plan_file status_line base_name target_path suffix=1
-    local -a archived_names=()
 
-    [ -d "$AI_DIR/plans" ] || return 0
+    [[ -d "$AI_DIR/plans" ]] || return 0
 
     while IFS= read -r -d '' plan_file; do
         status_line="$(grep -im1 '^Status:[[:space:]]*' "$plan_file" || true)"
@@ -53,87 +79,136 @@ archive_completed_plans() {
             continue
         fi
 
-        mkdir -p "$PLAN_ARCHIVE_DIR"
         base_name="$(basename "$plan_file")"
         target_path="$PLAN_ARCHIVE_DIR/$base_name"
 
-        while [ -e "$target_path" ]; do
+        while [[ -e "$target_path" ]]; do
             target_path="$PLAN_ARCHIVE_DIR/${base_name%.md}-$TIMESTAMP-$suffix.md"
             suffix=$((suffix + 1))
         done
 
         mv "$plan_file" "$target_path"
-        archived_names+=("$(basename "$target_path")")
+        echo -e "🧹 Archived plan: ${GREEN}archive/plans/$(basename "$target_path")${NC}"
         archived_count=$((archived_count + 1))
         suffix=1
-    done < <(find "$AI_DIR/plans" -type f -name "*.md" -print0)
+    done < <(find "$AI_DIR/plans" -type f -name '*.md' -print0)
 
-    if [ "$archived_count" -gt 0 ]; then
-        echo -e "🧹 Archived completed plans: ${GREEN}$archived_count${NC}"
-        for base_name in "${archived_names[@]}"; do
-            echo -e "   - ${GREEN}context/archive/plans/$base_name${NC}"
-        done
-    else
+    if [[ "$archived_count" -eq 0 ]]; then
         echo -e "ℹ️  No completed plans found in .ai/plans."
     fi
 }
 
-echo -e "${BLUE}🛡️  Saving AI Shadow Vault Context...${NC}"
+task_file_has_active_content() {
+    local file="$1"
+    [[ -f "$file" ]] || return 1
 
-# 1. Archive Session
-# If there's an active session file (session.md) in the root of .ai, archive it
-if [ ! -f "$AI_DIR/session.md" ]; then
-    echo -e "${YELLOW}ℹ️  No active session.md found.${NC}"
-    echo -ne "Would you like to create a quick summary now? (y/N): "
-    read -r response
-    if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
-        if [ -f "$AI_DIR/agents/context-update.sh" ]; then
-            bash "$AI_DIR/agents/context-update.sh"
-        else
-            echo -e "${BLUE}📝 Enter session goal/summary (one line):${NC}"
-            read -r summary
-            cat <<EOF > "$AI_DIR/session.md"
-# AI Session Summary
-Date: $(date)
-Goal: $summary
+    awk '
+        /^## Goal$/ { in_goal=1; next }
+        in_goal && /^## / { exit }
+        in_goal && NF {
+            if ($0 !~ /^<.*>$/) {
+                found=1
+            }
+        }
+        END { exit(found ? 0 : 1) }
+    ' "$file"
+}
 
-## 📦 Changes
-- Automated session capture
-EOF
-        fi
+archive_current_task_if_needed() {
+    local archive_file
+
+    if ! task_file_has_active_content "$CURRENT_TASK_FILE"; then
+        echo -e "ℹ️  Current task is empty/template; nothing to archive."
+        return
     fi
-fi
 
-if [ -f "$AI_DIR/session.md" ]; then
-    ARCHIVE_NAME="session-$TIMESTAMP.md"
-    mv "$AI_DIR/session.md" "$AI_DIR/context/archive/$ARCHIVE_NAME"
-    echo -e "📦 Session archived: ${GREEN}context/archive/$ARCHIVE_NAME${NC}"
-else
-    echo -e "ℹ️  Session skipped (no file to archive)."
-fi
+    archive_file="$TASK_ARCHIVE_DIR/task-$TIMESTAMP.md"
+    cp "$CURRENT_TASK_FILE" "$archive_file"
+    echo -e "📌 Archived current task: ${GREEN}archive/tasks/$(basename "$archive_file")${NC}"
+}
 
-archive_completed_plans
+reset_current_task_file() {
+    if [[ -f "$CURRENT_TASK_TEMPLATE" ]]; then
+        cp "$CURRENT_TASK_TEMPLATE" "$CURRENT_TASK_FILE"
+        echo -e "♻️  Reset current task from template."
+        return
+    fi
 
-# 2. Update Knowledge Index (INDEX.md)
-echo -e "🗂️  Updating Document Index..."
-cat <<EOF > "$INDEX_FILE"
+    cat > "$CURRENT_TASK_FILE" <<'EOF_TASK'
+<!-- AI-SHADOW-VAULT: MANAGED FILE -->
+
+---
+mode: execute
+---
+
+# Current Task (Single Active Task)
+
+## Goal
+<one clear desired outcome>
+
+## Context
+<only facts needed for this task>
+
+## Constraints
+<scope limits, non-goals, hard requirements>
+
+## Success Criteria
+- <measurable outcome 1>
+- <measurable outcome 2>
+
+---
+Clear this file after completion.
+Never accumulate history here.
+EOF_TASK
+    echo -e "♻️  Reset current task with default template."
+}
+
+refresh_agent_context() {
+    local context_script
+    context_script="$(dirname "$0")/vault-ai-context-file.sh"
+
+    if [[ ! -x "$context_script" ]] && [[ -x "$(dirname "$0")/../scripts/vault-ai-context-file.sh" ]]; then
+        context_script="$(dirname "$0")/../scripts/vault-ai-context-file.sh"
+    fi
+
+    if [[ -x "$context_script" ]]; then
+        "$context_script" >/dev/null
+        echo -e "🧭 Refreshed agent-context working state."
+    else
+        echo -e "${YELLOW}⚠️  Could not refresh agent context (script missing).${NC}"
+    fi
+}
+
+rebuild_docs_index() {
+    cat <<EOF_INDEX > "$INDEX_FILE"
 # AI Knowledge Index
 *Generated on $(date)*
 
 ## 📚 Documents
-EOF
+EOF_INDEX
 
-find "$AI_DIR/docs" -type f -name "*.md" ! -name "INDEX.md" | sort | while read -r doc; do
-    RELATIVE_PATH=${doc#$AI_DIR/docs/}
-    TITLE=$(grep -m 1 "^# " "$doc" | sed 's/^# //')
-    [ -z "$TITLE" ] && TITLE=$RELATIVE_PATH
-    echo "- [$TITLE]($RELATIVE_PATH)" >> "$INDEX_FILE"
-done
+    find "$AI_DIR/docs" -type f -name '*.md' ! -name 'INDEX.md' | sort | while read -r doc; do
+        relative_path=${doc#$AI_DIR/docs/}
+        title=$(grep -m 1 '^# ' "$doc" | sed 's/^# //')
+        [[ -z "$title" ]] && title="$relative_path"
+        echo "- [$title]($relative_path)" >> "$INDEX_FILE"
+    done
 
-echo -e "✅ Index updated: ${GREEN}docs/INDEX.md${NC}"
+    echo -e "✅ Index updated: ${GREEN}docs/INDEX.md${NC}"
+}
 
-# 3. Show Stats
-echo ""
-bash "$(dirname "$0")/vault-ai-stats.sh"
+echo -e "${BLUE}🛡️  Saving AI Shadow Vault Context...${NC}"
 
-echo -e "✨ Context preserved. Ready for the next session! 🚀"
+migrate_legacy_archive_once
+archive_current_task_if_needed
+archive_completed_plans
+reset_current_task_file
+refresh_agent_context
+rebuild_docs_index
+
+if [[ -x "$(dirname "$0")/vault-ai-stats.sh" ]]; then
+    echo ""
+    "$(dirname "$0")/vault-ai-stats.sh"
+fi
+
+echo -e "✨ Context preserved for next task."

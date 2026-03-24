@@ -22,12 +22,13 @@ SKILLS_LEGACY_MANAGED_END="<!-- AI Shadow Vault: managed skills end -->"
 PROJECT_ROOT="$(skills_project_root "$PWD")"
 vault_extension_notice_if_disabled "$PROJECT_ROOT" "skills" "vault-skills" || true
 USE_GEMINI_CONTEXT_MODE_RAW="${AI_SHADOW_USE_GEMINI_CONTEXT:-preserve}"
+USE_GEMINI_CONTEXT_MODE_NORMALIZED="$(printf '%s' "$USE_GEMINI_CONTEXT_MODE_RAW" | tr '[:upper:]' '[:lower:]')"
 USE_GEMINI_CONTEXT_MODE="preserve"
 GEMINI_CLI_CHECKED=0
 GEMINI_CLI_AVAILABLE=0
 GEMINI_CLI_WARNED=0
 
-case "${USE_GEMINI_CONTEXT_MODE_RAW,,}" in
+case "$USE_GEMINI_CONTEXT_MODE_NORMALIZED" in
     1|true|yes|on|enable|enabled)
         USE_GEMINI_CONTEXT_MODE="enable"
         ;;
