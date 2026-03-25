@@ -18,6 +18,7 @@ AI_VAULT=".ai"
 DOCS_DIR="$AI_VAULT/docs/tech-stack"
 CONTEXT_FILE="$AI_VAULT/context/tech-stack.md"
 TEMPLATES_SKILLS_DIR=""
+LARAVEL_PACK_HINT_ADDED=0
 
 # --- Project Root Detection ---
 # Find where the project root is (upwards search)
@@ -80,6 +81,18 @@ copy_skill_doc() {
     fi
 }
 
+add_laravel_pack_hint() {
+    local reason="$1"
+
+    if [ "$LARAVEL_PACK_HINT_ADDED" -eq 1 ]; then
+        return
+    fi
+
+    echo "- **Optional Pack**: Laravel pack recommended ($reason)." >> "$CONTEXT_FILE"
+    echo "  Enable with: \`vault-ext enable laravel\`" >> "$CONTEXT_FILE"
+    LARAVEL_PACK_HINT_ADDED=1
+}
+
 # --- PHP / Laravel Detection ---
 if [ -f "composer.json" ]; then
     echo -e "  Found composer.json, analyzing PHP dependencies..."
@@ -102,35 +115,7 @@ if [ -f "composer.json" ]; then
             echo "- **Runner**: Host (Native PHP/Composer)" >> "$CONTEXT_FILE"
         fi
 
-        # Laravel Superpowers Integration - High-Level Docs Only
-        if [ -d "$TEMPLATES_SKILLS_DIR/Laravel" ]; then
-            echo -e "  🚀 Adding Laravel Superpowers knowledge (Architectural & Standards)..."
-            
-            # Copy ONLY high-level architectural/standard docs
-            # Avoid copying operational skills (migrations, controllers, etc) to keep context light.
-            copy_skill_doc "LARAVEL-CODE-QUALITY.md" "laravel-standards.md"
-            copy_skill_doc "BACKEND-EXPERT.md" "laravel-backend.md" 
-            copy_skill_doc "SECURITY-PERFORMANCE.md" "laravel-security.md"
-            copy_skill_doc "DX-MAINTAINER.md" "developer-experience.md"
-            copy_skill_doc "QA-AUTOMATION.md" "testing-strategy.md"
-            copy_skill_doc "ARCHITECT-LEAD.md" "laravel-architecture.md"
-
-            # Copy Commands (Prompts) - These are small and useful to have
-            if [ -d "$TEMPLATES_SKILLS_DIR/Laravel/Commands" ]; then
-                PROJECT_COMMANDS_DIR="$AI_VAULT/commands"
-                mkdir -p "$PROJECT_COMMANDS_DIR"
-                
-                # Copy and rename to lowercase
-                for file in "$TEMPLATES_SKILLS_DIR/Laravel/Commands/"*.[mM][dD]; do
-                    [ -e "$file" ] || continue
-                    filename=$(basename "$file")
-                    lower_filename=$(echo "$filename" | tr '[:upper:]' '[:lower:]')
-                    cp "$file" "$PROJECT_COMMANDS_DIR/$lower_filename"
-                done
-                
-                echo -e "  ⚡ Added Superpowers commands to ${GREEN}$PROJECT_COMMANDS_DIR${NC}"
-            fi
-        fi
+        add_laravel_pack_hint "Laravel framework detected"
     fi
 
     # Laravel Nova
@@ -141,7 +126,7 @@ if [ -f "composer.json" ]; then
         # Legacy Logic
         if [ "$NOVA_VERSION" == "3" ] || [ "$NOVA_VERSION" == "2" ]; then
             echo "- **Legacy Status**: Legacy Migration Active" >> "$CONTEXT_FILE"
-            copy_skill_doc "LEGACY-MIGRATION-SPECIALIST.md" "migration-guide.md"
+            add_laravel_pack_hint "Legacy Nova migration detected"
         fi
     fi
 
@@ -150,22 +135,13 @@ if [ -f "composer.json" ]; then
         FILAMENT_VERSION=$(grep '"filament/filament":' composer.json | grep -o '[0-9]\+' | head -n 1)
         echo "- **Admin Panel**: Filament (v$FILAMENT_VERSION detected)" >> "$CONTEXT_FILE"
         
-        # Copy guides for any modern Filament version (3+)
-        if [ "$FILAMENT_VERSION" -ge 3 ]; then
-             copy_skill_doc "FILAMENT-V5.md" "filament-guide.md"
-             copy_skill_doc "ARCHITECT-FILAMENT-LEAD.md" "filament-architecture.md"
-        else
-            # Fallback for older versions or if detection is unsure, still copy but maybe with a warning note?
-            # For now, let's assume if they have Filament, they want the guides.
-             copy_skill_doc "FILAMENT-V5.md" "filament-guide.md"
-             copy_skill_doc "ARCHITECT-FILAMENT-LEAD.md" "filament-architecture.md"
-        fi
+        add_laravel_pack_hint "Filament detected"
     fi
 
     # Livewire
     if grep -q "livewire/livewire" composer.json; then
         echo "- **Frontend Stack**: Livewire" >> "$CONTEXT_FILE"
-        copy_skill_doc "TALL-STACK.md" "tall-stack-guide.md"
+        add_laravel_pack_hint "Livewire detected"
     fi
 fi
 
@@ -188,6 +164,6 @@ fi
 
 echo "" >> "$CONTEXT_FILE"
 echo "## Knowledge Base" >> "$CONTEXT_FILE"
-echo "Relevant documentation has been automatically copied to \`.ai/docs/tech-stack/\`." >> "$CONTEXT_FILE"
+echo "Relevant stack notes are recorded here. Optional pack recommendations are listed when applicable." >> "$CONTEXT_FILE"
 
 echo -e "✅ Tech Stack detection complete. Summary saved to ${GREEN}$CONTEXT_FILE${NC}"

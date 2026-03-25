@@ -343,6 +343,37 @@ Modelo de decisão:
 
 Use `vault-skills explain <skill-id>` para transparência da recomendação.
 
+O core mantém-se agnóstico à stack. Profundidade específica de framework deve vir de packs opcionais.
+
+Quando sinais de Laravel são detetados, o `vault-skills suggest` mostra:
+
+- `ASV-SUGGEST-PACK-001` com recomendação para correr `vault-ext enable laravel`
+
+## Contrato de Packs
+
+Packs usam um `pack.json` mínimo com os campos obrigatórios:
+
+- `name`
+- `version`
+- `description`
+- `core_api`
+- `capabilities`
+
+Validação:
+
+```bash
+vault-pack validate /path/to/pack
+```
+
+Compatibilidade é validada em:
+
+- `vault-ext enable`
+- `vault-ext sync`
+
+Lockfile por projeto:
+
+- `.ai/extensions/lock.json`
+
 ## Extensões Opcionais
 
 Extensões são opcionais e por projeto.
@@ -352,7 +383,8 @@ Grupos embutidos:
 - `planning`
 - `review`
 - `skills`
-- `laravel-stack` (reservado)
+- `laravel` (pack oficial)
+- `laravel-stack` (alias legado de compatibilidade)
 
 Ative apenas o que faz sentido para o projeto.
 
@@ -380,6 +412,20 @@ vault-skills suggest --json
 ```
 
 Confirme se os manifestos existem e têm dependências esperadas.
+
+### Erro de compatibilidade de pack (`ASV-COMPAT-001`)
+
+Significa que o intervalo `core_api` do pack não é compatível com a versão atual do core.
+Use um tag/ref compatível ou atualize o core.
+
+### Aviso de depreciação (`ASV-DEPRECATION-SKILL-001`)
+
+Significa que uma skill foi movida para pack e o fallback legado foi usado.
+Para remover fallback:
+
+```bash
+vault-ext enable laravel
+```
 
 ### `No .ai directory found`
 

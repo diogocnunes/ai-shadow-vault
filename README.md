@@ -709,6 +709,8 @@ Decision model:
 
 Use `vault-skills explain <skill-id>` for transparent rationale.
 
+Core remains stack-agnostic. Framework-specific depth should come from optional packs.
+
 When Laravel signals are detected, `vault-skills suggest` prints:
 
 - `ASV-SUGGEST-PACK-001` with recommendation to run `vault-ext enable laravel`
@@ -748,7 +750,7 @@ Built-in groups include:
 - `review`
 - `skills`
 - `laravel` (official pack)
-- `laravel-stack` (reserved)
+- `laravel-stack` (legacy reserved compatibility alias)
 
 Enable only what your project needs.
 
