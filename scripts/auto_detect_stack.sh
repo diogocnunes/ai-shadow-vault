@@ -13,6 +13,7 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
+source "$SCRIPT_DIR/lib/migration-notices.sh"
 
 AI_VAULT=".ai"
 DOCS_DIR="$AI_VAULT/docs/tech-stack"
@@ -83,6 +84,7 @@ copy_skill_doc() {
 
 add_laravel_pack_hint() {
     local reason="$1"
+    local soft_notice
 
     if [ "$LARAVEL_PACK_HINT_ADDED" -eq 1 ]; then
         return
@@ -90,6 +92,10 @@ add_laravel_pack_hint() {
 
     echo "- **Optional Pack**: Laravel pack recommended ($reason)." >> "$CONTEXT_FILE"
     echo "  Enable with: \`vault-ext enable laravel\`" >> "$CONTEXT_FILE"
+    soft_notice="$(asv_soft_migration_notice_for_pack "laravel" || true)"
+    if [ -n "$soft_notice" ]; then
+        echo "  $soft_notice" >> "$CONTEXT_FILE"
+    fi
     LARAVEL_PACK_HINT_ADDED=1
 }
 

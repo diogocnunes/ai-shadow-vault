@@ -378,6 +378,20 @@ Checklist de extração/release da Fase 3 para o pack oficial Laravel:
 
 - `docs/checklists/ai-shadow-vault-laravel-phase3.md`
 
+## Soft Migration
+
+Estado atual da migração das skills Laravel:
+
+- soft migration iniciada em **2026-03-25**
+- fallback legado garantido até **2026-06-23**
+- alvo de hard removal: próxima major (`3.0.0`)
+
+Sinais em runtime:
+
+- `ASV-SUGGEST-PACK-001`: Laravel detetado, recomendação de pack
+- `ASV-SOFT-MIGRATION-001`: lembrete da janela de migração e prazo
+- `ASV-DEPRECATION-SKILL-001`: fallback legado foi usado para skill movida
+
 ## Extensões Opcionais
 
 Extensões são opcionais e por projeto.

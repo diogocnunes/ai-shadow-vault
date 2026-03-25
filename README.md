@@ -21,6 +21,7 @@ It keeps AI guidance organized, compact, and consistent across tools like Claude
 - [How to Use the Main Workflows](#how-to-use-the-main-workflows)
 - [Skills and Auto-Detection](#skills-and-auto-detection)
 - [Pack Contracts](#pack-contracts)
+- [Soft Migration](#soft-migration)
 - [Optional Extensions](#optional-extensions)
 - [Troubleshooting](#troubleshooting)
 - [OS Support](#os-support)
@@ -743,6 +744,20 @@ Project lockfile is written to:
 Phase 3 extraction/release checklist for the official Laravel pack:
 
 - `docs/checklists/ai-shadow-vault-laravel-phase3.md`
+
+## Soft Migration
+
+Current migration state for Laravel skills:
+
+- soft migration started on **March 25, 2026**
+- legacy fallback guaranteed until **June 23, 2026**
+- hard removal target: next major release (`3.0.0`)
+
+Runtime signals:
+
+- `ASV-SUGGEST-PACK-001`: Laravel detected, pack recommendation
+- `ASV-SOFT-MIGRATION-001`: soft migration window + deadline reminder
+- `ASV-DEPRECATION-SKILL-001`: legacy fallback was used for a moved skill
 
 ## Optional Extensions
 
