@@ -21,6 +21,25 @@ Example:
 EOF
 }
 
+run_bootstrap_preflight() {
+    if [[ "${BOOTSTRAP_RUNNING:-0}" == "1" ]]; then
+        return 0
+    fi
+
+    if [[ -x "$SCRIPT_DIR/vault-bootstrap.sh" ]]; then
+        "$SCRIPT_DIR/vault-bootstrap.sh" ensure
+        return $?
+    fi
+
+    if command -v vault-bootstrap >/dev/null 2>&1; then
+        vault-bootstrap ensure
+        return $?
+    fi
+
+    echo -e "${YELLOW}vault-bootstrap command not found.${NC}"
+    exit 1
+}
+
 slugify_goal() {
     printf '%s\n' "$1" \
         | tr '[:upper:]' '[:lower:]' \
@@ -92,6 +111,8 @@ if [[ ! -d "$AI_DIR" ]]; then
     exit 1
 fi
 
+run_bootstrap_preflight
+
 mkdir -p "$AI_DIR/plans"
 
 (
@@ -103,6 +124,11 @@ SLUG="$(slugify_goal "$GOAL")"
 OUTPUT_PATH="$PROJECT_ROOT/.ai/plans/$SLUG.user-stories.md"
 
 PROMPT=$(cat <<EOF
+SESSION PREAMBLE (MANDATORY):
+- Run bootstrap checks from CLAUDE.md contract before task execution.
+- Output: \`BOOTSTRAP_ACK: rules+context loaded\` before task execution.
+- BOOTSTRAP_ACK is an audit signal only (not a technical guarantee).
+
 Use \`.ai/context/agent-context.md\` as the current project summary.
 Use \`.ai/skills/ACTIVE_SKILLS.md\` for any active specialized guidance.
 Then invoke the \`user-stories\` skill for this goal:
@@ -116,6 +142,8 @@ Requirements:
 - Produce 3-10 atomic user stories with acceptance criteria, dependencies, complexity, filesToTouch, implementation notes, and a definition of done.
 EOF
 )
+
+"$SCRIPT_DIR/vault-bootstrap.sh" ack --source vault-user-stories >/dev/null 2>&1 || true
 
 echo -e "${BLUE}User stories planning prepared.${NC}"
 echo "Project Root: $PROJECT_ROOT"

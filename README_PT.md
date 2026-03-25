@@ -179,8 +179,15 @@ O `vault-update` refresca o estado com:
 - `vault-doctor`
   - opções: `--fix`, `--fix-strict`, `--interactive`, `--strict`, `--json`, `--check <nome>`, `--explain <código>`
 - `vault-test`
-  - default: suite rápida
-  - `--all`: suite completa
+  - default: suite rápida (`core` + `bootstrap` + `doctor`)
+  - `--all`: suite completa (`core`, `optimize`, `bootstrap`, `task`, `migration`, `doctor`)
+  - `--suite <nome>`: `quick|core|optimize|bootstrap|task|doctor|skills|migration|all`
+- `vault-bootstrap`
+  - `ensure`, `check`, `ack --source <label>`
+  - `BOOTSTRAP_ACK` é sinal de auditoria (não garantia técnica)
+  - wrappers registam ACK, mas não bloqueiam execução com base apenas no token
+  - `BOOTSTRAP_RUNNING=1` evita recursão durante bootstrap
+  - `scripts/lib/bootstrap-enforcer.sh` é o único responsável por atualizar `last_check` em `.ai/bootstrap.md` após `ensure` com sucesso
 - `vault-context`
   - `refresh`, `trim`
 - `vault-task`
@@ -218,15 +225,27 @@ O `vault-update` refresca o estado com:
 
 - `vault-review` (também `vault-code-review`, `vault-pr-review`)
 - `vault-user-stories` (também `vault-breakdown`)
+  - ambos injetam preâmbulo de sessão obrigatório e registam ACK para auditoria (sem gating por token)
 
 ## Workflows do Dia a Dia
 
 ### 1) Iniciar/refrescar contexto
 
 ```bash
+vault-bootstrap ensure
 vault-context refresh
 vault-task show
+# atalhos de shell
+cc  # preflight para Claude
+cx  # preflight para Codex
 ```
+
+O que acontece:
+
+- `vault-bootstrap ensure` valida o bootstrap e atualiza `.ai/bootstrap.md`
+- `vault-context refresh` regenera o `agent-context.md`
+- `vault-task show` mostra o estado atual da task
+- `cc` / `cx` fazem o preflight de sessão para Claude/Codex e registam ACK (apenas auditoria)
 
 ### 2) Executar uma tarefa nova
 

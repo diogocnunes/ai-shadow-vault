@@ -118,6 +118,77 @@ JSON
     fi
 }
 
+extract_bootstrap_contract_block() {
+    local claude_file="$1"
+
+    awk '
+        /^## Bootstrap Contract \(Mandatory\)$/ { in_block=1; next }
+        in_block && /^## / { exit }
+        in_block { print }
+    ' "$claude_file"
+}
+
+suite_bootstrap() {
+    run_in_temp_project _suite_bootstrap_inner
+}
+
+_suite_bootstrap_inner() {
+    local root="$1"
+
+    cat > "$root/package.json" <<'JSON'
+{"name":"demo"}
+JSON
+
+    AI_SHADOW_SKIP_GIT_SAFETY=1 "$BIN_DIR/vault-init" --non-interactive >/tmp/vault-test-bootstrap-init.log 2>&1 || {
+        record_result fail bootstrap "vault-init failed before bootstrap suite"
+        return
+    }
+
+    if ! assert_file "$root/.ai/bootstrap.md"; then
+        record_result fail bootstrap "vault-init did not generate .ai/bootstrap.md"
+        return
+    fi
+
+    "$BIN_DIR/vault-bootstrap" ensure >/tmp/vault-test-bootstrap-ensure.log 2>&1 || {
+        record_result fail bootstrap "vault-bootstrap ensure failed on healthy fixture"
+        return
+    }
+
+    if ! grep -Eq '^- last_check: [0-9]{4}-[0-9]{2}-[0-9]{2}T' "$root/.ai/bootstrap.md"; then
+        record_result fail bootstrap "bootstrap state missing successful last_check timestamp"
+        return
+    fi
+
+    local contract_block
+    contract_block="$(extract_bootstrap_contract_block "$root/CLAUDE.md")"
+    if [[ -z "$contract_block" ]]; then
+        record_result fail bootstrap "CLAUDE.md bootstrap contract block missing"
+        return
+    fi
+
+    local line_count
+    line_count="$(printf '%s\n' "$contract_block" | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+    if (( line_count > 20 )); then
+        record_result fail bootstrap "CLAUDE.md bootstrap contract exceeds 20 lines"
+        return
+    fi
+
+    local line9='9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).'
+    local line10='10. Do not duplicate policy here; canonical policy is `.ai/rules.md`.'
+
+    if ! grep -Fqx "$line9" <<< "$contract_block"; then
+        record_result fail bootstrap "CLAUDE.md contract line 9 missing/reworded or outside contract block"
+        return
+    fi
+
+    if ! grep -Fqx "$line10" <<< "$contract_block"; then
+        record_result fail bootstrap "CLAUDE.md contract line 10 missing/reworded or outside contract block"
+        return
+    fi
+
+    record_result pass bootstrap "bootstrap contract integrity and state ownership checks passed"
+}
+
 suite_task() {
     run_in_temp_project _suite_task_inner
 }
@@ -241,6 +312,7 @@ run_selected_suites() {
     case "$SUITE" in
         quick)
             suite_core
+            suite_bootstrap
             suite_doctor
             ;;
         core)
@@ -255,6 +327,9 @@ run_selected_suites() {
         doctor)
             suite_doctor
             ;;
+        bootstrap)
+            suite_bootstrap
+            ;;
         skills)
             suite_optimize
             ;;
@@ -264,6 +339,7 @@ run_selected_suites() {
         all)
             suite_core
             suite_optimize
+            suite_bootstrap
             suite_task
             suite_migration
             suite_doctor

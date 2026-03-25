@@ -158,6 +158,15 @@ Impact if ignored: Agents can mis-handle execution mode and workflow intent.
 Typical fix: Set `mode: plan` or `mode: execute` in frontmatter.
 EOF_EXPLAIN
             ;;
+        D060|D061)
+            cat <<'EOF_EXPLAIN'
+Code: D060/D061
+What: Bootstrap contract/state is missing or invalid.
+Why: Session bootstrap must be validated before task execution.
+Impact if ignored: Rules/context can be skipped and audits become unreliable.
+Typical fix: Run `vault-bootstrap ensure` and sync managed CLAUDE template.
+EOF_EXPLAIN
+            ;;
         D090)
             cat <<'EOF_EXPLAIN'
 Code: D090
@@ -169,7 +178,7 @@ EOF_EXPLAIN
             ;;
         *)
             echo "Unknown doctor code: $code" >&2
-            echo "Tip: known codes include D001, D002, D003, D010, D020, D021, D030, D031, D040, D050, D051, D090." >&2
+            echo "Tip: known codes include D001, D002, D003, D010, D020, D021, D030, D031, D040, D050, D051, D060, D061, D090." >&2
             return 1
             ;;
     esac
@@ -258,6 +267,7 @@ check_structure() {
 
     local required_files=(
         "$AI_DIR/rules.md"
+        "$AI_DIR/bootstrap.md"
         "$AI_DIR/context/current-task.md"
         "$AI_DIR/context/project-context.md"
         "$AI_DIR/context/agent-context.md"
@@ -392,6 +402,39 @@ check_optional_tool_hard_dependency() {
     fi
 }
 
+check_bootstrap_contract() {
+    should_run_check bootstrap || return 0
+
+    local claude_file="$PROJECT_ROOT/CLAUDE.md"
+    local line9='9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).'
+    local line10='10. Do not duplicate policy here; canonical policy is `.ai/rules.md`.'
+
+    [[ -f "$claude_file" ]] || {
+        add_issue error D060 "Missing CLAUDE.md for bootstrap contract checks" "Restore managed CLAUDE.md template"
+        return 0
+    }
+
+    local contract_block
+    contract_block="$(awk '
+        /^## Bootstrap Contract \(Mandatory\)$/ { in_block=1; next }
+        in_block && /^## / { exit }
+        in_block { print }
+    ' "$claude_file")"
+
+    if [[ -z "$contract_block" ]]; then
+        add_issue error D060 "Missing Bootstrap Contract block in CLAUDE.md" "Sync CLAUDE.md managed template"
+        return 0
+    fi
+
+    if ! grep -Fqx "$line9" <<< "$contract_block"; then
+        add_issue error D061 "CLAUDE.md bootstrap line 9 missing/reworded or outside contract block" "Sync CLAUDE.md managed template"
+    fi
+
+    if ! grep -Fqx "$line10" <<< "$contract_block"; then
+        add_issue error D061 "CLAUDE.md bootstrap line 10 missing/reworded or outside contract block" "Sync CLAUDE.md managed template"
+    fi
+}
+
 fix_task_mode_missing() {
     local task_file="$AI_DIR/context/current-task.md"
     [[ -f "$task_file" ]] || return 1
@@ -455,6 +498,7 @@ collect_issues() {
     check_managed_markers
     check_inflation
     check_duplication
+    check_bootstrap_contract
     check_optional_tool_hard_dependency
     check_task_mode
     check_legacy_message
@@ -477,6 +521,9 @@ fix_missing_file() {
             ;;
         "$AI_DIR/context/agent-context.md")
             cp "$TEMPLATES_DIR/context/agent-context.md" "$file_path" 2>/dev/null || return 1
+            ;;
+        "$AI_DIR/bootstrap.md")
+            cp "$TEMPLATES_DIR/bootstrap.md" "$file_path" 2>/dev/null || return 1
             ;;
         "$AI_DIR/skills/ACTIVE_SKILLS.md")
             "$SCRIPT_DIR/build-active-skills.sh" "$PROJECT_ROOT" >/dev/null 2>&1 || return 1

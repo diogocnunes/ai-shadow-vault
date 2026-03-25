@@ -27,6 +27,25 @@ Aliases:
 EOF
 }
 
+run_bootstrap_preflight() {
+    if [[ "${BOOTSTRAP_RUNNING:-0}" == "1" ]]; then
+        return 0
+    fi
+
+    if [[ -x "$SCRIPT_DIR/vault-bootstrap.sh" ]]; then
+        "$SCRIPT_DIR/vault-bootstrap.sh" ensure
+        return $?
+    fi
+
+    if command -v vault-bootstrap >/dev/null 2>&1; then
+        vault-bootstrap ensure
+        return $?
+    fi
+
+    echo -e "${RED}vault-bootstrap command not found.${NC}"
+    exit 1
+}
+
 copy_prompt() {
     local content="$1"
 
@@ -139,6 +158,8 @@ if [[ ! -d "$AI_DIR" ]]; then
     exit 1
 fi
 
+run_bootstrap_preflight
+
 require_git_repo
 
 ensure_ai_subdir "$AI_DIR/reviews"
@@ -217,6 +238,11 @@ TIMESTAMP="$(timestamp_utc)"
 OUTPUT_PATH="$PROJECT_ROOT/.ai/reviews/$TIMESTAMP-$REVIEW_LABEL.review.md"
 
 PROMPT=$(cat <<EOF
+SESSION PREAMBLE (MANDATORY):
+- Run bootstrap checks from CLAUDE.md contract before task execution.
+- Output: \`BOOTSTRAP_ACK: rules+context loaded\` before task execution.
+- BOOTSTRAP_ACK is an audit signal only (not a technical guarantee).
+
 Use \`.ai/context/agent-context.md\` as the current project summary.
 Use \`.ai/skills/ACTIVE_SKILLS.md\` for any active specialized guidance.
 Then invoke the \`code-review\` skill for this scope:
@@ -236,6 +262,8 @@ Requirements:
 - End with a summary table and mark non-applicable categories as \`N/A\`.
 EOF
 )
+
+"$SCRIPT_DIR/vault-bootstrap.sh" ack --source vault-review >/dev/null 2>&1 || true
 
 echo -e "${BLUE}Code review prepared.${NC}"
 echo "Project Root: $PROJECT_ROOT"

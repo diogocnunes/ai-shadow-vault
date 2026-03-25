@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/bootstrap-enforcer.sh"
 
 usage() {
     cat <<'USAGE'
@@ -16,6 +17,11 @@ subcommand="${1:-refresh}"
 
 case "$subcommand" in
     refresh)
+        if [[ "${BOOTSTRAP_RUNNING:-0}" != "1" ]]; then
+            if ! "$SCRIPT_DIR/vault-bootstrap.sh" ensure; then
+                exit 1
+            fi
+        fi
         "$SCRIPT_DIR/vault-ai-context-file.sh"
         ;;
     trim)
