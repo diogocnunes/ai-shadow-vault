@@ -106,32 +106,30 @@ bootstrap_copy_if_missing() {
 
 bootstrap_validate_required_files() {
     local project_root="$1"
-    local -n errors_ref=$2
 
     local rules_file="$project_root/.ai/rules.md"
     local agent_context_file="$project_root/.ai/context/agent-context.md"
 
     if [[ ! -f "$rules_file" ]]; then
-        errors_ref+=("Missing required file: .ai/rules.md")
+        printf '%s\n' "Missing required file: .ai/rules.md"
     elif [[ ! -r "$rules_file" ]]; then
-        errors_ref+=("Required file is not readable: .ai/rules.md")
+        printf '%s\n' "Required file is not readable: .ai/rules.md"
     fi
 
     if [[ ! -f "$agent_context_file" ]]; then
-        errors_ref+=("Missing required file: .ai/context/agent-context.md")
+        printf '%s\n' "Missing required file: .ai/context/agent-context.md"
     elif [[ ! -r "$agent_context_file" ]]; then
-        errors_ref+=("Required file is not readable: .ai/context/agent-context.md")
+        printf '%s\n' "Required file is not readable: .ai/context/agent-context.md"
     fi
 }
 
 bootstrap_validate_contract_markers() {
     local project_root="$1"
-    local -n errors_ref=$2
 
     local claude_file="$project_root/CLAUDE.md"
 
     if [[ ! -f "$claude_file" ]]; then
-        errors_ref+=("Missing adapter file: CLAUDE.md")
+        printf '%s\n' "Missing adapter file: CLAUDE.md"
         return
     fi
 
@@ -146,16 +144,16 @@ bootstrap_validate_contract_markers() {
     ' "$claude_file")"
 
     if [[ -z "$contract_block" ]]; then
-        errors_ref+=("Missing Bootstrap Contract block in CLAUDE.md")
+        printf '%s\n' "Missing Bootstrap Contract block in CLAUDE.md"
         return
     fi
 
     if ! grep -Fqx "$line9" <<< "$contract_block"; then
-        errors_ref+=("CLAUDE.md contract line 9 missing/reworded or outside contract block")
+        printf '%s\n' "CLAUDE.md contract line 9 missing/reworded or outside contract block"
     fi
 
     if ! grep -Fqx "$line10" <<< "$contract_block"; then
-        errors_ref+=("CLAUDE.md contract line 10 missing/reworded or outside contract block")
+        printf '%s\n' "CLAUDE.md contract line 10 missing/reworded or outside contract block"
     fi
 }
 
@@ -215,46 +213,42 @@ bootstrap_write_state_file() {
 <!-- AI-SHADOW-VAULT: MANAGED FILE -->
 
 # Bootstrap State
-- Canonical policy: `.ai/rules.md`
-- Primary enforcement surface: `CLAUDE.md`
+- Canonical policy: \`.ai/rules.md\`
+- Primary enforcement surface: \`CLAUDE.md\`
 - rules.md: $rules_status
 - agent-context.md: $context_status
 - capabilities.json: $capabilities_status
 - last_check: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
 - last_result: $last_result
-- remediation: `vault-bootstrap ensure`
-- guard: `BOOTSTRAP_RUNNING=1` disables nested checks
+- remediation: \`vault-bootstrap ensure\`
+- guard: \`BOOTSTRAP_RUNNING=1\` disables nested checks
 EOF_STATE
 }
 
 bootstrap_collect_statuses() {
     local project_root="$1"
-    local -n rules_ref=$2
-    local -n context_ref=$3
-    local -n caps_ref=$4
 
     local rules_file="$project_root/.ai/rules.md"
     local context_file="$project_root/.ai/context/agent-context.md"
     local caps_file
     caps_file="$(bootstrap_capabilities_file "$project_root")"
+    local rules_status="missing"
+    local context_status="missing"
+    local caps_status="absent"
 
     if [[ -f "$rules_file" && -r "$rules_file" ]]; then
-        rules_ref="ok"
-    else
-        rules_ref="missing"
+        rules_status="ok"
     fi
 
     if [[ -f "$context_file" && -r "$context_file" ]]; then
-        context_ref="ok"
-    else
-        context_ref="missing"
+        context_status="ok"
     fi
 
     if [[ -f "$caps_file" ]]; then
-        caps_ref="present"
-    else
-        caps_ref="absent"
+        caps_status="present"
     fi
+
+    printf '%s\t%s\t%s\n' "$rules_status" "$context_status" "$caps_status"
 }
 
 bootstrap_log_ack() {
@@ -271,6 +265,7 @@ bootstrap_run_check() {
     local quiet="${2:-0}"
     local project_root ai_dir
     local errors=()
+    local validation_error
 
     if [[ "${BOOTSTRAP_RUNNING:-0}" == "1" ]]; then
         return 0
@@ -282,8 +277,12 @@ bootstrap_run_check() {
     if [[ ! -d "$ai_dir" ]]; then
         errors+=("Missing .ai directory in project root")
     else
-        bootstrap_validate_required_files "$project_root" errors
-        bootstrap_validate_contract_markers "$project_root" errors
+        while IFS= read -r validation_error; do
+            [[ -n "$validation_error" ]] && errors+=("$validation_error")
+        done < <(bootstrap_validate_required_files "$project_root")
+        while IFS= read -r validation_error; do
+            [[ -n "$validation_error" ]] && errors+=("$validation_error")
+        done < <(bootstrap_validate_contract_markers "$project_root")
     fi
 
     if [[ "${#errors[@]}" -gt 0 ]]; then
@@ -302,6 +301,7 @@ bootstrap_run_ensure() {
     local project_root ai_dir state_file caps_file rules_status context_status caps_status
     local previous_guard="${BOOTSTRAP_RUNNING:-}"
     local errors=()
+    local validation_error
 
     if [[ "${BOOTSTRAP_RUNNING:-0}" == "1" ]]; then
         return 0
@@ -335,11 +335,15 @@ bootstrap_run_ensure() {
             bootstrap_write_capabilities_file "$project_root"
         fi
 
-        bootstrap_validate_required_files "$project_root" errors
-        bootstrap_validate_contract_markers "$project_root" errors
+        while IFS= read -r validation_error; do
+            [[ -n "$validation_error" ]] && errors+=("$validation_error")
+        done < <(bootstrap_validate_required_files "$project_root")
+        while IFS= read -r validation_error; do
+            [[ -n "$validation_error" ]] && errors+=("$validation_error")
+        done < <(bootstrap_validate_contract_markers "$project_root")
     fi
 
-    bootstrap_collect_statuses "$project_root" rules_status context_status caps_status
+    IFS=$'\t' read -r rules_status context_status caps_status < <(bootstrap_collect_statuses "$project_root")
 
     if [[ "${#errors[@]}" -gt 0 ]]; then
         bootstrap_write_state_file "$project_root" "invalid" "$rules_status" "$context_status" "$caps_status"
