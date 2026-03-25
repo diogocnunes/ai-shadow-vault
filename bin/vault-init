@@ -362,6 +362,7 @@ collect_optimize_plan() {
         "$local_ai/context/current-task.template.md|$FORCE_CONFIG"
         "$local_ai/context/current-task.md|$FORCE_CONFIG"
         "$local_ai/context/agent-context.md|$FORCE_CONFIG"
+        "$local_ai/bootstrap.md|$FORCE_CONFIG"
         "$local_ai/docs/vault-rules.md|$FORCE_CONFIG"
         "$local_ai/prompts/new-task.md|$FORCE_CONFIG"
         "$local_ai/rules.md|1"
@@ -476,6 +477,7 @@ initialize_local_ai_workspace() {
     copy_managed_template "$TEMPLATES_DIR/.ai/context/current-task.md" "$local_ai/context/current-task.template.md" "$FORCE_CONFIG"
     copy_managed_template "$TEMPLATES_DIR/.ai/context/current-task.md" "$local_ai/context/current-task.md" "$FORCE_CONFIG"
     copy_managed_template "$TEMPLATES_DIR/.ai/context/agent-context.md" "$local_ai/context/agent-context.md" "$FORCE_CONFIG"
+    copy_managed_template "$TEMPLATES_DIR/.ai/bootstrap.md" "$local_ai/bootstrap.md" "$FORCE_CONFIG"
     copy_managed_template "$TEMPLATES_DIR/.ai/docs/vault-rules.md" "$local_ai/docs/vault-rules.md" "$FORCE_CONFIG"
     copy_managed_template "$TEMPLATES_DIR/.ai/prompts/new-task.md" "$local_ai/prompts/new-task.md" "$FORCE_CONFIG"
 

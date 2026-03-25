@@ -38,6 +38,25 @@ Usage:
 USAGE
 }
 
+run_bootstrap_preflight() {
+    if [[ "${BOOTSTRAP_RUNNING:-0}" == "1" ]]; then
+        return 0
+    fi
+
+    if [[ -x "$SCRIPT_DIR/vault-bootstrap.sh" ]]; then
+        "$SCRIPT_DIR/vault-bootstrap.sh" ensure
+        return $?
+    fi
+
+    if command -v vault-bootstrap >/dev/null 2>&1; then
+        vault-bootstrap ensure
+        return $?
+    fi
+
+    echo "vault-bootstrap command not found." >&2
+    exit 1
+}
+
 ensure_mode_frontmatter() {
     local mode_value="${1:-execute}"
 
@@ -701,6 +720,10 @@ command_archive() {
 }
 
 subcommand="${1:-show}"
+
+if [[ "$subcommand" != "-h" && "$subcommand" != "--help" && "$subcommand" != "help" ]]; then
+    run_bootstrap_preflight
+fi
 
 case "$subcommand" in
     new)

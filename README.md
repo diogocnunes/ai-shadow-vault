@@ -75,6 +75,7 @@ This is where real authority lives: rules, current task, plans, project facts, w
 Typical loop:
 
 - initialize once with `vault-init`
+- validate bootstrap at session start with `vault-bootstrap ensure` (or use `cc`/`cx`)
 - create or update current task with `vault-task`
 - refresh generated working-state context with `vault-context refresh`
 - validate drift with `vault-doctor`
@@ -369,9 +370,9 @@ When to use:
 
 Options:
 
-- default: quick (`core` + `doctor`)
-- `--all`: full (`core`, `optimize`, `task`, `migration`, `doctor`)
-- `--suite <name>`: run one suite (`quick|core|optimize|task|doctor|skills|migration|all`)
+- default: quick (`core` + `bootstrap` + `doctor`)
+- `--all`: full (`core`, `optimize`, `bootstrap`, `task`, `migration`, `doctor`)
+- `--suite <name>`: run one suite (`quick|core|optimize|bootstrap|task|doctor|skills|migration|all`)
 - `--json`: machine-readable result
 
 Examples:
@@ -382,6 +383,22 @@ vault-test --all
 vault-test --suite migration
 vault-test --json
 ```
+
+### `vault-bootstrap`
+
+Subcommands:
+
+- `ensure`: auto-heal + validate required bootstrap files and contract markers
+- `check`: validate bootstrap state without mutation
+- `ack --source <label>`: append audit signal entry for session preamble tracking
+
+Notes:
+
+- wrappers call `vault-bootstrap ensure` before task-oriented flows
+- invalid bootstrap prints a visible warning block with remediation command
+- `BOOTSTRAP_ACK` is an audit signal only, not a technical guarantee
+- `BOOTSTRAP_RUNNING=1` is the recursion guard used during bootstrap orchestration
+- `scripts/lib/bootstrap-enforcer.sh` owns writing `last_check` in `.ai/bootstrap.md` after each successful `ensure`
 
 ### `vault-context`
 
@@ -558,6 +575,7 @@ Scopes:
 What it does:
 
 - prepares structured review prompt and output path under `.ai/reviews/`
+- injects a mandatory session preamble and logs `BOOTSTRAP_ACK` for audit trail (non-gating)
 
 ### `vault-user-stories` and alias
 
@@ -569,6 +587,7 @@ Commands:
 What it does:
 
 - prepares planning prompt for user stories and target file under `.ai/plans/`
+- injects a mandatory session preamble and logs `BOOTSTRAP_ACK` for audit trail (non-gating)
 
 ## How to Use the Main Workflows
 
@@ -579,14 +598,20 @@ This section explains the exact examples and why each command exists.
 Commands:
 
 ```bash
+vault-bootstrap ensure
 vault-context refresh
 vault-task show
+# shell helpers
+cc  # Claude preflight
+cx  # Codex preflight
 ```
 
 What happens:
 
+- `vault-bootstrap ensure` validates/enforces bootstrap state and updates `.ai/bootstrap.md`
 - `vault-context refresh` regenerates `agent-context.md` based on current branch, task, plans, and skills
 - `vault-task show` prints the active task so you can confirm current goal/mode before starting work
+- `cc` / `cx` run preflight recap for Claude/Codex and log bootstrap ACK (audit only)
 
 When to use:
 

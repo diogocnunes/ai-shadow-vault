@@ -149,6 +149,14 @@ function claude-start() {
         return
     fi
 
+    if [[ -x "$AI_SHADOW_SHELL_DIR/vault-bootstrap.sh" ]]; then
+        (cd "$project_root" && "$AI_SHADOW_SHELL_DIR/vault-bootstrap.sh" ensure) || return
+        (cd "$project_root" && "$AI_SHADOW_SHELL_DIR/vault-bootstrap.sh" ack --source claude-start >/dev/null 2>&1 || true)
+    elif command -v vault-bootstrap >/dev/null 2>&1; then
+        (cd "$project_root" && vault-bootstrap ensure) || return
+        (cd "$project_root" && vault-bootstrap ack --source claude-start >/dev/null 2>&1 || true)
+    fi
+
     local context_file="$project_root/.ai/context/agent-context.md"
     if [[ -x "$AI_SHADOW_SHELL_DIR/vault-ai-context-file.sh" ]]; then
         (cd "$project_root" && "$AI_SHADOW_SHELL_DIR/vault-ai-context-file.sh" >/dev/null)
@@ -167,11 +175,43 @@ function claude-start() {
         fi
     fi
     [[ -f "$context_file" ]] && echo "\033[0;32m📝 Promptable context file:\033[0m $context_file"
+    echo "\033[1;33mSESSION PREAMBLE (MANDATORY):\033[0m Output \`BOOTSTRAP_ACK: rules+context loaded\` before task execution."
+    echo "\033[0;33mNote:\033[0m BOOTSTRAP_ACK is an audit signal only (not a technical guarantee)."
     echo "------------------------------------------"
     echo "\033[1;33m🚀 Start Claude Code with: claude\033[0m"
 }
 
+function codex-start() {
+    local project_root="$(vault_resolve_project_root "$PWD")"
+
+    if [[ "$project_root" == "/" || ! -d "$project_root/.ai" ]]; then
+        echo "\033[1;33m⚠️  No .ai directory found in project tree. Run vault-init first.\033[0m"
+        return
+    fi
+
+    if [[ -x "$AI_SHADOW_SHELL_DIR/vault-bootstrap.sh" ]]; then
+        (cd "$project_root" && "$AI_SHADOW_SHELL_DIR/vault-bootstrap.sh" ensure) || return
+        (cd "$project_root" && "$AI_SHADOW_SHELL_DIR/vault-bootstrap.sh" ack --source codex-start >/dev/null 2>&1 || true)
+    elif command -v vault-bootstrap >/dev/null 2>&1; then
+        (cd "$project_root" && vault-bootstrap ensure) || return
+        (cd "$project_root" && vault-bootstrap ack --source codex-start >/dev/null 2>&1 || true)
+    fi
+
+    local context_file="$project_root/.ai/context/agent-context.md"
+    if [[ -x "$AI_SHADOW_SHELL_DIR/vault-ai-context-file.sh" ]]; then
+        (cd "$project_root" && "$AI_SHADOW_SHELL_DIR/vault-ai-context-file.sh" >/dev/null)
+    fi
+
+    (cd "$project_root" && echo "\033[0;34m🛡️  AI Shadow Vault - Codex Context Recap\033[0m" && echo "------------------------------------------" && vault-ai-resume)
+    [[ -f "$context_file" ]] && echo "\033[0;32m📝 Promptable context file:\033[0m $context_file"
+    echo "\033[1;33mSESSION PREAMBLE (MANDATORY):\033[0m Output \`BOOTSTRAP_ACK: rules+context loaded\` before task execution."
+    echo "\033[0;33mNote:\033[0m BOOTSTRAP_ACK is an audit signal only (not a technical guarantee)."
+    echo "------------------------------------------"
+    echo "\033[1;33m🚀 Start Codex with: codex\033[0m"
+}
+
 alias cc="claude-start"
+alias cx="codex-start"
 alias vault-breakdown="$HOME/.ai-shadow-vault/bin/vault-breakdown"
 
 function check_ai_cache() {
@@ -181,7 +221,7 @@ function check_ai_cache() {
     done
 
     if [[ -d "$project_root/.ai" ]]; then
-        echo "\033[0;32m🛡️  AI Cache active!\033[0m (Run 'cc' to start)"
+        echo "\033[0;32m🛡️  AI Cache active!\033[0m (Run 'cc' for Claude or 'cx' for Codex)"
     fi
 }
 
