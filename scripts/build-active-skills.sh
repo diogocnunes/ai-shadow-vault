@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/skills-resolver.sh"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 if [[ "$#" -gt 0 && -d "$1" ]]; then
     PROJECT_ROOT="$(skills_project_root "$1")"
@@ -60,8 +61,10 @@ fi
             IFS=$'\t' read -r resolved_name skill_file skill_desc <<< "$resolved_line"
             if [[ "$skill_file" == *"/packs/"* ]]; then
                 source_ref="${skill_file#$HOME/}"
+            elif [[ "$skill_file" == "$REPO_ROOT/"* ]]; then
+                source_ref="${skill_file#$REPO_ROOT/}"
             else
-                source_ref="templates/Skills/$(basename "$skill_file")"
+                source_ref="$skill_file"
             fi
             purpose="$skill_desc"
             if [[ -z "$purpose" ]]; then

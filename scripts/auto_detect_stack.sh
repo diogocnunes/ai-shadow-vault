@@ -13,12 +13,10 @@ NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
-source "$SCRIPT_DIR/lib/migration-notices.sh"
 
 AI_VAULT=".ai"
 DOCS_DIR="$AI_VAULT/docs/tech-stack"
 CONTEXT_FILE="$AI_VAULT/context/tech-stack.md"
-TEMPLATES_SKILLS_DIR=""
 LARAVEL_PACK_HINT_ADDED=0
 
 # --- Project Root Detection ---
@@ -40,22 +38,6 @@ else
     cd "$PROJECT_ROOT" || exit 1
 fi
 
-# Locate Skills Templates
-if [ -d "$SCRIPT_DIR/../templates/Skills" ]; then
-    TEMPLATES_SKILLS_DIR="$SCRIPT_DIR/../templates/Skills"
-elif [ -d "$(vault_shared_asset_path "templates/Skills")" ]; then
-    TEMPLATES_SKILLS_DIR="$(vault_shared_asset_path "templates/Skills")"
-# Fallback for when run from symlink or different structure
-elif [ -d "$HOME/Sites/MySites/ai-shadow-vault/templates/Skills" ]; then
-    TEMPLATES_SKILLS_DIR="$HOME/Sites/MySites/ai-shadow-vault/templates/Skills"
-fi
-
-if [ -z "$TEMPLATES_SKILLS_DIR" ]; then
-    echo -e "${YELLOW}⚠️  Warning: Skills templates directory not found. Skipping knowledge copy.${NC}"
-else
-    echo -e "  Found templates at: $TEMPLATES_SKILLS_DIR"
-fi
-
 echo -e "${BLUE}🔍 Auto-detecting Tech Stack...${NC}"
 
 # Ensure directories exist
@@ -68,23 +50,8 @@ echo "*Detected on $(date)*" >> "$CONTEXT_FILE"
 echo "" >> "$CONTEXT_FILE"
 echo "## Detected Technologies" >> "$CONTEXT_FILE"
 
-# Helper to copy skill doc
-copy_skill_doc() {
-    local skill_file="$1"
-    local dest_name="$2"
-    
-    if [ -f "$TEMPLATES_SKILLS_DIR/$skill_file" ]; then
-        cp "$TEMPLATES_SKILLS_DIR/$skill_file" "$DOCS_DIR/$dest_name"
-        echo -e "  ✅ Added knowledge base: ${GREEN}$dest_name${NC}"
-    else
-         # Silent fail or debug log if needed
-         :
-    fi
-}
-
 add_laravel_pack_hint() {
     local reason="$1"
-    local soft_notice
 
     if [ "$LARAVEL_PACK_HINT_ADDED" -eq 1 ]; then
         return
@@ -92,10 +59,6 @@ add_laravel_pack_hint() {
 
     echo "- **Optional Pack**: Laravel pack recommended ($reason)." >> "$CONTEXT_FILE"
     echo "  Enable with: \`vault-ext enable laravel\`" >> "$CONTEXT_FILE"
-    soft_notice="$(asv_soft_migration_notice_for_pack "laravel" || true)"
-    if [ -n "$soft_notice" ]; then
-        echo "  $soft_notice" >> "$CONTEXT_FILE"
-    fi
     LARAVEL_PACK_HINT_ADDED=1
 }
 
@@ -159,7 +122,6 @@ if [ -f "package.json" ]; then
     if grep -q '"vue":' package.json; then
         VUE_VERSION=$(grep '"vue":' package.json | grep -o '[0-9]\+' | head -n 1)
         echo "- **Frontend Framework**: Vue.js (v$VUE_VERSION)" >> "$CONTEXT_FILE"
-        copy_skill_doc "FRONTEND-EXPERT.md" "vue-frontend.md"
     fi
 
     # Tailwind

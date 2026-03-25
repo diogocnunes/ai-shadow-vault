@@ -11,7 +11,7 @@ source "$SKILLS_RESOLVER_DIR/pack-contract.sh"
 skills_core_catalog_root() {
     local script_root
     script_root="$(cd "$SKILLS_RESOLVER_DIR/../.." && pwd)"
-    printf '%s\n' "$script_root/templates/Skills"
+    printf '%s\n' "$script_root/core/skills"
 }
 
 skills_pack_catalog_roots() {
@@ -87,18 +87,9 @@ skills_strip_frontmatter() {
 }
 
 skills_is_installable_file() {
-    local skill_file source_kind basename_file
+    local skill_file basename_file
     skill_file=$1
-    source_kind=${2:-core}
     basename_file="$(basename "$skill_file")"
-
-    if [[ "$source_kind" == "core" ]]; then
-        case "$skill_file" in
-            */Laravel/*)
-                return 1
-                ;;
-        esac
-    fi
 
     case "$basename_file" in
         LICENSE|CREDITS.md)
@@ -147,23 +138,22 @@ skills_resolve_one() {
     requested_name=$1
     normalized_name="$(skills_resolve_alias "$requested_name")"
     core_catalog_root="$(skills_core_catalog_root)"
+    moved_pack="$(asv_deprecation_pack_for_skill "$normalized_name" || true)"
 
     while IFS=$'\t' read -r skill_name skill_file skill_desc; do
         if [[ "$skill_name" == "$normalized_name" ]]; then
-            if [[ "$skill_file" == "$core_catalog_root/"* ]]; then
-                moved_pack="$(asv_deprecation_pack_for_skill "$skill_name" || true)"
-                if [[ -n "$moved_pack" ]]; then
-                    asv_warn_skill_legacy_fallback "$skill_name" "$moved_pack"
-                fi
+            if [[ -n "$moved_pack" && "$skill_file" == "$core_catalog_root/"* ]]; then
+                asv_error_skill_pack_required "$requested_name" "$moved_pack"
+                return 1
             fi
             printf '%s\t%s\t%s\n' "$skill_name" "$skill_file" "$skill_desc"
             return 0
         fi
     done < <(skills_discover)
 
-    moved_pack="$(asv_deprecation_pack_for_skill "$normalized_name" || true)"
     if [[ -n "$moved_pack" ]]; then
-        echo "ASV-SKILL-404: Skill '$requested_name' not found in active packs or legacy core. If this is Laravel-related, run: vault-ext enable $moved_pack" >&2
+        asv_error_skill_pack_required "$requested_name" "$moved_pack"
+        return 1
     fi
 
     return 1

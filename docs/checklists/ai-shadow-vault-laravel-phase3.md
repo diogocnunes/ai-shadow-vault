@@ -31,16 +31,12 @@ Example `pack.json`:
 }
 ```
 
-## 3) Extraction From Core (copy-first)
+## 3) Pack Source of Truth
 
-From core repo (`~/Sites/MySites/ai-shadow-vault`):
+After hard migration, Laravel skills are owned directly in the pack repository:
 
-```bash
-scripts/dev/extract-laravel-pack.sh ~/Sites/MySites/ai-shadow-vault-laravel
-```
-
-- [ ] Files copied to `skills/`.
-- [ ] No skill files removed from core yet.
+- [ ] `ai-shadow-vault-laravel/skills/` is the source of truth.
+- [ ] No extraction from core is required.
 
 ## 4) Contract Validation
 
@@ -83,4 +79,4 @@ cat .ai/skills/ACTIVE_SKILLS.md
 
 - [ ] `vault-ext enable laravel` works on clean project.
 - [ ] `vault-ext enable laravel-stack` maps to `laravel` (legacy compatibility).
-- [ ] No regression in core fallback behavior for unmigrated users.
+- [ ] Hard-cut behavior confirmed: mapped Laravel skills require pack (`ASV-HARD-MIGRATION-001` when pack is not enabled).

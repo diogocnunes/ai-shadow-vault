@@ -1,9 +1,16 @@
 {
-  "backend-expert": "laravel",
-  "filament-v5": "laravel",
-  "architect-lead": "laravel",
   "architect-filament-lead": "laravel",
-  "tall-stack": "laravel",
+  "architect-lead": "laravel",
+  "backend-expert": "laravel",
+  "dx-maintainer": "laravel",
+  "filament-expert": "laravel",
+  "filament-v5": "laravel",
+  "frontend-expert": "laravel",
   "laravel-code-quality": "laravel",
-  "legacy-migration-specialist": "laravel"
+  "legacy-migration-specialist": "laravel",
+  "qa-automation": "laravel",
+  "security-performance": "laravel",
+  "syncfusion-document-editor": "laravel",
+  "tall-stack": "laravel",
+  "user-stories": "laravel"
 }

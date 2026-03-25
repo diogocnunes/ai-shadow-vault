@@ -816,6 +816,11 @@ command_activate() {
         [[ -n "$skill_name" ]] && skills+=("$skill_name")
     done < <(resolve_requested_skills "${requested[@]}")
 
+    if [[ "${#requested[@]}" -gt 0 && "${#skills[@]}" -eq 0 ]]; then
+        echo -e "${RED}No requested skills could be activated.${NC}" >&2
+        exit 1
+    fi
+
     while IFS= read -r skill_name; do
         [[ -n "$skill_name" ]] && targets+=("$skill_name")
     done < <(skills_load_targets "$PROJECT_ROOT")
@@ -837,7 +842,7 @@ command_activate() {
     fi
 
     echo -e "${GREEN}Active skills updated.${NC}"
-    echo "Skills: ${skills[*]}"
+    echo "Skills: ${skills[*]+"${skills[*]}"}"
     echo "Bundle: $(skills_active_bundle_file "$PROJECT_ROOT")"
 }
 

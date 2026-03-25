@@ -25,7 +25,6 @@ PATH="/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/vault-resolver.sh"
 source "$SCRIPT_DIR/lib/skills-resolver.sh"
-source "$SCRIPT_DIR/lib/migration-notices.sh"
 
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
 AI_DIR="$PROJECT_ROOT/.ai"
@@ -35,20 +34,10 @@ NO_WRITE="${VAULT_SKILLS_NO_WRITE:-0}"
 AUTO_THRESHOLD="0.80"
 SUGGEST_THRESHOLD="0.50"
 PACK_RECOMMENDATIONS=()
-MIGRATION_NOTICES=()
 
 if [[ "$NO_WRITE" -ne 1 ]]; then
     mkdir -p "$AI_DIR/skills"
 fi
-
-ASV_WARN_MARKER_FILE="${TMPDIR:-/tmp}/asv-warning-keys-$$"
-export ASV_WARN_MARKER_FILE
-: > "$ASV_WARN_MARKER_FILE" 2>/dev/null || true
-
-cleanup_warning_marker() {
-    rm -f "$ASV_WARN_MARKER_FILE" >/dev/null 2>&1 || true
-}
-trap cleanup_warning_marker EXIT
 
 to_unique_lines() {
     awk '!seen[$0]++'
@@ -81,20 +70,11 @@ add_pack_recommendation() {
     PACK_RECOMMENDATIONS+=("$pack|$reason")
 }
 
-add_migration_notice() {
-    local notice="$1"
-    MIGRATION_NOTICES+=("$notice")
-}
-
 detect_pack_recommendations() {
     local deduped_pack=()
     local deduped_line
-    local deduped_notice=()
-    local deduped_notice_line
-    local soft_notice
 
     PACK_RECOMMENDATIONS=()
-    MIGRATION_NOTICES=()
 
     if vault_extension_is_enabled "$PROJECT_ROOT" "laravel" || vault_extension_is_enabled "$PROJECT_ROOT" "laravel-stack"; then
         return 0
@@ -120,18 +100,6 @@ detect_pack_recommendations() {
             [[ -n "$deduped_line" ]] && deduped_pack+=("$deduped_line")
         done < <(printf '%s\n' "${PACK_RECOMMENDATIONS[@]}" | to_unique_lines)
         PACK_RECOMMENDATIONS=("${deduped_pack[@]}")
-
-        soft_notice="$(asv_soft_migration_notice_for_pack "laravel" || true)"
-        if [[ -n "$soft_notice" ]]; then
-            add_migration_notice "$soft_notice"
-        fi
-    fi
-
-    if [[ "${#MIGRATION_NOTICES[@]}" -gt 0 ]]; then
-        while IFS= read -r deduped_notice_line; do
-            [[ -n "$deduped_notice_line" ]] && deduped_notice+=("$deduped_notice_line")
-        done < <(printf '%s\n' "${MIGRATION_NOTICES[@]}" | to_unique_lines)
-        MIGRATION_NOTICES=("${deduped_notice[@]}")
     fi
 }
 
@@ -321,13 +289,6 @@ write_suggestions_file() {
                 printf -- '- `%s`: %s. Install with `vault-ext enable %s`.\n' "$pack" "$reason" "$pack"
             done
         fi
-        echo
-        echo "## Migration Notices"
-        if [[ "${#MIGRATION_NOTICES[@]}" -eq 0 ]]; then
-            echo "- none"
-        else
-            printf -- '- %s\n' "${MIGRATION_NOTICES[@]}"
-        fi
     } > "$SUGGESTIONS_FILE"
 }
 
@@ -389,11 +350,6 @@ print_suggest_human() {
         done
     fi
 
-    if [[ "${#MIGRATION_NOTICES[@]}" -gt 0 ]]; then
-        echo
-        echo "Migration notices:"
-        printf -- '- %s\n' "${MIGRATION_NOTICES[@]}"
-    fi
 }
 
 print_suggest_plan() {

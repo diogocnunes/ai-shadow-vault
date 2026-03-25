@@ -1,724 +1,283 @@
 # AI Shadow Vault
 
-AI Shadow Vault is a portable, agent-agnostic context system for software projects.
-It keeps AI guidance organized, compact, and consistent across tools like Claude Code, Codex, Gemini, Opencode, and similar agents.
+AI Shadow Vault is a local developer-experience infrastructure for AI-assisted coding.
 
-## Table of Contents
+It keeps AI context outside your Git repository and injects only the runtime files each project needs.
 
-- [What Is AI Shadow Vault](#what-is-ai-shadow-vault)
-- [What It Is For](#what-it-is-for)
-- [Why Use It](#why-use-it)
-- [Who It Is For](#who-it-is-for)
-- [How It Works (Mental Model)](#how-it-works-mental-model)
-- [Core Principles](#core-principles)
-- [Canonical Authority Order](#canonical-authority-order)
-- [Vault Structure](#vault-structure)
-- [Installation](#installation)
-- [Initialize a Project](#initialize-a-project)
-- [Detailed `vault-init` Flags](#detailed-vault-init-flags)
-- [Update Flow](#update-flow)
-- [Command Reference (Detailed)](#command-reference-detailed)
-- [How to Use the Main Workflows](#how-to-use-the-main-workflows)
-- [Skills and Auto-Detection](#skills-and-auto-detection)
-- [Pack Contracts](#pack-contracts)
-- [Soft Migration](#soft-migration)
-- [Optional Extensions](#optional-extensions)
-- [Troubleshooting](#troubleshooting)
-- [OS Support](#os-support)
-- [Credits](#credits)
+## What This Package Is
 
-## What Is AI Shadow Vault
+AI Shadow Vault is a ZSH-based local system that standardizes:
 
-AI Shadow Vault is a local context layer that:
+- project rules and guardrails
+- task and context files
+- agent memory/session flow
+- optional stack-specific skills through packs
 
-- keeps AI context outside your main repo history
-- links lightweight adapter files into your project (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, etc.)
-- maintains canonical context files under `.ai/`
-- helps agents load the same authority model with minimal duplication
+It is not a cloud service, not a hosted agent, and not a framework plugin.
 
-## What It Is For
+## Why It Exists
 
-Use it to:
+Most teams hit the same problems when using AI tools in real projects:
 
-- standardize instructions across different AI agents
-- avoid conflicting rules spread across many files
-- keep active context short and usable
-- preserve task continuity without turning context into long logs
-- migrate legacy context layouts safely
+- context files pollute Git history
+- private notes leak into repositories
+- each project ends up with inconsistent AI conventions
+- prompts drift and quality drops over time
 
-## Why Use It
-
-Main advantages:
-
-- single authority model
-- compact, AI-friendly active context
-- optional tools remain optional (with fallback behavior)
-- safer regeneration via managed-file markers
-- built-in doctoring and validation (`vault-doctor`, `vault-test`)
+AI Shadow Vault solves this by separating infrastructure (core) from stack expertise (packs).
 
 ## Who It Is For
 
-AI Shadow Vault is designed for:
+- developers using Claude/Codex/Gemini in daily coding workflows
+- teams that want repeatable AI project setup
+- maintainers who need strict local control over context and privacy
 
-- developers using AI agents daily in real projects
-- teams needing consistent AI guidance across tools
-- projects that want safe defaults plus optional AI-first optimization
+## Vision and Values
 
-## How It Works (Mental Model)
+AI Shadow Vault is built around four values:
 
-Think of AI Shadow Vault as two layers:
+1. Privacy by default: local-first context, no mandatory cloud dependency.
+2. Predictability over magic: explicit files, explicit commands, explicit contracts.
+3. Maintainability at scale: core stays generic; stack intelligence lives in packs.
+4. Low-friction adoption: works with existing repositories without forcing rewrites.
 
-1. `Project adapters` (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, editor rule files)
-These are thin entry points that tell each agent where the canonical context lives.
+## What Changed in v5 (Hard Cut)
 
-2. `Canonical context` (inside `.ai/`)
-This is where real authority lives: rules, current task, plans, project facts, working state, and archive.
+From `v5.0.0` onward, core no longer provides moved skills through legacy fallback.
 
-Typical loop:
+If a skill was moved to the Laravel pack, core now returns:
 
-- initialize once with `vault-init`
-- validate bootstrap at session start with `vault-bootstrap ensure` (or use `cc`/`cx`)
-- create or update current task with `vault-task`
-- refresh generated working-state context with `vault-context refresh`
-- validate drift with `vault-doctor`
-- archive and reset task when done (`vault-task done` / `vault-ai-save`)
+- `ASV-HARD-MIGRATION-001`
 
-## Core Principles
+This hard cut was intentional to:
 
-- Agent-agnostic: no single vendor lock-in
-- Tool-agnostic: RTK/Gemini CLI/Context7 and similar are optional
-- Compact context: active files are not historical logs
-- Managed vs user-authored safety: managed files can be regenerated safely
-- Explicit over implicit behavior
-
-## Canonical Authority Order
-
-Agents should follow this exact order:
-
-1. `.ai/rules.md`
-2. `.ai/context/current-task.md`
-3. `.ai/plans/`
-4. `.ai/context/project-context.md`
-5. `.ai/context/agent-context.md`
-6. `.ai/skills/ACTIVE_SKILLS.md`
-7. `.ai/docs/`
-8. `.ai/archive/` (manual lookup only)
-
-## Vault Structure
-
-Key paths:
-
-- `.ai/rules.md`: canonical policy
-- `.ai/context/current-task.md`: single active task only
-- `.ai/context/project-context.md`: stable project facts
-- `.ai/context/agent-context.md`: compact working-state continuity (no history)
-- `.ai/plans/`: active plans
-- `.ai/docs/`: supporting docs
-- `.ai/skills/ACTIVE_SKILLS.md`: active skills index
-- `.ai/archive/`: historical material
-
-Task lifecycle:
-
-- `current-task.md` holds one active task only
-- on completion, task material should be archived
-- active files must not accumulate historical logs
+- remove the misleading “Laravel-first core” perception
+- make the core genuinely stack-agnostic
+- enforce one source of truth for Laravel skills (`ai-shadow-vault-laravel`)
 
 ## Installation
-
-Clone and prepare base data dir:
 
 ```bash
 git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
 mkdir -p ~/.ai-shadow-vault-data
-```
 
-Add shell integration to `~/.zshrc`:
-
-```bash
+# Add to ~/.zshrc
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-```
 
-Reload shell:
-
-```bash
+# Reload shell
 source ~/.zshrc
 ```
 
-## Initialize a Project
-
-Safe default setup:
-
-```bash
-cd ~/Sites/my-project
-vault-init
-```
-
-AI-first optimize mode (detect -> preview -> apply):
-
-```bash
-vault-init --optimize
-```
-
-Preview only (no write):
-
-```bash
-vault-init --optimize --dry-run --non-interactive
-```
-
-Interactive optimize flow:
-
-```bash
-vault-init --optimize --interactive
-```
-
-Compatibility alias:
-
-```bash
-vault-init --force-config
-```
-
-## Detailed `vault-init` Flags
-
-This section explains exactly what each commonly used option does.
-
-### `--optimize`
-
-Purpose:
-
-- enables optimization mode (`detect -> preview -> apply`)
-- runs stack detection and skills confidence decisions
-- shows an optimization plan before applying changes
-
-Use when:
-
-- you want AI-first setup quality
-- you are migrating an older vault layout to vNext structure
-
-### `--interactive`
-
-Purpose:
-
-- enables interactive prompts where needed
-- allows confirmation before apply in optimize flow
-
-Use when:
-
-- you want to review/confirm decisions manually
-- detection confidence is good but you still want control
-
-### `--non-interactive`
-
-Purpose:
-
-- suppresses prompts and uses default behavior
-- useful in scripts, CI, and deterministic runs
-
-Use when:
-
-- automation is preferred
-- you need reproducible bootstrap without questions
-
-### `--dry-run`
-
-Purpose:
-
-- works with `--optimize`
-- prints plan only, without changing files
-
-Use when:
-
-- you want trust/preview before mutation
-- you are auditing impact on an existing project
-
-### `--yes`
-
-Purpose:
-
-- auto-accepts yes/no prompts
-- useful for unattended flows
-
-Use when:
-
-- you already reviewed plan output and want apply without prompt stops
-
-### `--force-config`
-
-Purpose:
-
-- compatibility alias for older workflows
-- treated as: `vault-init --optimize --interactive`
-
-Use when:
-
-- legacy docs/scripts still call `--force-config`
-
-Notes:
-
-- supported for backward compatibility
-- prefer `--optimize --interactive` in new usage
-
-### Additional compatibility flags
-
-- `--use-gemini` / `--no-use-gemini`: compatibility no-ops; optional tool behavior is controlled by rules
-- `--enable-workflow` / `--disable-workflow`: compatibility path for older adapter-injection behavior
-- `--herd`: passes Herd preference into configurator
-
-## Update Flow
-
-Update package and refresh current project:
+## Update
 
 ```bash
 vault-update
 source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
-`vault-update` refreshes project state with:
+## Quick Start (New Project)
 
-- `vault-init --non-interactive`
-- `vault-ai-context`
-- enabled extension post-update hooks
+```bash
+cd /path/to/project
+vault-init
+vault-ai-context
+vault-doctor
+```
 
-## Command Reference (Detailed)
+## Enable Skills (Pack-first)
 
-This section explains each command, what it does, and when to use it.
+```bash
+cd /path/to/project
+vault-ext enable laravel
+vault-ext enable skills
+vault-skills set backend-expert
+vault-skills sync
+```
+
+Useful checks:
+
+```bash
+cat .ai/extensions/lock.json
+cat .ai/skills/ACTIVE_SKILLS.md
+```
+
+## Daily Workflow
+
+```bash
+# Refresh context
+vault-ai-context
+
+# Work on a task
+vault-task "Implement feature X"
+
+# Validate health
+vault-doctor --strict
+```
+
+## Normalize Projects from <= 4.x to 5.x
+
+Use this for existing projects that were on legacy/fallback behavior.
+
+### Step 1: Update core to v5
+
+```bash
+cd ~/.ai-shadow-vault
+git fetch --tags
+git checkout v5.0.0
+source ~/.zshrc
+```
+
+### Step 2: Re-initialize project state
+
+```bash
+cd /path/to/project
+vault-init --non-interactive
+```
+
+### Step 3: Enable required pack + skills workflow
+
+```bash
+vault-ext enable laravel
+vault-ext enable skills
+```
+
+### Step 4: Re-apply active skills
+
+```bash
+# Example
+vault-skills set backend-expert
+vault-skills sync
+```
+
+### Step 5: Validate final state
+
+```bash
+vault-ai-context
+vault-doctor --strict
+```
+
+If you get `ASV-HARD-MIGRATION-001`, install/enable the required pack and re-run `vault-skills set ...`.
+
+## Command Guide (What Each One Does)
 
 ### `vault-init`
 
-What it does:
+Initializes or normalizes `.ai` structure and managed links/files for the current project.
 
-- initializes adapters and local `.ai/` workspace
-- generates/refreshes managed canonical files
-- can run optimize flow with confidence preview
-
-When to use:
-
-- first-time setup
-- migration from legacy structure
-- safe regeneration of managed context files
-
-Common examples:
-
-```bash
-vault-init
-vault-init --optimize --dry-run
-vault-init --optimize --interactive
-```
+Main options:
+- `--optimize`: runs optimize flow (detect -> plan -> apply)
+- `--interactive`: enables prompts/confirmations
+- `--non-interactive`: default safe automation mode
+- `--dry-run`: preview mode for optimize flow
+- `--yes`: auto-accept prompts
+- `--force-config`: compatibility alias (deprecated) for `--optimize --interactive`
+- `--herd`: compatibility flag forwarded to configurator
+- `--use-gemini` / `--no-use-gemini`: compatibility flags (tooling remains optional)
+- `--enable-workflow` / `--disable-workflow`: compatibility flags (deprecated behavior notice)
 
 ### `vault-update`
 
-What it does:
+Updates local installation (`~/.ai-shadow-vault`) from `origin/main` and refreshes the current project.
 
-- updates local AI Shadow Vault installation
-- refreshes current project state after update
-
-When to use:
-
-- when pulling latest vault changes
-
-### `vault-doctor`
-
-What it does:
-
-- audits structure, markers, context inflation, task mode, and capabilities hygiene
-
-When to use:
-
-- daily sanity check
-- before/after migrations
-- before handing repository state to team or CI
-
-Options:
-
-- `--fix`: apply safe automatic fixes
-- `--fix-strict`: apply safe fixes plus force-migrate legacy adapters to thin managed templates (with backup)
-- `--interactive`: review fix actions one by one
-- `--strict`: fail on warnings
-- `--json`: machine-readable output
-- `--check <name>`: run only selected checks
-- `--explain <code>`: explain a specific doctor code (e.g. `D003`)
-
-Check names accepted by `--check`:
-
-- `structure`
-- `migration`
-- `managed-markers`
-- `inflation`
-- `duplication`
-- `capabilities`
-- `task-mode`
-
-Examples:
-
-```bash
-vault-doctor
-vault-doctor --fix
-vault-doctor --fix-strict
-vault-doctor --interactive
-vault-doctor --strict
-vault-doctor --check inflation --fix
-vault-doctor --explain D030
-```
-
-### `vault-test`
-
-What it does:
-
-- runs validation suites for vault behavior
-
-When to use:
-
-- before publishing changes
-- in CI
-
-Options:
-
-- default: quick (`core` + `bootstrap` + `doctor`)
-- `--all`: full (`core`, `optimize`, `bootstrap`, `task`, `migration`, `doctor`)
-- `--suite <name>`: run one suite (`quick|core|optimize|bootstrap|task|doctor|skills|migration|all`)
-- `--json`: machine-readable result
-
-Examples:
-
-```bash
-vault-test
-vault-test --all
-vault-test --suite migration
-vault-test --json
-```
-
-### `vault-bootstrap`
-
-Subcommands:
-
-- `ensure`: auto-heal + validate required bootstrap files and contract markers
-- `check`: validate bootstrap state without mutation
-- `ack --source <label>`: append audit signal entry for session preamble tracking
-
-Notes:
-
-- wrappers call `vault-bootstrap ensure` before task-oriented flows
-- invalid bootstrap prints a visible warning block with remediation command
-- `BOOTSTRAP_ACK` is an audit signal only, not a technical guarantee
-- `BOOTSTRAP_RUNNING=1` is the recursion guard used during bootstrap orchestration
-- `scripts/lib/bootstrap-enforcer.sh` owns writing `last_check` in `.ai/bootstrap.md` after each successful `ensure`
-
-### `vault-context`
-
-Subcommands:
-
-- `refresh`: rebuild `.ai/context/agent-context.md`
-- `trim`: run inflation-focused doctor fix
-
-When to use:
-
-- after editing task/plans/skills
-- before asking an agent to continue work
-
-Examples:
-
-```bash
-vault-context refresh
-vault-context trim
-```
-
-### `vault-task`
-
-Subcommands:
-
-- `new [--mode plan|execute]`
-- `quick "<goal>" [--mode plan|execute]`
-- `compile [--stdin|--input "<text>"|--file <path>] [--mode plan|execute] [--output-lang en|pt|auto] [--enrich conservative|repo-aware] [--format markdown|json] [--apply]`
-- `show`
-- `mode [plan|execute]`
-- `done`
-- `clear`
-- `archive`
-
-What each does:
-
-- `new`: interactive wizard that asks Goal, Context, Constraints, Success Criteria, Validation Instructions, and optional Private Deliverables
-- `quick`: fast non-interactive task creation (automation-friendly)
-- `compile`: converts freeform/semi-structured engineering requests (English/Portuguese) into a structured task prompt; preview by default, write with `--apply`
-  - supports freeform text, semi-structured sections, and mixed EN/PT instructions
-  - preserves explicit references such as `@app/...`, `@lang/...`, and URLs in compiled context
-- `show`: prints current task
-- `mode`: reads or changes task mode (`plan` / `execute`)
-- `done`: archives current task + runs save flow
-- `clear`: resets task file to template
-- `archive`: same archive behavior as `done`
-
-After `new` and `quick`, `vault-task` automatically runs:
-
-- `vault-context refresh`
-- `vault-doctor --fix`
-
-Examples:
-
-```bash
-vault-task new --mode plan
-vault-task compile --input "Para testar, aceder via Playwright a http://sigmmp.test..." --output-lang en
-vault-task compile --file request.md --apply
-vault-task show
-vault-task mode execute
-vault-task done
-
-# Automation-friendly variant
-vault-task quick "Implement OAuth login" --mode plan
-```
+What it runs after update (or when already up-to-date):
+- `vault-init --non-interactive`
+- `vault-ai-context`
+- `vault-ext run-hook post-update`
 
 ### `vault-ai-context`
 
-What it does:
+Regenerates `.ai/context/agent-context.md` with compact working-state continuity:
+- current focus
+- active branch
+- active plans
+- blockers/risks
+- active skills
 
-- regenerates compact working-state summary in `.ai/context/agent-context.md`
+### `vault-task`
 
-When to use:
-
-- after significant changes in task, plans, or skills
-
-### `vault-ai-save`
-
-What it does:
-
-- archives current task (if active)
-- archives completed plans
-- resets `current-task.md`
-- refreshes `agent-context.md`
-- rebuilds docs index
-
-When to use:
-
-- end of a task
-- context checkpoint before switching focus
-
-### `vault-ai-resume`
-
-What it does:
-
-- prints current task focus, working state summary, and recent archive entries
-
-When to use:
-
-- beginning of session
-- after interruption/context switch
-
-### `vault-ai-stats`
-
-What it does:
-
-- prints vault storage stats and estimated token impact
-
-When to use:
-
-- monitor context growth
-- spot potential inflation early
-
-### `vault-skills`
+Creates/manages `.ai/context/current-task.md` in canonical format.
 
 Subcommands:
+- `new [--mode plan|execute]`: interactive task creation
+- `quick "<goal>" [--mode plan|execute]`: fast task seed from one line
+- `compile [--stdin|--input "<text>"|--file <path>] [--mode plan|execute] [--output-lang en|pt|auto] [--enrich conservative|repo-aware] [--format markdown|json] [--apply]`: compiles free text into structured task
+- `show`: prints current task file
+- `mode [plan|execute]`: get/set current mode frontmatter
+- `done`: archives state via `vault-ai-save`
+- `clear`: resets task to template
+- `archive`: same archival behavior as `done`
 
-- `status`
-- `suggest` (`--json`, `--plan`)
-- `auto`
-- `set <skill...>`
-- `sync`
-- `explain <skill-id>`
-- `legacy ...`
+### `vault-doctor`
 
-What each does:
+Health check and normalization command for `.ai` structure/rules/contracts.
 
-- `suggest`: detect stack and produce confidence-based decisions
-- `auto`: enable only high-confidence skills
-- `set`: explicitly set active skills
-- `sync`: sync active skills to target surfaces
-- `explain`: show why a skill exists and impact of ignoring it
-
-Examples:
-
-```bash
-vault-skills suggest
-vault-skills suggest --json
-vault-skills auto
-vault-skills explain qa-automation
-```
+Main options:
+- `--fix`: apply safe automatic fixes
+- `--fix-strict`: apply strict fixes (implies `--fix`)
+- `--strict`: fail on warnings/errors for stricter CI-like checks
+- `--json`: machine-readable output
+- `--interactive`: guided fix flow (cannot be combined with `--json` or `--fix*`)
+- `--check <name>`: run specific checks only (can repeat)
+- `--explain <code>`: explain a diagnostic code (example: `D003`)
 
 ### `vault-ext`
 
-Subcommands:
-
-- `list`
-- `info <extension>`
-- `status`
-- `enable <extension...>`
-- `disable <extension...>`
-- `sync [extension...]`
-- `run-hook <hook>`
-
-Use when:
-
-- enabling optional workflows per project
-- installing official skill packs such as `laravel`
-
-### `vault-pack`
+Project extension/pack manager.
 
 Subcommands:
+- `list`: show available extensions
+- `info <extension>`: show metadata/source/kind
+- `status`: show enabled extensions in current project
+- `enable <extension...>`: enable extension(s); installs official packs when needed
+- `disable <extension...>`: disable extension(s)
+- `sync [extension...]`: re-run sync hooks and refresh lockfile
+- `run-hook <hook>`: run a hook across enabled extensions
 
-- `validate <pack-dir>`
+### `vault-skills`
 
-Use when:
+Skills workflow command (pack-first in v5).
 
-- validating `pack.json` contract fields before publishing or enabling a pack
+Main subcommands:
+- `status`: show active/available skills status
+- `suggest [--json|--plan]`: detect/suggest skills and pack hints
+- `auto`: auto-enable high-confidence suggestions
+- `set <skill...>`: set active skills
+- `sync`: rebuild/sync generated active-skills artifacts
+- `explain <skill-id>`: short explanation of skill purpose
+- `legacy ...`: pass-through to legacy installer interface
 
-### `vault-review` and aliases
+### `vault-pack validate <pack-dir>`
 
-Commands:
+Validates `pack.json` manifest schema for an external pack directory.
 
-- `vault-review`
-- `vault-code-review` (alias)
-- `vault-pr-review` (alias)
+### `vault-ai-save`
 
-Scopes:
+Archives current task/plans into `.ai/archive`, resets active task, refreshes agent context, and updates docs index.
 
-- `--scope working`
-- `--scope staged`
-- `--scope branch --base <branch>`
-- `--scope commit --commit <sha>`
-- `--scope range --from <sha> --to <sha>`
+### `vault-ai-resume`
 
-What it does:
+Prints a quick recap of current task, working-state context, and recent archive entries.
 
-- prepares structured review prompt and output path under `.ai/reviews/`
-- injects a mandatory session preamble and logs `BOOTSTRAP_ACK` for audit trail (non-gating)
+### `vault-ai-stats`
 
-### `vault-user-stories` and alias
+Shows local vault statistics (size, docs/cache/plans/archive counts, estimated token footprint).
 
-Commands:
+### `cc` and `cx` (Shell aliases)
 
-- `vault-user-stories "<goal>"`
-- `vault-breakdown` (alias)
-
-What it does:
-
-- prepares planning prompt for user stories and target file under `.ai/plans/`
-- injects a mandatory session preamble and logs `BOOTSTRAP_ACK` for audit trail (non-gating)
-
-## How to Use the Main Workflows
-
-This section explains the exact examples and why each command exists.
-
-### 1) Start/refresh context
-
-Commands:
+Available after loading shell integration:
 
 ```bash
-vault-bootstrap ensure
-vault-context refresh
-vault-task show
-# shell helpers
-cc  # Claude preflight
-cx  # Codex preflight
+source ~/.ai-shadow-vault/scripts/shell_integration.zsh
 ```
 
-What happens:
+- `cc`: runs Claude bootstrap recap (`claude-start`)
+- `cx`: runs Codex bootstrap recap (`codex-start`)
 
-- `vault-bootstrap ensure` validates/enforces bootstrap state and updates `.ai/bootstrap.md`
-- `vault-context refresh` regenerates `agent-context.md` based on current branch, task, plans, and skills
-- `vault-task show` prints the active task so you can confirm current goal/mode before starting work
-- `cc` / `cx` run preflight recap for Claude/Codex and log bootstrap ACK (audit only)
+## Packs and Contract
 
-When to use:
+Packs are external repositories (for example, `ai-shadow-vault-laravel`) with a minimal `pack.json` contract.
 
-- start of day
-- before handing context to an AI agent
-- after pulling changes from teammates
-
-### 2) Run a new task
-
-Commands:
-
-```bash
-vault-task new --mode plan
-# ... planning work
-vault-task mode execute
-# ... implementation work
-vault-task done
-```
-
-Step-by-step meaning:
-
-- `new --mode plan`: opens the wizard and creates a complete task document in planning mode
-- `mode execute`: flips task from planning to execution once plan is ready
-- `done`: archives task artifacts and resets active task context safely
-
-When to use:
-
-- for every meaningful feature/bug task
-- whenever you want clean task lifecycle and no history accumulation in active files
-
-### 3) Daily health checks
-
-Commands:
-
-```bash
-vault-doctor
-vault-test
-```
-
-What happens:
-
-- `vault-doctor`: checks project vault health
-- `vault-test`: checks vault command behavior
-
-When to use:
-
-- before committing vault changes
-- after migration or optimize apply
-
-### 4) Strict migration cleanup
-
-Commands:
-
-```bash
-vault-doctor --fix-strict
-vault-doctor --strict
-```
-
-What happens:
-
-- `--fix-strict` force-migrates legacy long adapters to thin managed templates and stores backup
-- `--strict` confirms the project has no warnings
-
-When to use:
-
-- one-time migration cleanup
-- standardization across team repos
-
-## Skills and Auto-Detection
-
-`vault-skills suggest` detects stack signals from manifests such as:
-
-- `composer.json`
-- `package.json`
-- `pyproject.toml`
-- `requirements.txt`
-- `go.mod`
-
-Decision model:
-
-- `>= 0.80`: auto-enabled candidates
-- `>= 0.50 and < 0.80`: suggested-only candidates
-
-Use `vault-skills explain <skill-id>` for transparent rationale.
-
-Core remains stack-agnostic. Framework-specific depth should come from optional packs.
-
-When Laravel signals are detected, `vault-skills suggest` prints:
-
-- `ASV-SUGGEST-PACK-001` with recommendation to run `vault-ext enable laravel`
-
-## Pack Contracts
-
-Skill packs use a minimal `pack.json` manifest with required fields:
+Required manifest fields:
 
 - `name`
 - `version`
@@ -726,145 +285,35 @@ Skill packs use a minimal `pack.json` manifest with required fields:
 - `core_api`
 - `capabilities`
 
-Validation:
+Reference:
 
-```bash
-vault-pack validate /path/to/pack
-```
-
-Compatibility is enforced on:
-
-- `vault-ext enable`
-- `vault-ext sync`
-
-Project lockfile is written to:
-
-- `.ai/extensions/lock.json`
-
-Phase 3 extraction/release checklist for the official Laravel pack:
-
-- `docs/checklists/ai-shadow-vault-laravel-phase3.md`
-
-## Soft Migration
-
-Current migration state for Laravel skills:
-
-- soft migration started on **March 25, 2026**
-- legacy fallback guaranteed until **June 23, 2026**
-- hard removal target: next major release (`3.0.0`)
-
-Runtime signals:
-
-- `ASV-SUGGEST-PACK-001`: Laravel detected, pack recommendation
-- `ASV-SOFT-MIGRATION-001`: soft migration window + deadline reminder
-- `ASV-DEPRECATION-SKILL-001`: legacy fallback was used for a moved skill
-
-## Optional Extensions
-
-Extensions are optional and project-scoped.
-
-Built-in groups include:
-
-- `planning`
-- `review`
-- `skills`
-- `laravel` (official pack)
-- `laravel-stack` (legacy compatibility alias that maps to `laravel`)
-
-Enable only what your project needs.
+- `docs/pack-contract.md`
 
 ## Troubleshooting
 
-### `vault-doctor --strict` returns code 1
+### `ASV-COMPAT-001`
 
-Expected when warnings exist. `--strict` fails on warnings by design.
+Pack `core_api` range is not compatible with your core version.
+Use a compatible pack release or update core.
 
-### I want strict warnings gone for adapters
+### `ASV-HARD-MIGRATION-001`
 
-Run:
-
-```bash
-vault-doctor --fix-strict
-vault-doctor --strict
-```
-
-### Skills fallback shows only low-confidence suggestion
-
-Run:
-
-```bash
-vault-skills suggest --json
-```
-
-Check whether manifests exist and contain expected dependencies.
-
-### Pack compatibility error (`ASV-COMPAT-001`)
-
-This means a pack `core_api` range does not match your installed core version.
-Use a compatible pack tag/ref or update core.
-
-### Deprecation warning (`ASV-DEPRECATION-SKILL-001`)
-
-This means a skill is now maintained in a pack and legacy fallback was used.
-Install the pack to remove fallback behavior:
-
-```bash
-vault-ext enable laravel
-```
+Requested skill is no longer provided by core.
+Enable the required pack (usually `laravel`) and set the skill again.
 
 ### `No .ai directory found`
 
-Run `vault-init` in project root first.
+Run `vault-init` in the target project first.
 
 ## OS Support
 
-Current target:
+- macOS
+- Linux (ZSH)
 
-- macOS: supported
+## Summary
 
-Other OSes may work partially but are not official targets.
+AI Shadow Vault is the stable local foundation.
+Packs provide stack depth.
 
-## Make Repository AI-Friendly
-
-Use this checklist to keep `.ai/` files and adapter markdowns in ideal shape for agents.
-
-Recommended sequence:
-
-```bash
-# 1) Preview optimization safely
-vault-init --optimize --dry-run --non-interactive
-
-# 2) Apply optimized managed structure
-vault-init --optimize --interactive
-
-# 3) Run strict adapter migration if needed (legacy projects)
-vault-doctor --fix-strict
-
-# 4) Refresh working-state context and validate everything
-vault-context refresh
-vault-doctor --strict
-vault-test --all
-```
-
-For daily operation after setup:
-
-```bash
-vault-task new --mode plan
-vault-task mode execute
-vault-task done
-```
-
-This keeps:
-
-- canonical authority files compact and aligned
-- adapter files thin and managed
-- active task context clean (no history accumulation)
-- archive/lifecycle behavior consistent for agent handoffs
-
-## Credits
-
-Some optional workflows were inspired by:
-
-- `jpcaparas/superpowers-laravel`
-- `felipereisdev/user-stories-skill`
-- `felipereisdev/code-review-skill`
+Core is infrastructure.
+Packs are expertise.
