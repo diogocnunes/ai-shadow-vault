@@ -53,6 +53,36 @@ vault_extension_is_official_pack() {
     [ "$extension_kind" = "official-pack" ]
 }
 
+vault_extension_is_alias() {
+    local extension_kind
+    extension_kind="$(vault_extension_kind "${1:-}")"
+    [ "$extension_kind" = "alias" ] || [ "$extension_kind" = "legacy-alias" ]
+}
+
+vault_extension_alias_target() {
+    local extension_name maps_to first_target
+    extension_name="$(vault_extension_normalize_name "${1:-}")"
+    maps_to="$(vault_extension_read_field "$extension_name" "MAPS_TO" || true)"
+    first_target="$(printf '%s\n' "$maps_to" | awk '{print $1}')"
+    [ -n "$first_target" ] || return 1
+    printf '%s\n' "$first_target"
+}
+
+vault_extension_resolve_name() {
+    local extension_name target_name
+    extension_name="$(vault_extension_normalize_name "${1:-}")"
+
+    if vault_extension_is_alias "$extension_name"; then
+        target_name="$(vault_extension_alias_target "$extension_name" || true)"
+        if [ -n "$target_name" ]; then
+            printf '%s\n' "$target_name"
+            return 0
+        fi
+    fi
+
+    printf '%s\n' "$extension_name"
+}
+
 vault_extensions_discover() {
     local catalog_root manifest_path extension_name extension_desc
     catalog_root="$(vault_extensions_catalog_root)"

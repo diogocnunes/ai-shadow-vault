@@ -740,6 +740,10 @@ Project lockfile is written to:
 
 - `.ai/extensions/lock.json`
 
+Phase 3 extraction/release checklist for the official Laravel pack:
+
+- `docs/checklists/ai-shadow-vault-laravel-phase3.md`
+
 ## Optional Extensions
 
 Extensions are optional and project-scoped.
@@ -750,7 +754,7 @@ Built-in groups include:
 - `review`
 - `skills`
 - `laravel` (official pack)
-- `laravel-stack` (legacy reserved compatibility alias)
+- `laravel-stack` (legacy compatibility alias that maps to `laravel`)
 
 Enable only what your project needs.
 

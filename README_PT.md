@@ -374,6 +374,10 @@ Lockfile por projeto:
 
 - `.ai/extensions/lock.json`
 
+Checklist de extração/release da Fase 3 para o pack oficial Laravel:
+
+- `docs/checklists/ai-shadow-vault-laravel-phase3.md`
+
 ## Extensões Opcionais
 
 Extensões são opcionais e por projeto.
@@ -384,7 +388,7 @@ Grupos embutidos:
 - `review`
 - `skills`
 - `laravel` (pack oficial)
-- `laravel-stack` (alias legado de compatibilidade)
+- `laravel-stack` (alias legado de compatibilidade que mapeia para `laravel`)
 
 Ative apenas o que faz sentido para o projeto.
 

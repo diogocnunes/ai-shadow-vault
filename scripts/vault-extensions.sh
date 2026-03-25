@@ -18,6 +18,24 @@ dedupe_lines() {
     awk '!seen[$0]++'
 }
 
+resolve_requested_extension() {
+    local requested normalized resolved
+    requested="${1:-}"
+    normalized="$(vault_extension_normalize_name "$requested")"
+    resolved="$(vault_extension_resolve_name "$normalized")"
+
+    if [[ "$resolved" != "$normalized" ]]; then
+        echo -e "${YELLOW}Note:${NC} '$normalized' is a legacy alias. Using '$resolved'." >&2
+    fi
+
+    if ! vault_extension_exists "$resolved"; then
+        echo -e "${RED}Invalid extension mapping:${NC} $normalized -> $resolved (target not found)" >&2
+        exit 1
+    fi
+
+    printf '%s\n' "$resolved"
+}
+
 list_available() {
     echo -e "${BLUE}Available extensions${NC}"
     vault_extensions_discover | while IFS=$'\t' read -r extension_name extension_desc; do
@@ -96,7 +114,7 @@ enable_extensions() {
     done < <(vault_extensions_load_enabled "$PROJECT_ROOT")
 
     for item in "$@"; do
-        requested+=("$(vault_extension_normalize_name "$item")")
+        requested+=("$(resolve_requested_extension "$item")")
     done
 
     while IFS= read -r item; do
@@ -125,7 +143,7 @@ disable_extensions() {
     validate_extensions "$@"
 
     for item in "$@"; do
-        to_disable+=("$(vault_extension_normalize_name "$item")")
+        to_disable+=("$(resolve_requested_extension "$item")")
     done
 
     while IFS= read -r item; do
@@ -150,7 +168,7 @@ sync_extensions() {
     if [[ "$#" -gt 0 ]]; then
         validate_extensions "$@"
         for item in "$@"; do
-            targets+=("$(vault_extension_normalize_name "$item")")
+            targets+=("$(resolve_requested_extension "$item")")
         done
     else
         while IFS= read -r item; do
