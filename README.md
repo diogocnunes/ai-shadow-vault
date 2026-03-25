@@ -20,6 +20,7 @@ It keeps AI guidance organized, compact, and consistent across tools like Claude
 - [Command Reference (Detailed)](#command-reference-detailed)
 - [How to Use the Main Workflows](#how-to-use-the-main-workflows)
 - [Skills and Auto-Detection](#skills-and-auto-detection)
+- [Pack Contracts](#pack-contracts)
 - [Optional Extensions](#optional-extensions)
 - [Troubleshooting](#troubleshooting)
 - [OS Support](#os-support)
@@ -555,6 +556,17 @@ Subcommands:
 Use when:
 
 - enabling optional workflows per project
+- installing official skill packs such as `laravel`
+
+### `vault-pack`
+
+Subcommands:
+
+- `validate <pack-dir>`
+
+Use when:
+
+- validating `pack.json` contract fields before publishing or enabling a pack
 
 ### `vault-review` and aliases
 
@@ -697,6 +709,35 @@ Decision model:
 
 Use `vault-skills explain <skill-id>` for transparent rationale.
 
+When Laravel signals are detected, `vault-skills suggest` prints:
+
+- `ASV-SUGGEST-PACK-001` with recommendation to run `vault-ext enable laravel`
+
+## Pack Contracts
+
+Skill packs use a minimal `pack.json` manifest with required fields:
+
+- `name`
+- `version`
+- `description`
+- `core_api`
+- `capabilities`
+
+Validation:
+
+```bash
+vault-pack validate /path/to/pack
+```
+
+Compatibility is enforced on:
+
+- `vault-ext enable`
+- `vault-ext sync`
+
+Project lockfile is written to:
+
+- `.ai/extensions/lock.json`
+
 ## Optional Extensions
 
 Extensions are optional and project-scoped.
@@ -706,6 +747,7 @@ Built-in groups include:
 - `planning`
 - `review`
 - `skills`
+- `laravel` (official pack)
 - `laravel-stack` (reserved)
 
 Enable only what your project needs.
@@ -734,6 +776,20 @@ vault-skills suggest --json
 ```
 
 Check whether manifests exist and contain expected dependencies.
+
+### Pack compatibility error (`ASV-COMPAT-001`)
+
+This means a pack `core_api` range does not match your installed core version.
+Use a compatible pack tag/ref or update core.
+
+### Deprecation warning (`ASV-DEPRECATION-SKILL-001`)
+
+This means a skill is now maintained in a pack and legacy fallback was used.
+Install the pack to remove fallback behavior:
+
+```bash
+vault-ext enable laravel
+```
 
 ### `No .ai directory found`
 

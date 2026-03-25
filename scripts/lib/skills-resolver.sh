@@ -4,11 +4,42 @@ set -euo pipefail
 
 SKILLS_RESOLVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SKILLS_RESOLVER_DIR/vault-resolver.sh"
+source "$SKILLS_RESOLVER_DIR/extensions-resolver.sh"
+source "$SKILLS_RESOLVER_DIR/deprecation.sh"
+source "$SKILLS_RESOLVER_DIR/pack-contract.sh"
 
-skills_catalog_root() {
+skills_core_catalog_root() {
     local script_root
     script_root="$(cd "$SKILLS_RESOLVER_DIR/../.." && pwd)"
     printf '%s\n' "$script_root/templates/Skills"
+}
+
+skills_pack_catalog_roots() {
+    local project_root extension_name pack_path pack_capabilities
+    project_root="$(skills_project_root "${1:-"$PWD"}")"
+
+    while IFS= read -r extension_name; do
+        [[ -n "$extension_name" ]] || continue
+        vault_extension_is_official_pack "$extension_name" || continue
+
+        pack_path="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_PATH" || true)"
+        pack_capabilities="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_CAPABILITIES" || true)"
+
+        [[ -n "$pack_path" ]] || continue
+        [[ -d "$pack_path/skills" ]] || continue
+        printf '%s\n' "$pack_capabilities" | tr ',' '\n' | grep -qx 'skills' || continue
+        vault_pack_assert_core_compat "$pack_path" || continue
+
+        printf '%s\n' "$pack_path/skills"
+    done < <(vault_extensions_load_enabled "$project_root")
+}
+
+skills_catalog_roots() {
+    local project_root
+    project_root="$(skills_project_root "${1:-"$PWD"}")"
+
+    skills_pack_catalog_roots "$project_root"
+    skills_core_catalog_root
 }
 
 skills_normalize_name() {
@@ -56,15 +87,18 @@ skills_strip_frontmatter() {
 }
 
 skills_is_installable_file() {
-    local skill_file basename_file
+    local skill_file source_kind basename_file
     skill_file=$1
+    source_kind=${2:-core}
     basename_file="$(basename "$skill_file")"
 
-    case "$skill_file" in
-        */Laravel/*)
-            return 1
-            ;;
-    esac
+    if [[ "$source_kind" == "core" ]]; then
+        case "$skill_file" in
+            */Laravel/*)
+                return 1
+                ;;
+        esac
+    fi
 
     case "$basename_file" in
         LICENSE|CREDITS.md)
@@ -76,22 +110,32 @@ skills_is_installable_file() {
 }
 
 skills_discover() {
-    local skills_root skill_file skill_name skill_desc normalized_name
-    skills_root="$(skills_catalog_root)"
+    local project_root catalog_root source_kind skill_file skill_name skill_desc normalized_name
+    project_root="$(skills_project_root "${1:-"$PWD"}")"
 
-    find "$skills_root" -type f -name "*.md" | sort | while IFS= read -r skill_file; do
-        skills_is_installable_file "$skill_file" || continue
+    while IFS= read -r catalog_root; do
+        [[ -n "$catalog_root" ]] || continue
+        [[ -d "$catalog_root" ]] || continue
 
-        skill_name="$(skills_read_frontmatter "$skill_file" "name" || true)"
-        skill_desc="$(skills_read_frontmatter "$skill_file" "description" || true)"
-
-        if [[ -z "$skill_name" ]]; then
-            skill_name="$(basename "${skill_file%.*}")"
+        source_kind="pack"
+        if [[ "$catalog_root" == "$(skills_core_catalog_root)" ]]; then
+            source_kind="core"
         fi
 
-        normalized_name="$(skills_normalize_name "$skill_name")"
-        printf '%s\t%s\t%s\n' "$normalized_name" "$skill_file" "$skill_desc"
-    done
+        find "$catalog_root" -type f -name "*.md" | sort | while IFS= read -r skill_file; do
+            skills_is_installable_file "$skill_file" "$source_kind" || continue
+
+            skill_name="$(skills_read_frontmatter "$skill_file" "name" || true)"
+            skill_desc="$(skills_read_frontmatter "$skill_file" "description" || true)"
+
+            if [[ -z "$skill_name" ]]; then
+                skill_name="$(basename "${skill_file%.*}")"
+            fi
+
+            normalized_name="$(skills_normalize_name "$skill_name")"
+            printf '%s\t%s\t%s\n' "$normalized_name" "$skill_file" "$skill_desc"
+        done
+    done < <(skills_catalog_roots "$project_root")
 }
 
 skills_resolve_alias() {
@@ -99,16 +143,28 @@ skills_resolve_alias() {
 }
 
 skills_resolve_one() {
-    local requested_name normalized_name skill_name skill_file skill_desc
+    local requested_name normalized_name skill_name skill_file skill_desc core_catalog_root moved_pack
     requested_name=$1
     normalized_name="$(skills_resolve_alias "$requested_name")"
+    core_catalog_root="$(skills_core_catalog_root)"
 
     while IFS=$'\t' read -r skill_name skill_file skill_desc; do
         if [[ "$skill_name" == "$normalized_name" ]]; then
+            if [[ "$skill_file" == "$core_catalog_root/"* ]]; then
+                moved_pack="$(asv_deprecation_pack_for_skill "$skill_name" || true)"
+                if [[ -n "$moved_pack" ]]; then
+                    asv_warn_skill_legacy_fallback "$skill_name" "$moved_pack"
+                fi
+            fi
             printf '%s\t%s\t%s\n' "$skill_name" "$skill_file" "$skill_desc"
             return 0
         fi
     done < <(skills_discover)
+
+    moved_pack="$(asv_deprecation_pack_for_skill "$normalized_name" || true)"
+    if [[ -n "$moved_pack" ]]; then
+        echo "ASV-SKILL-404: Skill '$requested_name' not found in active packs or legacy core. If this is Laravel-related, run: vault-ext enable $moved_pack" >&2
+    fi
 
     return 1
 }

@@ -58,7 +58,11 @@ fi
         for skill_name in "${REQUESTED_SKILLS[@]}"; do
             resolved_line="$(skills_resolve_one "$skill_name")"
             IFS=$'\t' read -r resolved_name skill_file skill_desc <<< "$resolved_line"
-            source_ref="templates/Skills/$(basename "$skill_file")"
+            if [[ "$skill_file" == *"/packs/"* ]]; then
+                source_ref="${skill_file#$HOME/}"
+            else
+                source_ref="templates/Skills/$(basename "$skill_file")"
+            fi
             purpose="$skill_desc"
             if [[ -z "$purpose" ]]; then
                 purpose="No description provided"

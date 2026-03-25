@@ -1,7 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 
 EXTENSIONS_RESOLVER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$EXTENSIONS_RESOLVER_DIR/vault-resolver.sh"
+source "$EXTENSIONS_RESOLVER_DIR/core-version.sh"
 
 vault_extensions_catalog_root() {
     local script_root
@@ -42,6 +43,16 @@ vault_extension_read_field() {
     ' "$manifest_path"
 }
 
+vault_extension_kind() {
+    vault_extension_read_field "${1:-}" "KIND" || true
+}
+
+vault_extension_is_official_pack() {
+    local extension_kind
+    extension_kind="$(vault_extension_kind "${1:-}")"
+    [ "$extension_kind" = "official-pack" ]
+}
+
 vault_extensions_discover() {
     local catalog_root manifest_path extension_name extension_desc
     catalog_root="$(vault_extensions_catalog_root)"
@@ -70,6 +81,12 @@ vault_extensions_enabled_file() {
     local state_dir
     state_dir="$(vault_extensions_state_dir "${1:-"$PWD"}")"
     printf '%s\n' "$state_dir/enabled.txt"
+}
+
+vault_extensions_lockfile() {
+    local state_dir
+    state_dir="$(vault_extensions_state_dir "${1:-"$PWD"}")"
+    printf '%s\n' "$state_dir/lock.json"
 }
 
 vault_extensions_ensure_state_dir() {
@@ -116,6 +133,131 @@ vault_extension_hook_script() {
     extension_name="$(vault_extension_normalize_name "${1:-}")"
     hook_name="${2:-}"
     printf '%s\n' "$(vault_extensions_catalog_root)/$extension_name/hooks/$hook_name.sh"
+}
+
+vault_extension_pack_state_file() {
+    local project_root extension_name state_dir
+    project_root="${1:-"$PWD"}"
+    extension_name="$(vault_extension_normalize_name "${2:-}")"
+    state_dir="$(vault_extensions_state_dir "$project_root")"
+    printf '%s\n' "$state_dir/pack-${extension_name}.env"
+}
+
+vault_extension_write_pack_state() {
+    local project_root extension_name pack_name pack_version pack_source pack_path pack_capabilities state_file
+    project_root="${1:-"$PWD"}"
+    extension_name="$(vault_extension_normalize_name "${2:-}")"
+    pack_name="${3:-}"
+    pack_version="${4:-}"
+    pack_source="${5:-}"
+    pack_path="${6:-}"
+    pack_capabilities="${7:-}"
+    state_file="$(vault_extension_pack_state_file "$project_root" "$extension_name")"
+
+    mkdir -p "$(dirname "$state_file")"
+    cat > "$state_file" <<EOF
+PACK_NAME=$pack_name
+PACK_VERSION=$pack_version
+PACK_SOURCE=$pack_source
+PACK_PATH=$pack_path
+PACK_CAPABILITIES=$pack_capabilities
+EOF
+}
+
+vault_extension_read_pack_state_field() {
+    local project_root extension_name field state_file
+    project_root="${1:-"$PWD"}"
+    extension_name="$(vault_extension_normalize_name "${2:-}")"
+    field="${3:-}"
+    state_file="$(vault_extension_pack_state_file "$project_root" "$extension_name")"
+
+    [ -f "$state_file" ] || return 1
+    awk -F= -v wanted="$field" '
+        $1 == wanted {
+            value = substr($0, index($0, "=") + 1)
+            print value
+            exit
+        }
+    ' "$state_file"
+}
+
+vault_extensions_remove_pack_state() {
+    local project_root extension_name state_file
+    project_root="${1:-"$PWD"}"
+    extension_name="$(vault_extension_normalize_name "${2:-}")"
+    state_file="$(vault_extension_pack_state_file "$project_root" "$extension_name")"
+    rm -f "$state_file"
+}
+
+vault_extensions_write_lockfile() {
+    local project_root lockfile core_version first_entry
+    local extension_name pack_name pack_version pack_source pack_path pack_capabilities old_ifs
+    local cap_item cap_first
+    project_root="${1:-"$PWD"}"
+    lockfile="$(vault_extensions_lockfile "$project_root")"
+    core_version="$(vault_core_version)"
+
+    mkdir -p "$(dirname "$lockfile")"
+
+    {
+        echo "{"
+        echo "  \"schema_version\": 1,"
+        echo "  \"core_version\": \"$core_version\","
+        echo "  \"packs\": {"
+
+        first_entry=1
+        while IFS= read -r extension_name; do
+            [ -n "$extension_name" ] || continue
+            vault_extension_is_official_pack "$extension_name" || continue
+
+            pack_name="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_NAME" || true)"
+            pack_version="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_VERSION" || true)"
+            pack_source="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_SOURCE" || true)"
+            pack_path="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_PATH" || true)"
+            pack_capabilities="$(vault_extension_read_pack_state_field "$project_root" "$extension_name" "PACK_CAPABILITIES" || true)"
+
+            [ -n "$pack_name" ] || continue
+            [ -n "$pack_version" ] || continue
+            [ -n "$pack_path" ] || continue
+
+            if [ "$first_entry" -eq 0 ]; then
+                echo ","
+            fi
+            first_entry=0
+
+            printf '    "%s": {\n' "$extension_name"
+            printf '      "name": "%s",\n' "$pack_name"
+            printf '      "version": "%s",\n' "$pack_version"
+            printf '      "source": "%s",\n' "$pack_source"
+            printf '      "path": "%s",\n' "$pack_path"
+            printf '      "capabilities": ['
+            cap_first=1
+            old_ifs="$IFS"
+            IFS=','
+            for cap_item in $pack_capabilities; do
+                if [ "$cap_first" -eq 0 ]; then
+                    printf ', '
+                fi
+                cap_first=0
+                printf '"%s"' "$cap_item"
+            done
+            IFS="$old_ifs"
+            if [ "$cap_first" -eq 1 ]; then
+                printf '"skills"'
+            fi
+            printf ']\n'
+            printf '    }'
+        done < <(vault_extensions_load_enabled "$project_root")
+
+        if [ "$first_entry" -eq 1 ]; then
+            echo "    "
+        else
+            echo
+        fi
+
+        echo "  }"
+        echo "}"
+    } > "$lockfile"
 }
 
 vault_extension_run_hook() {

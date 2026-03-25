@@ -33,6 +33,7 @@ LEGACY_SKILLS_SCRIPT="$SCRIPT_DIR/install_skills.sh"
 NO_WRITE="${VAULT_SKILLS_NO_WRITE:-0}"
 AUTO_THRESHOLD="0.80"
 SUGGEST_THRESHOLD="0.50"
+PACK_RECOMMENDATIONS=()
 
 if [[ "$NO_WRITE" -ne 1 ]]; then
     mkdir -p "$AI_DIR/skills"
@@ -63,30 +64,61 @@ emit_entry() {
     fi
 }
 
+add_pack_recommendation() {
+    local pack="$1"
+    local reason="$2"
+    PACK_RECOMMENDATIONS+=("$pack|$reason")
+}
+
+detect_pack_recommendations() {
+    local deduped_pack=()
+    local deduped_line
+
+    PACK_RECOMMENDATIONS=()
+
+    if [[ -f "$PROJECT_ROOT/composer.json" ]]; then
+        if grep -q '"laravel/framework"' "$PROJECT_ROOT/composer.json"; then
+            add_pack_recommendation "laravel" "Laravel framework detected"
+        fi
+        if grep -q '"filament/filament"' "$PROJECT_ROOT/composer.json"; then
+            add_pack_recommendation "laravel" "Filament package detected"
+        fi
+        if grep -q '"laravel/nova"' "$PROJECT_ROOT/composer.json"; then
+            add_pack_recommendation "laravel" "Nova package detected"
+        fi
+        if grep -q '"livewire/livewire"' "$PROJECT_ROOT/composer.json"; then
+            add_pack_recommendation "laravel" "Livewire package detected"
+        fi
+    fi
+
+    if [[ "${#PACK_RECOMMENDATIONS[@]}" -gt 0 ]]; then
+        while IFS= read -r deduped_line; do
+            [[ -n "$deduped_line" ]] && deduped_pack+=("$deduped_line")
+        done < <(printf '%s\n' "${PACK_RECOMMENDATIONS[@]}" | to_unique_lines)
+        PACK_RECOMMENDATIONS=("${deduped_pack[@]}")
+    fi
+}
+
 emit_detected_entries() {
     if [[ -f "$PROJECT_ROOT/composer.json" ]]; then
         emit_entry suggest code-review "composer.json" "PHP dependency manifest detected" "0.72"
-        emit_entry suggest backend-expert "composer.json" "PHP dependency manifest detected" "0.70"
-        emit_entry suggest laravel-code-quality "composer.json" "PHP dependency manifest detected" "0.74"
         emit_entry suggest qa-automation "composer.json" "Backend project likely benefits from test automation" "0.62"
         emit_entry suggest security-performance "composer.json" "Backend project likely benefits from security/performance review" "0.62"
 
         if grep -q '"laravel/framework"' "$PROJECT_ROOT/composer.json"; then
-            emit_entry auto backend-expert "composer.json: laravel/framework" "Laravel framework detected" "0.92"
             emit_entry suggest dx-maintainer "composer.json: laravel/framework" "Laravel projects usually benefit from DX/lint automation" "0.68"
         fi
 
         if grep -q '"filament/filament"' "$PROJECT_ROOT/composer.json"; then
-            emit_entry auto filament-v5 "composer.json: filament/filament" "Filament package detected" "0.90"
             emit_entry suggest frontend-expert "composer.json: filament/filament" "Filament admin panels often include frontend customization" "0.66"
         fi
 
         if grep -q '"laravel/nova"' "$PROJECT_ROOT/composer.json"; then
-            emit_entry suggest architect-lead "composer.json: laravel/nova" "Nova stack detected" "0.78"
+            :
         fi
 
         if grep -q '"livewire/livewire"' "$PROJECT_ROOT/composer.json"; then
-            emit_entry suggest tall-stack "composer.json: livewire/livewire" "Livewire stack detected" "0.76"
+            :
         fi
 
         if grep -q '"pestphp/pest"' "$PROJECT_ROOT/composer.json"; then
@@ -124,6 +156,7 @@ parse_detected_entries() {
     DETECTED_AUTO=()
     DETECTED_SUGGEST=()
     DECISION_ROWS=()
+    detect_pack_recommendations
 
     while IFS='|' read -r decision skill signal reason confidence; do
         [[ -n "$decision" ]] || continue
@@ -173,11 +206,22 @@ parse_detected_entries() {
     fi
 
     if [[ "${#DETECTED_AUTO[@]}" -gt 0 ]]; then
-        DETECTED_AUTO=( $(printf '%s\n' "${DETECTED_AUTO[@]}" | to_unique_lines) )
+        local deduped_auto=()
+        local deduped_line_auto
+        while IFS= read -r deduped_line_auto; do
+            [[ -n "$deduped_line_auto" ]] && deduped_auto+=("$deduped_line_auto")
+        done < <(printf '%s\n' "${DETECTED_AUTO[@]}" | to_unique_lines)
+        DETECTED_AUTO=("${deduped_auto[@]}")
     fi
     if [[ "${#DETECTED_SUGGEST[@]}" -gt 0 ]]; then
-        DETECTED_SUGGEST=( $(printf '%s\n' "${DETECTED_SUGGEST[@]}" | to_unique_lines) )
+        local deduped_suggest=()
+        local deduped_line_suggest
+        while IFS= read -r deduped_line_suggest; do
+            [[ -n "$deduped_line_suggest" ]] && deduped_suggest+=("$deduped_line_suggest")
+        done < <(printf '%s\n' "${DETECTED_SUGGEST[@]}" | to_unique_lines)
+        DETECTED_SUGGEST=("${deduped_suggest[@]}")
     fi
+
 }
 
 write_suggestions_file() {
@@ -230,6 +274,17 @@ write_suggestions_file() {
         else
             printf -- '- `%s`\n' "${DETECTED_SUGGEST[@]}"
         fi
+        echo
+        echo "## Pack Recommendations"
+        if [[ "${#PACK_RECOMMENDATIONS[@]}" -eq 0 ]]; then
+            echo "- none"
+        else
+            local rec pack reason
+            for rec in "${PACK_RECOMMENDATIONS[@]}"; do
+                IFS='|' read -r pack reason <<< "$rec"
+                printf -- '- `%s`: %s. Install with `vault-ext enable %s`.\n' "$pack" "$reason" "$pack"
+            done
+        fi
     } > "$SUGGESTIONS_FILE"
 }
 
@@ -277,6 +332,18 @@ print_suggest_human() {
         echo "- none"
     else
         printf -- '- %s\n' "${DETECTED_SUGGEST[@]}"
+    fi
+
+    echo
+    echo "Pack recommendations:"
+    if [[ "${#PACK_RECOMMENDATIONS[@]}" -eq 0 ]]; then
+        echo "- none"
+    else
+        local rec pack reason
+        for rec in "${PACK_RECOMMENDATIONS[@]}"; do
+            IFS='|' read -r pack reason <<< "$rec"
+            printf -- '- ASV-SUGGEST-PACK-001: %s. Recommended: vault-ext enable %s\n' "$reason" "$pack"
+        done
     fi
 }
 

@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/extensions-resolver.sh"
+source "$SCRIPT_DIR/lib/pack-install.sh"
 
 BLUE='\033[0;34m'
 GREEN='\033[0;32m'
@@ -105,10 +106,14 @@ enable_extensions() {
     vault_extensions_write_enabled "$PROJECT_ROOT" "${merged[@]}"
 
     for item in "${requested[@]}"; do
+        if vault_extension_is_official_pack "$item"; then
+            vault_pack_install_extension "$PROJECT_ROOT" "$item" >/dev/null
+        fi
         vault_extension_run_hook "$PROJECT_ROOT" "$item" enable
         vault_extension_run_hook "$PROJECT_ROOT" "$item" sync
     done
 
+    vault_extensions_write_lockfile "$PROJECT_ROOT"
     echo -e "${GREEN}Enabled extensions:${NC} ${requested[*]}"
 }
 
@@ -127,12 +132,14 @@ disable_extensions() {
         [[ -n "$item" ]] || continue
         if printf '%s\n' "${to_disable[@]}" | grep -qx "$item"; then
             vault_extension_run_hook "$PROJECT_ROOT" "$item" disable
+            vault_extensions_remove_pack_state "$PROJECT_ROOT" "$item"
             continue
         fi
         keep+=("$item")
     done < <(vault_extensions_load_enabled "$PROJECT_ROOT")
 
-    vault_extensions_write_enabled "$PROJECT_ROOT" "${keep[@]}"
+    vault_extensions_write_enabled "$PROJECT_ROOT" "${keep[@]+"${keep[@]}"}"
+    vault_extensions_write_lockfile "$PROJECT_ROOT"
     echo -e "${GREEN}Disabled extensions:${NC} ${to_disable[*]}"
 }
 
@@ -152,14 +159,19 @@ sync_extensions() {
     fi
 
     for item in "${targets[@]}"; do
+        if vault_extension_is_official_pack "$item"; then
+            vault_pack_install_extension "$PROJECT_ROOT" "$item" >/dev/null
+        fi
         vault_extension_run_hook "$PROJECT_ROOT" "$item" sync
     done
 
     if [[ "${#targets[@]}" -eq 0 ]]; then
         echo -e "${YELLOW}No enabled extensions to sync.${NC}"
+        vault_extensions_write_lockfile "$PROJECT_ROOT"
         return
     fi
 
+    vault_extensions_write_lockfile "$PROJECT_ROOT"
     echo -e "${GREEN}Synced extensions:${NC} ${targets[*]}"
 }
 

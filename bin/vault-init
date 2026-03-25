@@ -385,6 +385,12 @@ collect_optimize_plan() {
     opt_plan_add_unique OPTIMIZE_PLAN_CONTEXT "Run vault-doctor --fix guardrails pass"
 
     collect_optimize_skill_decisions
+
+    if [[ -f "$PROJECT_ROOT/composer.json" ]]; then
+        if grep -q '"laravel/framework"\|"filament/filament"\|"laravel/nova"\|"livewire/livewire"' "$PROJECT_ROOT/composer.json"; then
+            opt_plan_add_unique OPTIMIZE_PLAN_MISC "ASV-SUGGEST-PACK-001: Laravel stack detected. Recommended: vault-ext enable laravel"
+        fi
+    fi
 }
 
 print_optimize_plan() {

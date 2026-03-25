@@ -47,3 +47,8 @@ Project context is evaluated before agent context so stable facts frame session 
 - If `gemini_cli.available` is `1`, use Gemini CLI for large-context or cross-file analysis.
 - If `context7.available` is `1`, use Context7/MCP for external library or API facts before making assumptions.
 - If any capability is unavailable, continue with native/local fallback and do not block execution.
+
+## 7) Pack Contract Safety
+- Framework-specific guidance should come from optional packs where available.
+- Pack manifests must be validated before enable/sync (`vault-pack validate`).
+- During migration windows, resolution order is: active packs first, legacy core second.
