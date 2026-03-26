@@ -17,7 +17,7 @@ Example:
   "name": "ai-shadow-vault-laravel",
   "version": "1.0.0",
   "description": "Official Laravel skill pack for AI Shadow Vault",
-  "core_api": ">=2.1.0 <3.0.0",
+  "core_api": ">=2.1.0 <6.0.0",
   "capabilities": ["skills"]
 }
 ```
@@ -27,3 +27,9 @@ Validation command:
 ```bash
 vault-pack validate /path/to/pack
 ```
+
+Optional metadata catalog (`skills` capability):
+
+- Path: `skills/catalog.json`
+- Purpose: source-of-truth for grouped listing and deterministic signal -> profile skill decisions
+- Current expected keys: `schema_version`, `pack`, `groups`, `skills`, `profiles`, `signal_profiles`

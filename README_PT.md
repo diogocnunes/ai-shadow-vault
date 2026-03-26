@@ -239,8 +239,9 @@ Comando de workflow de skills (pack-first no v5).
 
 Subcomandos principais:
 - `status`: estado de skills ativas/disponíveis
-- `suggest [--json|--plan]`: deteta/sugere skills e recomendações de pack
-- `auto`: auto-ativa sugestões de alta confiança
+- `list [--json] [--group <id>] [--source pack|all]`: lista skills disponíveis (agrupadas; pack-first por default)
+- `suggest [--json|--plan]`: deteta/sugere skills e recomendações de pack (read-only; não altera estado)
+- `auto`: auto-ativa decisões de alta confiança; auto-ativa o pack requerido (`laravel`) para sinais Laravel determinísticos
 - `set <skill...>`: define skills ativas
 - `sync`: recompõe/sincroniza artefactos de skills ativas
 - `explain <skill-id>`: explicação curta do propósito da skill
@@ -284,6 +285,10 @@ Campos obrigatórios:
 - `description`
 - `core_api`
 - `capabilities`
+
+Catálogo opcional (para deteção/listagem orientada a metadados):
+
+- `skills/catalog.json`
 
 Referência:
 

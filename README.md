@@ -239,8 +239,9 @@ Skills workflow command (pack-first in v5).
 
 Main subcommands:
 - `status`: show active/available skills status
-- `suggest [--json|--plan]`: detect/suggest skills and pack hints
-- `auto`: auto-enable high-confidence suggestions
+- `list [--json] [--group <id>] [--source pack|all]`: list available skills (grouped; pack-first by default)
+- `suggest [--json|--plan]`: detect/suggest skills and pack hints (read-only; no state mutation)
+- `auto`: auto-enable high-confidence decisions; auto-enables required pack (`laravel`) for deterministic Laravel signals
 - `set <skill...>`: set active skills
 - `sync`: rebuild/sync generated active-skills artifacts
 - `explain <skill-id>`: short explanation of skill purpose
@@ -284,6 +285,10 @@ Required manifest fields:
 - `description`
 - `core_api`
 - `capabilities`
+
+Optional catalog (for metadata-driven detection/listing):
+
+- `skills/catalog.json`
 
 Reference:
 
