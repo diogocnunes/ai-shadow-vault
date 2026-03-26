@@ -22,6 +22,36 @@ log_warn() {
     echo -e "${YELLOW}$1${NC}"
 }
 
+ensure_install_repo_ready() {
+    local current_branch=""
+
+    if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+        echo "❌ INSTALL_PATH is not a git repository: $INSTALL_PATH" >&2
+        exit 1
+    fi
+
+    git fetch origin main -q
+
+    current_branch="$(git symbolic-ref --short -q HEAD || true)"
+
+    if [ -z "$current_branch" ]; then
+        log_warn "ℹ️  Detached HEAD detected in $INSTALL_PATH. Switching to main."
+        git checkout -B main origin/main -q
+        current_branch="main"
+    fi
+
+    if [ "$current_branch" != "main" ]; then
+        log_warn "ℹ️  Update channel uses 'main'. Switching from '$current_branch' to 'main'."
+        if git show-ref --verify --quiet refs/heads/main; then
+            git checkout main -q
+        else
+            git checkout -B main origin/main -q
+        fi
+    fi
+
+    git branch --set-upstream-to=origin/main main >/dev/null 2>&1 || true
+}
+
 project_context_available() {
     local candidate="$1"
 
@@ -59,10 +89,10 @@ log_info "🔄 Checking for AI Shadow Vault updates..."
 
 cd "$INSTALL_PATH" || exit 1
 
-git fetch origin main -q
+ensure_install_repo_ready
 
 LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse @{u})
+REMOTE=$(git rev-parse origin/main)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
     log_success "✨ You are already on the latest version!"
@@ -84,7 +114,7 @@ GIT_PAGER=cat git log HEAD..origin/main --oneline --pretty=format:"%C(yellow)▶
 echo -e "\n------------------------------------------"
 
 log_info "📥 Downloading and applying updates..."
-git pull origin main -q
+git pull --ff-only origin main -q
 
 log_success "✅ Update successful!"
 
