@@ -27,11 +27,14 @@ ARCHIVE_DIR="$AI_DIR/archive"
 LEGACY_ARCHIVE_DIR="$AI_DIR/context/archive"
 PLAN_ARCHIVE_DIR="$ARCHIVE_DIR/plans"
 TASK_ARCHIVE_DIR="$ARCHIVE_DIR/tasks"
+SESSION_ARCHIVE_DIR="$ARCHIVE_DIR/sessions"
 INDEX_FILE="$AI_DIR/docs/INDEX.md"
 CURRENT_TASK_FILE="$AI_DIR/context/current-task.md"
 CURRENT_TASK_TEMPLATE="$AI_DIR/context/current-task.template.md"
+SESSION_FILE="$AI_DIR/session.md"
+SESSION_TEMPLATE_FILE="$AI_DIR/session-template.md"
 
-mkdir -p "$ARCHIVE_DIR" "$PLAN_ARCHIVE_DIR" "$TASK_ARCHIVE_DIR" "$AI_DIR/docs"
+mkdir -p "$ARCHIVE_DIR" "$PLAN_ARCHIVE_DIR" "$TASK_ARCHIVE_DIR" "$SESSION_ARCHIVE_DIR" "$AI_DIR/docs"
 
 migrate_legacy_archive_once() {
     local migrated=0
@@ -127,6 +130,35 @@ archive_current_task_if_needed() {
     echo -e "📌 Archived current task: ${GREEN}archive/tasks/$(basename "$archive_file")${NC}"
 }
 
+session_file_has_content() {
+    local file_path="$1"
+    [[ -f "$file_path" ]] || return 1
+    grep -q '[^[:space:]]' "$file_path"
+}
+
+archive_session_checkpoint_if_needed() {
+    local archive_file target_file suffix=1
+
+    if ! session_file_has_content "$SESSION_FILE"; then
+        return 0
+    fi
+
+    if [[ -f "$SESSION_TEMPLATE_FILE" ]] && cmp -s "$SESSION_FILE" "$SESSION_TEMPLATE_FILE"; then
+        echo -e "ℹ️  Session file matches template; nothing to archive."
+        return 0
+    fi
+
+    target_file="$SESSION_ARCHIVE_DIR/session-$TIMESTAMP.md"
+    while [[ -e "$target_file" ]]; do
+        target_file="$SESSION_ARCHIVE_DIR/session-$TIMESTAMP-$suffix.md"
+        suffix=$((suffix + 1))
+    done
+
+    cp "$SESSION_FILE" "$target_file"
+    archive_file="$(basename "$target_file")"
+    echo -e "🗂️  Archived session checkpoint: ${GREEN}archive/sessions/$archive_file${NC}"
+}
+
 reset_current_task_file() {
     if [[ -f "$CURRENT_TASK_TEMPLATE" ]]; then
         cp "$CURRENT_TASK_TEMPLATE" "$CURRENT_TASK_FILE"
@@ -169,6 +201,21 @@ EOF_TASK
     echo -e "♻️  Reset current task with default template."
 }
 
+reset_session_file() {
+    if [[ ! -f "$SESSION_FILE" ]]; then
+        return 0
+    fi
+
+    if [[ -f "$SESSION_TEMPLATE_FILE" ]]; then
+        cp "$SESSION_TEMPLATE_FILE" "$SESSION_FILE"
+        echo -e "♻️  Reset session checkpoint from template."
+        return 0
+    fi
+
+    rm -f "$SESSION_FILE"
+    echo -e "♻️  Cleared session checkpoint file."
+}
+
 refresh_agent_context() {
     local context_script
     context_script="$(dirname "$0")/vault-ai-context-file.sh"
@@ -207,8 +254,10 @@ echo -e "${BLUE}🛡️  Saving AI Shadow Vault Context...${NC}"
 
 migrate_legacy_archive_once
 archive_current_task_if_needed
+archive_session_checkpoint_if_needed
 archive_completed_plans
 reset_current_task_file
+reset_session_file
 refresh_agent_context
 rebuild_docs_index
 

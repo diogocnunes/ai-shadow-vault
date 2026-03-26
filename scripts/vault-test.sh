@@ -215,6 +215,12 @@ JSON
         return
     }
 
+    cat > "$root/.ai/session.md" <<'EOF_SESSION'
+# Session Summary
+
+This session changed skill detection behavior and updated docs.
+EOF_SESSION
+
     "$BIN_DIR/vault-task" done >/tmp/vault-test-task-done.log 2>&1 || {
         record_result fail task "vault-task done failed"
         return
@@ -232,8 +238,25 @@ JSON
         return
     fi
 
+    local latest_session_archive
+    latest_session_archive="$(ls -t "$root/.ai/archive/sessions"/*.md 2>/dev/null | head -n 1 || true)"
+    if [[ -z "$latest_session_archive" ]]; then
+        record_result fail task "session archive file not created"
+        return
+    fi
+
+    if ! grep -q '^# Session Summary$' "$latest_session_archive" >/dev/null 2>&1; then
+        record_result fail task "session archive does not include expected session content"
+        return
+    fi
+
+    if [[ -f "$root/.ai/session-template.md" ]] && ! cmp -s "$root/.ai/session.md" "$root/.ai/session-template.md"; then
+        record_result fail task "session file was not reset from template after archive"
+        return
+    fi
+
     if [[ -f "$latest_archive" ]]; then
-        record_result pass task "task compile + done archived current task with structured sections"
+        record_result pass task "task + session archive and reset flow completed"
     else
         record_result fail task "task archive file not created"
     fi
