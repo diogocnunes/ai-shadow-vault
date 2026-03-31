@@ -495,6 +495,20 @@ initialize_local_ai_workspace() {
 
     write_capabilities_file "$PROJECT_ROOT"
 
+    # RTK global hook integration — one-time per machine
+    local rtk_init_marker
+    rtk_init_marker="$(vault_primary_data_root)/.rtk-global-init-done"
+    if command -v rtk >/dev/null 2>&1 && [[ ! -f "$rtk_init_marker" ]]; then
+        echo "🔧 Running rtk init -g --auto-patch (one-time global setup)..."
+        if rtk init -g --auto-patch; then
+            mkdir -p "$(vault_primary_data_root)"
+            touch "$rtk_init_marker"
+            echo "✅ RTK global hooks initialized."
+        else
+            echo "⚠️  rtk init -g --auto-patch failed (non-blocking, continuing)."
+        fi
+    fi
+
     echo "🤖 Installing local helper agents..."
     local agent_script
     for agent_script in "$TEMPLATES_DIR/agents/"*.sh; do

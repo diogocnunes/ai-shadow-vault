@@ -1,5 +1,7 @@
 # AI Shadow Vault
 
+👉 Just want to get started fast? → see [LAZY.md](LAZY.md)
+
 AI Shadow Vault is a local developer-experience infrastructure for AI-assisted coding.
 
 It keeps AI context outside your Git repository and injects only the runtime files each project needs.
