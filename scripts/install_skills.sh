@@ -88,15 +88,22 @@ When to use it:
 2. Cross-file pattern audits (security, auth, error handling, caching, tests).
 3. Workloads likely to exceed normal context windows (for example, more than ~100KB total).
 
-Command patterns (validate your local Gemini CLI flags first via `gemini --help`):
-- Single file: `gemini -p "@src/main.py Explain this file's purpose and structure"`
-- Multiple files: `gemini -p "@package.json @src/index.js Analyze dependencies used"`
-- Directory: `gemini -p "@src/ Summarize architecture and key modules"`
-- Whole project (if supported by your installed version): `gemini --all_files -p "Analyze project structure and dependencies"`
+Command patterns (Optimized for Low Latency / AI Agent Timeouts):
+- ALWAYS use `rtk read` piped into the CLI instead of the native `@path` syntax. This bypasses the CLI's internal disk I/O and speeds up execution.
+- Use `-m gemini-3-flash` for faster Time-to-First-Byte (TTFB).
+- Use `--allowed-mcp-server-names none` (or specify only essential ones like `context7`) to skip heavy MCP initialization.
+
+Examples:
+- Single/Multiple files (Fastest):
+  `rtk read src/main.py src/index.js | gemini -p "Explain these files' purpose" --allowed-mcp-server-names none`
+- Directory analysis:
+  `rtk read src/ | gemini -p "Summarize architecture and key modules" --allowed-mcp-server-names none`
+- Using specific external context tools (e.g., context7):
+  `rtk read package.json | gemini -p "Analyze dependencies" --allowed-mcp-server-names context7`
 
 Safety and verification:
-- Prefer targeted `@path` scopes over full-repo scans.
-- Ask Gemini to return concrete file paths/functions.
+- Prefer targeted `rtk read` scopes over full-repo scans.
+- Ask Gemini to return concrete file paths/functions in the prompt.
 - Verify findings locally with RTK (`rtk grep`, `rtk read`) before acting.
 - Do not assume undocumented Gemini flags, APIs, or behavior.
 EOF_GEMINI
