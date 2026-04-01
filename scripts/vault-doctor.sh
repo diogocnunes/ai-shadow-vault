@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/../templates/.ai"
 ROOT_TEMPLATES_DIR="$SCRIPT_DIR/../templates"
+source "$SCRIPT_DIR/lib/bootstrap-contract.sh"
 
 FIX_MODE=0
 FIX_STRICT_MODE=0
@@ -158,13 +159,22 @@ Impact if ignored: Agents can mis-handle execution mode and workflow intent.
 Typical fix: Set `mode: plan` or `mode: execute` in frontmatter.
 EOF_EXPLAIN
             ;;
-        D060|D061)
+        D060)
             cat <<'EOF_EXPLAIN'
-Code: D060/D061
-What: Bootstrap contract/state is missing or invalid.
-Why: Session bootstrap must be validated before task execution.
-Impact if ignored: Rules/context can be skipped and audits become unreliable.
-Typical fix: Run `vault-bootstrap ensure` and sync managed CLAUDE template.
+Code: D060
+What: CLAUDE.md is missing or has no Bootstrap Contract block.
+Why: The Bootstrap Contract anchors session initialization and audit signals.
+Impact if ignored: Bootstrap checks are silently skipped; no audit trail.
+Typical fix: Run `vault-bootstrap ensure` or `vault-doctor --fix-strict`.
+EOF_EXPLAIN
+            ;;
+        D061)
+            cat <<'EOF_EXPLAIN'
+Code: D061
+What: CLAUDE.md Bootstrap Contract is missing the BOOTSTRAP_ACK sentinel (line 9).
+Why: Line 9 confirms the agent understands BOOTSTRAP_ACK is an audit signal only.
+Impact if ignored: Contract integrity cannot be verified; validation is unreliable.
+Typical fix: Sync CLAUDE.md from the managed template via `vault-doctor --fix-strict`.
 EOF_EXPLAIN
             ;;
         D090)
@@ -406,8 +416,6 @@ check_bootstrap_contract() {
     should_run_check bootstrap || return 0
 
     local claude_file="$PROJECT_ROOT/CLAUDE.md"
-    local line9='9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).'
-    local line10='10. Do not duplicate policy here; canonical policy is `.ai/rules.md`.'
 
     [[ -f "$claude_file" ]] || {
         add_issue error D060 "Missing CLAUDE.md for bootstrap contract checks" "Restore managed CLAUDE.md template"
@@ -415,23 +423,15 @@ check_bootstrap_contract() {
     }
 
     local contract_block
-    contract_block="$(awk '
-        /^## Bootstrap Contract \(Mandatory\)$/ { in_block=1; next }
-        in_block && /^## / { exit }
-        in_block { print }
-    ' "$claude_file")"
+    contract_block="$(bootstrap_extract_contract_block "$claude_file")"
 
     if [[ -z "$contract_block" ]]; then
         add_issue error D060 "Missing Bootstrap Contract block in CLAUDE.md" "Sync CLAUDE.md managed template"
         return 0
     fi
 
-    if ! grep -Fqx "$line9" <<< "$contract_block"; then
-        add_issue error D061 "CLAUDE.md bootstrap line 9 missing/reworded or outside contract block" "Sync CLAUDE.md managed template"
-    fi
-
-    if ! grep -Fqx "$line10" <<< "$contract_block"; then
-        add_issue error D061 "CLAUDE.md bootstrap line 10 missing/reworded or outside contract block" "Sync CLAUDE.md managed template"
+    if ! grep -Fqx "$BOOTSTRAP_CONTRACT_SENTINEL" <<< "$contract_block"; then
+        add_issue error D061 "CLAUDE.md Bootstrap Contract missing BOOTSTRAP_ACK sentinel (line 9)" "Sync CLAUDE.md managed template via vault-doctor --fix-strict"
     fi
 }
 

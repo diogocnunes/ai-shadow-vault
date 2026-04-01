@@ -4,6 +4,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN_DIR="$SCRIPT_DIR/../bin"
+source "$SCRIPT_DIR/lib/bootstrap-contract.sh"
 
 SUITE="quick"
 SUITE_SET=0
@@ -118,16 +119,6 @@ JSON
     fi
 }
 
-extract_bootstrap_contract_block() {
-    local claude_file="$1"
-
-    awk '
-        /^## Bootstrap Contract \(Mandatory\)$/ { in_block=1; next }
-        in_block && /^## / { exit }
-        in_block { print }
-    ' "$claude_file"
-}
-
 suite_bootstrap() {
     run_in_temp_project _suite_bootstrap_inner
 }
@@ -160,7 +151,7 @@ JSON
     fi
 
     local contract_block
-    contract_block="$(extract_bootstrap_contract_block "$root/CLAUDE.md")"
+    contract_block="$(bootstrap_extract_contract_block "$root/CLAUDE.md")"
     if [[ -z "$contract_block" ]]; then
         record_result fail bootstrap "CLAUDE.md bootstrap contract block missing"
         return
@@ -173,16 +164,8 @@ JSON
         return
     fi
 
-    local line9='9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).'
-    local line10='10. Do not duplicate policy here; canonical policy is `.ai/rules.md`.'
-
-    if ! grep -Fqx "$line9" <<< "$contract_block"; then
-        record_result fail bootstrap "CLAUDE.md contract line 9 missing/reworded or outside contract block"
-        return
-    fi
-
-    if ! grep -Fqx "$line10" <<< "$contract_block"; then
-        record_result fail bootstrap "CLAUDE.md contract line 10 missing/reworded or outside contract block"
+    if ! grep -Fqx "$BOOTSTRAP_CONTRACT_SENTINEL" <<< "$contract_block"; then
+        record_result fail bootstrap "CLAUDE.md Bootstrap Contract missing BOOTSTRAP_ACK sentinel (line 9)"
         return
     fi
 

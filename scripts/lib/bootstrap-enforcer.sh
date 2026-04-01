@@ -2,6 +2,7 @@ set -euo pipefail
 
 BOOTSTRAP_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$BOOTSTRAP_LIB_DIR/vault-resolver.sh"
+source "$BOOTSTRAP_LIB_DIR/bootstrap-contract.sh"
 
 BOOTSTRAP_REPO_ROOT="$(cd "$BOOTSTRAP_LIB_DIR/../.." && pwd)"
 BOOTSTRAP_TEMPLATES_DIR="$BOOTSTRAP_REPO_ROOT/templates/.ai"
@@ -133,47 +134,29 @@ bootstrap_validate_contract_markers() {
         return
     fi
 
-    local line9='9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).'
-    local line10='10. Do not duplicate policy here; canonical policy is `.ai/rules.md`.'
-
     local contract_block
-    contract_block="$(awk '
-        /^## Bootstrap Contract \(Mandatory\)$/ { in_block=1; next }
-        in_block && /^## / { exit }
-        in_block { print }
-    ' "$claude_file")"
+    contract_block="$(bootstrap_extract_contract_block "$claude_file")"
 
     if [[ -z "$contract_block" ]]; then
         printf '%s\n' "Missing Bootstrap Contract block in CLAUDE.md"
         return
     fi
 
-    if ! grep -Fqx "$line9" <<< "$contract_block"; then
-        printf '%s\n' "CLAUDE.md contract line 9 missing/reworded or outside contract block"
-    fi
-
-    if ! grep -Fqx "$line10" <<< "$contract_block"; then
-        printf '%s\n' "CLAUDE.md contract line 10 missing/reworded or outside contract block"
+    if ! grep -Fqx "$BOOTSTRAP_CONTRACT_SENTINEL" <<< "$contract_block"; then
+        printf '%s\n' "CLAUDE.md Bootstrap Contract missing BOOTSTRAP_ACK sentinel (line 9)"
     fi
 }
 
 bootstrap_contract_block_is_valid() {
     local claude_file="$1"
-    local line9='9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).'
-    local line10='10. Do not duplicate policy here; canonical policy is `.ai/rules.md`.'
     local contract_block
 
     [[ -f "$claude_file" ]] || return 1
 
-    contract_block="$(awk '
-        /^## Bootstrap Contract \(Mandatory\)$/ { in_block=1; next }
-        in_block && /^## / { exit }
-        in_block { print }
-    ' "$claude_file")"
+    contract_block="$(bootstrap_extract_contract_block "$claude_file")"
 
     [[ -n "$contract_block" ]] || return 1
-    grep -Fqx "$line9" <<< "$contract_block" || return 1
-    grep -Fqx "$line10" <<< "$contract_block" || return 1
+    grep -Fqx "$BOOTSTRAP_CONTRACT_SENTINEL" <<< "$contract_block" || return 1
     return 0
 }
 
