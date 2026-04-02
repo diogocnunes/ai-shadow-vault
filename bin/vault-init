@@ -391,6 +391,26 @@ collect_optimize_plan() {
             opt_plan_add_unique OPTIMIZE_PLAN_MISC "ASV-SUGGEST-PACK-001: Laravel stack detected. Recommended: vault-ext enable laravel"
         fi
     fi
+
+    if [[ -f "$PROJECT_ROOT/composer.json" ]]; then
+        if grep -q '"pestphp/pest"' "$PROJECT_ROOT/composer.json"; then
+            if ! grep -q '"nunomaduro/pao"' "$PROJECT_ROOT/composer.json"; then
+                local _pao_cmd
+                local _php_ver
+                _php_ver="$(grep '"php":' "$PROJECT_ROOT/composer.json" | head -n 1 | grep -o '[0-9]\.[0-9]' | head -n 1 || true)"
+                local _php_minor="${_php_ver//./}"
+                if [[ -n "$_php_minor" ]] && [[ -x "$HOME/.config/herd/bin/php${_php_minor}" ]]; then
+                    _pao_cmd="$HOME/.config/herd/bin/php${_php_minor} $(command -v composer) require nunomaduro/pao:0.x-dev --dev"
+                elif [[ -x "$PROJECT_ROOT/vendor/bin/sail" ]]; then
+                    _pao_cmd="./vendor/bin/sail composer require nunomaduro/pao:0.x-dev --dev"
+                else
+                    _pao_cmd="composer require nunomaduro/pao:0.x-dev --dev"
+                fi
+                opt_plan_add_unique OPTIMIZE_PLAN_MISC \
+                    "ASV-SUGGEST-PKG-001: Pest detected but pao not installed. Run: $_pao_cmd"
+            fi
+        fi
+    fi
 }
 
 print_optimize_plan() {
