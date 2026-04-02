@@ -164,6 +164,13 @@ Se aparecer `ASV-HARD-MIGRATION-001`, ative o pack requerido e execute novamente
 
 Inicializa ou normaliza a estrutura `.ai` e os ficheiros/links geridos do projeto atual.
 
+Após cada execução, o `vault-init` imprime sugestões de pacotes quando pacotes opcionais mas recomendados estão ausentes do `composer.json`:
+
+- **Pest detetado, `pao` não instalado** → sugere `composer require nunomaduro/pao:0.x-dev --dev`
+- **Laravel detetado, `laravel/boost` não instalado** → sugere `composer require laravel/boost --dev`
+
+O comando sugerido usa automaticamente o PHP correto (Herd → Sail → composer global).
+
 Opções principais:
 - `--optimize`: executa fluxo de otimização (detetar -> planear -> aplicar)
 - `--interactive`: ativa prompts/confirmações

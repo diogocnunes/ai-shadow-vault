@@ -166,6 +166,13 @@ If you get `ASV-HARD-MIGRATION-001`, install/enable the required pack and re-run
 
 Initializes or normalizes `.ai` structure and managed links/files for the current project.
 
+After every run, `vault-init` prints package suggestions when optional but recommended packages are missing from `composer.json`:
+
+- **Pest detected, `pao` not installed** → suggests `composer require nunomaduro/pao:0.x-dev --dev`
+- **Laravel detected, `laravel/boost` not installed** → suggests `composer require laravel/boost --dev`
+
+The suggested command automatically uses the correct PHP binary (Herd → Sail → global composer).
+
 Main options:
 - `--optimize`: runs optimize flow (detect -> plan -> apply)
 - `--interactive`: enables prompts/confirmations

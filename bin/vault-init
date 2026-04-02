@@ -340,6 +340,20 @@ collect_optimize_skill_decisions() {
     done < <(VAULT_SKILLS_NO_WRITE=1 "$SCRIPT_DIR/../bin/vault-skills" suggest --plan 2>/dev/null || true)
 }
 
+_resolve_composer_cmd() {
+    local project_root="$1"
+    local php_ver
+    php_ver="$(grep '"php":' "$project_root/composer.json" | head -n 1 | grep -o '[0-9]\.[0-9]' | head -n 1 || true)"
+    local php_minor="${php_ver//./}"
+    if [[ -n "$php_minor" ]] && [[ -x "$HOME/.config/herd/bin/php${php_minor}" ]]; then
+        echo "$HOME/.config/herd/bin/php${php_minor} $(command -v composer)"
+    elif [[ -x "$project_root/vendor/bin/sail" ]]; then
+        echo "./vendor/bin/sail composer"
+    else
+        echo "composer"
+    fi
+}
+
 collect_optimize_plan() {
     local local_ai="$PROJECT_ROOT/.ai"
     local legacy_archive="$local_ai/context/archive"
@@ -396,18 +410,20 @@ collect_optimize_plan() {
         if grep -q '"pestphp/pest"' "$PROJECT_ROOT/composer.json"; then
             if ! grep -q '"nunomaduro/pao"' "$PROJECT_ROOT/composer.json"; then
                 local _pao_cmd
-                local _php_ver
-                _php_ver="$(grep '"php":' "$PROJECT_ROOT/composer.json" | head -n 1 | grep -o '[0-9]\.[0-9]' | head -n 1 || true)"
-                local _php_minor="${_php_ver//./}"
-                if [[ -n "$_php_minor" ]] && [[ -x "$HOME/.config/herd/bin/php${_php_minor}" ]]; then
-                    _pao_cmd="$HOME/.config/herd/bin/php${_php_minor} $(command -v composer) require nunomaduro/pao:0.x-dev --dev"
-                elif [[ -x "$PROJECT_ROOT/vendor/bin/sail" ]]; then
-                    _pao_cmd="./vendor/bin/sail composer require nunomaduro/pao:0.x-dev --dev"
-                else
-                    _pao_cmd="composer require nunomaduro/pao:0.x-dev --dev"
-                fi
+                _pao_cmd="$(_resolve_composer_cmd "$PROJECT_ROOT") require nunomaduro/pao:0.x-dev --dev"
                 opt_plan_add_unique OPTIMIZE_PLAN_MISC \
                     "ASV-SUGGEST-PKG-001: Pest detected but pao not installed. Run: $_pao_cmd"
+            fi
+        fi
+    fi
+
+    if [[ -f "$PROJECT_ROOT/composer.json" ]]; then
+        if grep -q '"laravel/framework"' "$PROJECT_ROOT/composer.json"; then
+            if ! grep -q '"laravel/boost"' "$PROJECT_ROOT/composer.json"; then
+                local _boost_cmd
+                _boost_cmd="$(_resolve_composer_cmd "$PROJECT_ROOT") require laravel/boost --dev"
+                opt_plan_add_unique OPTIMIZE_PLAN_MISC \
+                    "ASV-SUGGEST-PKG-002: Laravel detected but boost not installed. Run: $_boost_cmd"
             fi
         fi
     fi
@@ -487,6 +503,36 @@ print_optimize_next_steps() {
     echo "- vault-task new"
     echo "- vault-doctor"
     echo "- vault-test"
+}
+
+print_package_suggestions() {
+    [[ ! -f "$PROJECT_ROOT/composer.json" ]] && return 0
+
+    local suggestions=()
+    local composer_cmd
+    composer_cmd="$(_resolve_composer_cmd "$PROJECT_ROOT")"
+
+    if grep -q '"pestphp/pest"' "$PROJECT_ROOT/composer.json"; then
+        if ! grep -q '"nunomaduro/pao"' "$PROJECT_ROOT/composer.json"; then
+            suggestions+=("Pest detected but pao not installed.")
+            suggestions+=("  Run: $composer_cmd require nunomaduro/pao:0.x-dev --dev")
+        fi
+    fi
+
+    if grep -q '"laravel/framework"' "$PROJECT_ROOT/composer.json"; then
+        if ! grep -q '"laravel/boost"' "$PROJECT_ROOT/composer.json"; then
+            suggestions+=("Laravel detected but laravel/boost not installed.")
+            suggestions+=("  Run: $composer_cmd require laravel/boost --dev")
+        fi
+    fi
+
+    if (( ${#suggestions[@]} > 0 )); then
+        echo ""
+        echo "💡 Package suggestions:"
+        for s in "${suggestions[@]}"; do
+            echo "  $s"
+        done
+    fi
 }
 
 initialize_local_ai_workspace() {
@@ -651,6 +697,8 @@ if [[ -x "$SCRIPT_DIR/../bin/vault-ext" ]]; then
 fi
 
 echo "✅ Initialization completed."
+
+print_package_suggestions
 
 if [[ "$OPTIMIZE_MODE" -eq 1 && "$OPTIMIZE_APPLIED" -eq 1 ]]; then
     print_optimize_next_steps
