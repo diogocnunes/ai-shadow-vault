@@ -56,3 +56,34 @@ gemini -p "@tests/Feature/ Audit test coverage gaps"
 7. Show warning block with failed checks and remediation command.
 8. Remediation command: `vault-bootstrap ensure`.
 9. BOOTSTRAP_ACK is an audit signal only (not a guarantee of compliance).
+
+---
+
+## Git & Commit Safety
+
+This section is authoritative for Claude and applies in all execution modes,
+including `--dangerously-skip-permissions`, subagents, and plan executors.
+
+**Read-only git operations** (may run autonomously):
+- `git status`, `git diff`, `git log` — safe to run without approval.
+
+**Operations that require explicit user approval before running:**
+- `git commit`, `git add`, `git push`, `git merge`, `git rebase`, `git reset`,
+  `git checkout` (branch switches), `git stash` — always present the proposed
+  action and wait for confirmation. Never proceed without a clear user go-ahead.
+- Never push to any remote branch unless the user explicitly requests it.
+- Never force-push (`--force`, `--force-with-lease`) to `main`/`master` under
+  any circumstance.
+
+**Secrets and sensitive data:**
+- NEVER commit `.env` files, API keys, passwords, tokens, database dumps,
+  credential files, or private key files.
+- Before committing, verify staged files contain no sensitive data.
+- If a staged file contains sensitive data, refuse to commit and warn the user.
+
+**Scope and cleanup:**
+- Prefer small, focused commits; avoid bundling unrelated changes.
+- Before finishing any task, delete helper-generated artifacts that must not be
+  committed: `storage/pest-junit.xml`, Playwright reports and traces
+  (`playwright-report/`, `test-results/`, `*.trace.zip`), and any other
+  tool-output files not tracked in `.gitignore`.

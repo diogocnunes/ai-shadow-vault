@@ -48,7 +48,35 @@ Project context is evaluated before agent context so stable facts frame session 
 - If `context7.available` is `1`, use Context7/MCP for external library or API facts before making assumptions.
 - If any capability is unavailable, continue with native/local fallback and do not block execution.
 
-## 7) Pack Contract Safety
+## 7) Git & Commit Safety
+
+**Read-only git operations** (may run autonomously):
+- `git status`, `git diff`, `git log` — safe to run without approval.
+
+**Operations that require explicit user approval before running:**
+- `git commit`, `git add`, `git push`, `git merge`, `git rebase`, `git reset`,
+  `git checkout` (branch switches), `git stash` — always present the proposed
+  action and wait for confirmation.
+- Never push to any remote branch unless the user explicitly requests it.
+- Never force-push (`--force`, `--force-with-lease`) to `main`/`master` under
+  any circumstance.
+- This applies to all contexts: main conversation, subagents, and plan executors,
+  including when running in `--dangerously-skip-permissions` mode.
+
+**Secrets and sensitive data:**
+- NEVER commit `.env` files, API keys, passwords, tokens, database dumps,
+  credential files, or private key files.
+- Before committing, verify staged files contain no sensitive data.
+- If a staged file contains sensitive data, refuse to commit and warn the user.
+
+**Scope and cleanup:**
+- Prefer small, focused commits; avoid bundling unrelated changes.
+- Before finishing any task, delete helper-generated artifacts that must not be
+  committed: `storage/pest-junit.xml`, Playwright reports and traces
+  (`playwright-report/`, `test-results/`, `*.trace.zip`), and any other
+  tool-output files not tracked in `.gitignore`.
+
+## 8) Pack Contract Safety
 - Framework-specific guidance should come from optional packs where available.
 - Pack manifests must be validated before enable/sync (`vault-pack validate`).
 - During migration windows, resolution order is: active packs first, legacy core second.
