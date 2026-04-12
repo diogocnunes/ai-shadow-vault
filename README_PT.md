@@ -1,12 +1,34 @@
 # AI Shadow Vault
 
-O AI Shadow Vault é uma ferramenta shell-first que mantém ficheiros de adapter de IA fora do Git e cria links desses ficheiros dentro de cada projeto.
+Mantém os ficheiros de adapter de IA fora do Git.
 
-Mantém-se intencionalmente pequeno:
-- adapters gerados vivem num vault externo
-- o projeto só liga `.ai/docs` e `.ai/plans`
-- as exclusões Git são locais e idempotentes
-- não existe sistema de memória, skills, arquivo ou runtime de tarefas
+O AI Shadow Vault é uma ferramenta shell-first para equipas e developers que querem `CLAUDE.md`, `AGENTS.md` e `GEMINI.md` disponíveis dentro de cada projeto sem transformar esses ficheiros em ruído no repositório.
+
+Entrega:
+- uma CLI limpa com `ai-vault`
+- um instalador inicial com identidade visual
+- adapters guardados fora do repositório
+- identidade estável entre worktrees Git
+- pastas `.ai/docs` e `.ai/plans` ligadas por symlink
+- exclusões Git locais sem tocar no `.gitignore`
+
+Não tenta ser um sistema de memória, runtime de skills, gestor de tarefas ou framework de agentes.
+
+## Preview
+
+![Installer do AI Shadow Vault](assets/images/carbon.png)
+
+## Porque Existe
+
+Muita gente quer instruções para IA perto do código, mas não quer commitar esses ficheiros em todos os projetos.
+
+O AI Shadow Vault resolve isso ao guardar os adapters num vault da máquina e ligá-los ao projeto apenas quando necessário.
+
+Resultado:
+- o repositório fica limpo
+- os adapters ficam reutilizáveis
+- a configuração mantém-se determinística
+- as worktrees partilham a mesma identidade de vault
 
 ## Instalação
 
@@ -18,7 +40,7 @@ brew install ai-vault
 ai-vault
 ```
 
-Se estiver a usar o repositório em modo source:
+Se estiveres a correr a partir do source durante desenvolvimento:
 
 ```bash
 git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
@@ -29,13 +51,18 @@ ai-vault
 
 ## Primeira Execução
 
-Execute:
+Corre:
 
 ```bash
 ai-vault
 ```
 
-Se ainda não existir config global, o AI Shadow Vault arranca um setup curto e grava a configuração em:
+Na primeira execução, o AI Shadow Vault abre um setup curto e interativo onde escolhes:
+- caminho base do vault
+- adapters por defeito
+- toggle de instruções RTK
+
+A config global fica em:
 
 ```text
 $XDG_CONFIG_HOME/ai-shadow-vault/config.json
@@ -47,20 +74,15 @@ Fallback:
 ~/.config/ai-shadow-vault/config.json
 ```
 
-O wizard pede apenas:
-- caminho base do vault
-- adapters ativos
-- toggle de instruções RTK
-
-O default sugerido é:
+O caminho base sugerido por defeito é:
 
 ```text
 ~/.ai-shadow-vault-data
 ```
 
-Se existirem pastas sincronizadas compatíveis, também aparecem como opções.
+Se existirem pastas sincronizadas compatíveis, também aparecem como opção.
 
-## CLI Principal
+## Comandos Principais
 
 ```bash
 ai-vault install
@@ -70,30 +92,31 @@ ai-vault update
 
 ### `ai-vault install`
 
-Corre o setup inicial ou reconfigura a config global existente.
+Corre o wizard inicial ou atualiza a config global da máquina.
 
 ### `ai-vault init`
 
-Liga o projeto atual ao vault externo configurado.
+Liga o projeto atual ao vault configurado.
 
 Ele:
-- resolve uma identidade estável partilhada entre worktrees Git
-- usa o caminho base configurado
-- gera apenas os adapters selecionados
+- resolve a raiz do projeto
+- deriva uma identidade estável partilhada entre worktrees Git
+- gera os adapters selecionados
 - liga `.ai/docs` e `.ai/plans`
-- trata reparações e migrações com confirmação
+- repara symlinks quando necessário
+- migra diretórios `.ai/docs` ou `.ai/plans` com confirmação
 - atualiza `.git/info/exclude` de forma idempotente
 
 ### `ai-vault update`
 
-O comportamento depende do modo de instalação:
+O comportamento depende da forma de instalação:
 - instalação Homebrew: informa para correr `brew upgrade ai-vault`
 - instalação source/git: atualiza o checkout a partir de `origin/main`
 - instalação empacotada sem git: informa para reinstalar a release mais recente
 
-## Layout do Vault Externo
+## O Que É Criado
 
-Cada projeto resolve para:
+Layout do vault externo:
 
 ```text
 <vault_base_path>/<project-slug>-<hash>/
@@ -104,7 +127,7 @@ Cada projeto resolve para:
   plans/
 ```
 
-Dentro do projeto:
+Layout dentro do projeto:
 
 ```text
 .ai/
@@ -116,14 +139,14 @@ CLAUDE.md -> external/CLAUDE.md
 GEMINI.md -> external/GEMINI.md
 ```
 
-Só os adapters selecionados na config global são gerados e ligados.
+Só os adapters ativos na config global são gerados e ligados.
 
-## Identidade do Projeto
+## Identidade Estável do Projeto
 
-A identidade do vault é estável entre worktrees Git.
+Os caminhos do vault são estáveis entre worktrees Git.
 
 Raiz de identidade:
-- repositório Git: raiz comum do repositório
+- projeto Git: raiz comum do repositório
 - projeto sem Git: `realpath(project root)`
 
 Hash:
@@ -143,23 +166,23 @@ Adapters suportados:
 - `AGENTS.md`
 - `GEMINI.md`
 
-Todos os adapters são gerados a partir do mesmo modelo interno de instruções.
+Todos os adapters são renderizados a partir do mesmo modelo interno de instruções para manter tudo alinhado e sem drift.
 
-Factos detetados no repositório podem alterar o output:
+Factos do repositório que podem alterar o output:
 - Pest em `composer.json`
 - Playwright em `package.json`
 - Laravel em `composer.json`
-- disponibilidade do RTK via `command -v rtk`
+- RTK disponível via `command -v rtk`
 
 As instruções RTK só entram quando:
-- o RTK está disponível nesse momento
-- a config global tem o extra RTK ativo
+- o RTK está disponível naquele ambiente
+- a config global tem RTK ativo
 
-## Exclusões de Git
+## Estratégia de Git
 
 O AI Shadow Vault gere apenas `.git/info/exclude`.
 
-Bloco gerido:
+Exemplo do bloco gerido:
 
 ```text
 # >>> ai-shadow-vault >>>
@@ -170,57 +193,88 @@ Bloco gerido:
 # <<< ai-shadow-vault <<<
 ```
 
-O bloco é gerado a partir dos adapters ativos. `.gitignore` nunca é modificado.
+O bloco é gerado a partir dos adapters ativos.
+
+`.gitignore` nunca é modificado.
 
 ## Migração e Reparação
 
 Para `.ai/docs` e `.ai/plans`:
 - diretórios reais são tratados como conteúdo do utilizador
 - a migração pede confirmação
-- conflitos de nome são preservados com:
+- conflitos de ficheiros são preservados com:
 
 ```text
 name.migrated-YYYYMMDD-HHMMSS.ext
 ```
 
-Para adapters na raiz do projeto:
+Para ficheiros de adapter na raiz do projeto:
 - symlink em falta: criar
 - symlink correto: no-op
-- symlink errado: reparar com confirmação
+- symlink errado: propor reparação
 - ficheiro real: mostrar diff e pedir confirmação antes de substituir
+
+Se mais tarde desativares um adapter na config, o `ai-vault init` deteta o symlink antigo, mostra a remoção e atualiza o `.git/info/exclude`.
 
 ## Idempotência
 
-Execuções repetidas de `ai-vault init` são desenhadas para ser idempotentes:
+Execuções repetidas de `ai-vault init` não devem gerar alterações quando o projeto já está no estado correto.
+
+Isso inclui:
 - sem symlinks duplicados
 - sem entradas duplicadas no exclude
 - sem reescritas desnecessárias
-- sem alterações quando o projeto já está correto
+- sem repetir migrações
 
-## Pastas Sincronizadas
+## Vault em Pastas Sincronizadas
 
-Pode apontar o caminho base do vault para uma localização sincronizada, por exemplo:
+O caminho base do vault pode viver em:
 - Google Drive
 - Dropbox
-- outra pasta local sincronizada
+- outra pasta sincronizada
+- qualquer diretório local que escolhas
 
-Essa escolha é configuração da máquina, não configuração do projeto.
+Essa decisão é configuração da máquina, não do projeto.
 
 ## Comandos de Compatibilidade
 
-Continuam disponíveis como wrappers de compatibilidade:
+Continuam disponíveis:
 
 ```bash
 vault-init
 vault-update
 ```
 
-Encaminham internamente para a nova CLI e mostram uma nota curta. Existem para não quebrar utilizadores atuais de imediato.
+Encaminham para a nova CLI e mostram uma nota curta de compatibilidade.
 
-## Packaging
+## Homebrew e Packaging
 
 O repositório inclui:
 - entrypoints públicos finos em `bin/`
 - lógica runtime em `libexec/ai-vault/`
 - fórmula Homebrew em `Formula/ai-vault.rb`
 - helper de release em `release/build-homebrew-tarball.sh`
+
+A experiência pretendida para o utilizador é:
+
+```bash
+brew install ai-vault
+ai-vault
+```
+
+## Filosofia
+
+O AI Shadow Vault é estreito por decisão.
+
+É:
+- um linker
+- um gerador
+- um gestor de adapters ao nível da máquina
+
+Não é:
+- memória de projeto
+- orquestração de agentes
+- automação de workflow
+- runtime escondido
+
+Guarda o contexto. Mantém o Git limpo.
