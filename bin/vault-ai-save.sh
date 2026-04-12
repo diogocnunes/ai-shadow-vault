@@ -1,1 +1,0 @@
-../scripts/vault-ai-save.sh

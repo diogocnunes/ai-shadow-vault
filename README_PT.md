@@ -1,331 +1,226 @@
 # AI Shadow Vault
 
-AI Shadow Vault é uma infraestrutura local de developer experience para desenvolvimento assistido por IA.
+O AI Shadow Vault é uma ferramenta shell-first que mantém ficheiros de adapter de IA fora do Git e cria links desses ficheiros dentro de cada projeto.
 
-Mantém o contexto de IA fora do repositório Git e injeta apenas os ficheiros necessários por projeto.
-
-## O Que Este Pacote É
-
-O AI Shadow Vault é um sistema local baseado em ZSH que normaliza:
-
-- regras e guardrails de projeto
-- ficheiros de tarefa e contexto
-- fluxo de memória/sessão para agentes
-- skills específicas de stack através de packs
-
-Não é um serviço cloud, não é um agente hospedado, e não é plugin de framework.
-
-## Porque Existe
-
-Equipas que usam IA em produção tendem a ter os mesmos problemas:
-
-- ficheiros de contexto poluem histórico de Git
-- notas privadas acabam no repositório
-- cada projeto segue convenções diferentes
-- qualidade dos prompts degrada com o tempo
-
-O AI Shadow Vault resolve isto separando infraestrutura (core) de especialização de stack (packs).
-
-## Público-Alvo
-
-- developers que usam Claude/Codex/Gemini no dia a dia
-- equipas que querem setup repetível para IA
-- maintainers que exigem controlo local e privacidade
-
-## Visão e Valores
-
-O projeto segue quatro valores base:
-
-1. Privacidade por default: contexto local-first, sem dependência cloud obrigatória.
-2. Previsibilidade acima de magia: ficheiros explícitos, comandos explícitos, contratos explícitos.
-3. Sustentabilidade a longo prazo: core genérico, inteligência de stack em packs.
-4. Adoção sem fricção: funciona com repositórios existentes sem reescrita total.
-
-## O Que Mudou no v5 (Hard Cut)
-
-A partir de `v5.0.0`, o core deixou de fornecer skills movidas via fallback legado.
-
-Quando uma skill foi movida para o pack Laravel, o core retorna:
-
-- `ASV-HARD-MIGRATION-001`
-
-Este hard cut foi intencional para:
-
-- eliminar a perceção errada de "core Laravel-first"
-- tornar o core realmente agnóstico à stack
-- manter uma única fonte de verdade para skills Laravel (`ai-shadow-vault-laravel`)
+Mantém-se intencionalmente pequeno:
+- adapters gerados vivem num vault externo
+- o projeto só liga `.ai/docs` e `.ai/plans`
+- as exclusões Git são locais e idempotentes
+- não existe sistema de memória, skills, arquivo ou runtime de tarefas
 
 ## Instalação
 
+O Homebrew é o canal principal.
+
+```bash
+brew tap <your-tap>
+brew install ai-vault
+ai-vault
+```
+
+Se estiver a usar o repositório em modo source:
+
 ```bash
 git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
-mkdir -p ~/.ai-shadow-vault-data
-
-# Adicionar ao ~/.zshrc
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-
-# Recarregar shell
+echo 'source ~/.ai-shadow-vault/scripts/shell_integration.zsh' >> ~/.zshrc
 source ~/.zshrc
+ai-vault
 ```
 
-## Atualização
+## Primeira Execução
+
+Execute:
 
 ```bash
-vault-update
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
+ai-vault
 ```
 
-## Arranque Rápido (Projeto Novo)
+Se ainda não existir config global, o AI Shadow Vault arranca um setup curto e grava a configuração em:
+
+```text
+$XDG_CONFIG_HOME/ai-shadow-vault/config.json
+```
+
+Fallback:
+
+```text
+~/.config/ai-shadow-vault/config.json
+```
+
+O wizard pede apenas:
+- caminho base do vault
+- adapters ativos
+- toggle de instruções RTK
+
+O default sugerido é:
+
+```text
+~/.ai-shadow-vault-data
+```
+
+Se existirem pastas sincronizadas compatíveis, também aparecem como opções.
+
+## CLI Principal
 
 ```bash
-cd /caminho/do/projeto
+ai-vault install
+ai-vault init
+ai-vault update
+```
+
+### `ai-vault install`
+
+Corre o setup inicial ou reconfigura a config global existente.
+
+### `ai-vault init`
+
+Liga o projeto atual ao vault externo configurado.
+
+Ele:
+- resolve uma identidade estável partilhada entre worktrees Git
+- usa o caminho base configurado
+- gera apenas os adapters selecionados
+- liga `.ai/docs` e `.ai/plans`
+- trata reparações e migrações com confirmação
+- atualiza `.git/info/exclude` de forma idempotente
+
+### `ai-vault update`
+
+O comportamento depende do modo de instalação:
+- instalação Homebrew: informa para correr `brew upgrade ai-vault`
+- instalação source/git: atualiza o checkout a partir de `origin/main`
+- instalação empacotada sem git: informa para reinstalar a release mais recente
+
+## Layout do Vault Externo
+
+Cada projeto resolve para:
+
+```text
+<vault_base_path>/<project-slug>-<hash>/
+  AGENTS.md
+  CLAUDE.md
+  GEMINI.md
+  docs/
+  plans/
+```
+
+Dentro do projeto:
+
+```text
+.ai/
+  docs -> external/docs
+  plans -> external/plans
+
+AGENTS.md -> external/AGENTS.md
+CLAUDE.md -> external/CLAUDE.md
+GEMINI.md -> external/GEMINI.md
+```
+
+Só os adapters selecionados na config global são gerados e ligados.
+
+## Identidade do Projeto
+
+A identidade do vault é estável entre worktrees Git.
+
+Raiz de identidade:
+- repositório Git: raiz comum do repositório
+- projeto sem Git: `realpath(project root)`
+
+Hash:
+- `sha1(realpath(identity-root))`
+- primeiros 8 caracteres hexadecimais
+
+Formato final:
+
+```text
+<slug>-<hash>
+```
+
+## Geração dos Adapters
+
+Adapters suportados:
+- `CLAUDE.md`
+- `AGENTS.md`
+- `GEMINI.md`
+
+Todos os adapters são gerados a partir do mesmo modelo interno de instruções.
+
+Factos detetados no repositório podem alterar o output:
+- Pest em `composer.json`
+- Playwright em `package.json`
+- Laravel em `composer.json`
+- disponibilidade do RTK via `command -v rtk`
+
+As instruções RTK só entram quando:
+- o RTK está disponível nesse momento
+- a config global tem o extra RTK ativo
+
+## Exclusões de Git
+
+O AI Shadow Vault gere apenas `.git/info/exclude`.
+
+Bloco gerido:
+
+```text
+# >>> ai-shadow-vault >>>
+/.ai/
+/CLAUDE.md
+/AGENTS.md
+/GEMINI.md
+# <<< ai-shadow-vault <<<
+```
+
+O bloco é gerado a partir dos adapters ativos. `.gitignore` nunca é modificado.
+
+## Migração e Reparação
+
+Para `.ai/docs` e `.ai/plans`:
+- diretórios reais são tratados como conteúdo do utilizador
+- a migração pede confirmação
+- conflitos de nome são preservados com:
+
+```text
+name.migrated-YYYYMMDD-HHMMSS.ext
+```
+
+Para adapters na raiz do projeto:
+- symlink em falta: criar
+- symlink correto: no-op
+- symlink errado: reparar com confirmação
+- ficheiro real: mostrar diff e pedir confirmação antes de substituir
+
+## Idempotência
+
+Execuções repetidas de `ai-vault init` são desenhadas para ser idempotentes:
+- sem symlinks duplicados
+- sem entradas duplicadas no exclude
+- sem reescritas desnecessárias
+- sem alterações quando o projeto já está correto
+
+## Pastas Sincronizadas
+
+Pode apontar o caminho base do vault para uma localização sincronizada, por exemplo:
+- Google Drive
+- Dropbox
+- outra pasta local sincronizada
+
+Essa escolha é configuração da máquina, não configuração do projeto.
+
+## Comandos de Compatibilidade
+
+Continuam disponíveis como wrappers de compatibilidade:
+
+```bash
 vault-init
-vault-ai-context
-vault-doctor
+vault-update
 ```
 
-## Ativar Skills (Pack-first)
-
-```bash
-cd /caminho/do/projeto
-vault-ext enable laravel
-vault-ext enable skills
-vault-skills set backend-expert
-vault-skills sync
-```
-
-Checks úteis:
-
-```bash
-cat .ai/extensions/lock.json
-cat .ai/skills/ACTIVE_SKILLS.md
-```
-
-## Fluxo Diário
-
-```bash
-# Refrescar contexto
-vault-ai-context
-
-# Trabalhar uma tarefa
-vault-task "Implementar funcionalidade X"
-
-# Validar saúde do setup
-vault-doctor --strict
-```
-
-## Normalizar Projetos de <= 4.x para 5.x
-
-Usar este fluxo para projetos existentes que dependiam de fallback legado.
-
-### Passo 1: Atualizar o core para v5
-
-```bash
-cd ~/.ai-shadow-vault
-git fetch --tags
-git checkout v5.0.0
-source ~/.zshrc
-```
-
-### Passo 2: Re-inicializar estado do projeto
-
-```bash
-cd /caminho/do/projeto
-vault-init --non-interactive
-```
-
-### Passo 3: Ativar pack obrigatório + workflow de skills
-
-```bash
-vault-ext enable laravel
-vault-ext enable skills
-```
-
-### Passo 4: Reaplicar skills ativas
-
-```bash
-# Exemplo
-vault-skills set backend-expert
-vault-skills sync
-```
-
-### Passo 5: Validar estado final
-
-```bash
-vault-ai-context
-vault-doctor --strict
-```
-
-Se aparecer `ASV-HARD-MIGRATION-001`, ative o pack requerido e execute novamente `vault-skills set ...`.
-
-## Guia de Comandos (Para Que Serve Cada Um)
-
-### `vault-init`
-
-Inicializa ou normaliza a estrutura `.ai` e os ficheiros/links geridos do projeto atual.
-
-Após cada execução, o `vault-init` imprime sugestões de pacotes quando pacotes opcionais mas recomendados estão ausentes do `composer.json`:
-
-- **Pest detetado, `pao` não instalado** → sugere `composer require nunomaduro/pao:0.x-dev --dev`
-- **Laravel detetado, `laravel/boost` não instalado** → sugere `composer require laravel/boost --dev`
-
-O comando sugerido usa automaticamente o PHP correto (Herd → Sail → composer global).
-
-Opções principais:
-- `--optimize`: executa fluxo de otimização (detetar -> planear -> aplicar)
-- `--interactive`: ativa prompts/confirmações
-- `--non-interactive`: modo seguro para automação (default)
-- `--dry-run`: pré-visualização sem aplicar (no fluxo optimize)
-- `--yes`: confirma automaticamente prompts
-- `--force-config`: alias de compatibilidade (deprecated) para `--optimize --interactive`
-- `--herd`: flag de compatibilidade para o configurador
-- `--use-gemini` / `--no-use-gemini`: flags de compatibilidade (ferramentas continuam opcionais)
-- `--enable-workflow` / `--disable-workflow`: flags de compatibilidade (com aviso de depreciação)
-
-### `vault-update`
-
-Atualiza a instalação local (`~/.ai-shadow-vault`) a partir de `origin/main` e refresca o projeto atual.
-
-Após atualizar (ou se já estiver atualizado), executa:
-- `vault-init --non-interactive`
-- `vault-ai-context`
-- `vault-ext run-hook post-update`
-
-### `vault-ai-context`
-
-Regenera `.ai/context/agent-context.md` com estado de trabalho compacto:
-- foco atual
-- branch ativa
-- planos ativos
-- blockers/riscos
-- skills ativas
-
-### `vault-task`
-
-Cria/gestiona `.ai/context/current-task.md` no formato canónico.
-
-Subcomandos:
-- `new [--mode plan|execute]`: criação interativa de tarefa
-- `quick "<goal>" [--mode plan|execute]`: cria rapidamente a partir de uma linha
-- `compile [--stdin|--input "<text>"|--file <path>] [--mode plan|execute] [--output-lang en|pt|auto] [--enrich conservative|repo-aware] [--format markdown|json] [--apply]`: compila texto livre para tarefa estruturada
-- `show`: mostra o ficheiro de tarefa atual
-- `mode [plan|execute]`: ler/definir modo da tarefa
-- `done`: arquiva estado com `vault-ai-save`
-- `clear`: repõe a tarefa no template
-- `archive`: mesmo comportamento de arquivo de `done`
-
-### `vault-doctor`
-
-Comando de saúde/normalização para estrutura e contratos da `.ai`.
-
-Opções principais:
-- `--fix`: aplica correções automáticas seguras
-- `--fix-strict`: aplica correções estritas (implica `--fix`)
-- `--strict`: falha em warnings/erros (útil para checks mais rígidos)
-- `--json`: saída legível por máquina
-- `--interactive`: fluxo guiado (não combina com `--json` nem `--fix*`)
-- `--check <nome>`: executa apenas checks específicos (repetível)
-- `--explain <code>`: explica um código de diagnóstico (exemplo: `D003`)
-
-### `vault-ext`
-
-Gestor de extensões/packs por projeto.
-
-Subcomandos:
-- `list`: lista extensões disponíveis
-- `info <extension>`: mostra metadados/source/kind
-- `status`: mostra extensões ativas no projeto
-- `enable <extension...>`: ativa extensões; instala packs oficiais quando necessário
-- `disable <extension...>`: desativa extensões
-- `sync [extension...]`: volta a correr hooks de sync e atualiza lockfile
-- `run-hook <hook>`: executa um hook para extensões ativas
-
-### `vault-skills`
-
-Comando de workflow de skills (pack-first no v5).
-
-Subcomandos principais:
-- `status`: estado de skills ativas/disponíveis
-- `list [--json] [--group <id>] [--source pack|all]`: lista skills disponíveis (agrupadas; pack-first por default)
-- `suggest [--json|--plan]`: deteta/sugere skills e recomendações de pack (read-only; não altera estado)
-- `auto`: auto-ativa decisões de alta confiança; auto-ativa o pack requerido (`laravel`) para sinais Laravel determinísticos
-- `set <skill...>`: define skills ativas
-- `sync`: recompõe/sincroniza artefactos de skills ativas
-- `explain <skill-id>`: explicação curta do propósito da skill
-- `legacy ...`: passthrough para interface legacy do instalador
-
-### `vault-pack validate <pack-dir>`
-
-Valida o schema do manifesto `pack.json` de um diretório de pack externo.
-
-### `vault-ai-save`
-
-Arquiva tarefa/planos em `.ai/archive`, repõe a tarefa ativa, regenera contexto e atualiza índice de docs.
-
-### `vault-ai-resume`
-
-Mostra resumo rápido da tarefa atual, estado de trabalho e últimas entradas de arquivo.
-
-### `vault-ai-stats`
-
-Mostra estatísticas locais do vault (tamanho, contagens de docs/cache/planos/arquivo e estimativa de tokens).
-
-### `cc` e `cx` (aliases de shell)
-
-Disponíveis após carregar a integração:
-
-```bash
-source ~/.ai-shadow-vault/scripts/shell_integration.zsh
-```
-
-- `cc`: executa recap/bootstrap para Claude (`claude-start`)
-- `cx`: executa recap/bootstrap para Codex (`codex-start`)
-
-## Packs e Contrato
-
-Packs são repositórios externos (por exemplo, `ai-shadow-vault-laravel`) com contrato mínimo via `pack.json`.
-
-Campos obrigatórios:
-
-- `name`
-- `version`
-- `description`
-- `core_api`
-- `capabilities`
-
-Catálogo opcional (para deteção/listagem orientada a metadados):
-
-- `skills/catalog.json`
-
-Referência:
-
-- `docs/pack-contract.md`
-
-## Resolução de Problemas
-
-### `ASV-COMPAT-001`
-
-O intervalo `core_api` do pack não é compatível com a versão do core.
-Use release de pack compatível ou atualize o core.
-
-### `ASV-HARD-MIGRATION-001`
-
-A skill pedida já não é fornecida pelo core.
-Ative o pack necessário (normalmente `laravel`) e defina a skill novamente.
-
-### `No .ai directory found`
-
-Execute `vault-init` primeiro no projeto.
-
-## Suporte de SO
-
-- macOS
-- Linux (ZSH)
-
-## Resumo
-
-AI Shadow Vault é a base local estável.
-Packs entregam profundidade de stack.
-
-Core é infraestrutura.
-Packs são especialização.
+Encaminham internamente para a nova CLI e mostram uma nota curta. Existem para não quebrar utilizadores atuais de imediato.
+
+## Packaging
+
+O repositório inclui:
+- entrypoints públicos finos em `bin/`
+- lógica runtime em `libexec/ai-vault/`
+- fórmula Homebrew em `Formula/ai-vault.rb`
+- helper de release em `release/build-homebrew-tarball.sh`

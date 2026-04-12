@@ -1,1 +1,0 @@
-../scripts/vault-ai-resume.sh
