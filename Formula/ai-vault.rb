@@ -8,10 +8,6 @@ class AiVault < Formula
   def install
     libexec.install Dir["*"]
     (bin/"ai-vault").write_env_script libexec/"bin/ai-vault", {}
-    (bin/"ai-vault-init").write_env_script libexec/"bin/ai-vault-init", {}
-    (bin/"ai-vault-update").write_env_script libexec/"bin/ai-vault-update", {}
-    (bin/"vault-init").write_env_script libexec/"bin/vault-init", {}
-    (bin/"vault-update").write_env_script libexec/"bin/vault-update", {}
   end
 
   test do

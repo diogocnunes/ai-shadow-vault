@@ -35,17 +35,8 @@ That means:
 Homebrew is the primary install path.
 
 ```bash
-brew tap <your-tap>
+brew tap diogocnunes/tap
 brew install ai-vault
-ai-vault
-```
-
-If you are running from source during development:
-
-```bash
-git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
-echo 'source ~/.ai-shadow-vault/scripts/shell_integration.zsh' >> ~/.zshrc
-source ~/.zshrc
 ai-vault
 ```
 
@@ -169,14 +160,46 @@ Supported adapters:
 All adapters are rendered from one shared internal instruction model so they stay aligned instead of drifting apart.
 
 Repo facts can influence the generated output:
+- PHP version in `composer.json`
+- backend framework in `composer.json`
+- Laravel Nova in `composer.json`
+- Filament in `composer.json`
+- Vue in `package.json`
+- Quasar in `package.json`
+- PrimeVue in `package.json`
 - Pest in `composer.json`
 - Playwright in `package.json`
-- Laravel in `composer.json`
 - RTK availability via `command -v rtk`
 
 RTK instructions are included only when:
 - RTK is available now
 - the global config enables RTK instructions
+
+Generated adapters can also include a short `Stack Snapshot` section derived from repository manifests.
+It is factual and lightweight, not a full dependency inventory.
+
+Example:
+
+```md
+## Stack Snapshot
+
+Short, factual context derived from repository manifests.
+
+### Backend
+
+- PHP ^8.4
+- Laravel ^12.0
+- Filament ^4.0
+
+### Frontend / UI
+
+- Vue ^3.5
+- PrimeVue ^4.3
+
+### Testing
+
+- Pest ^3.8
+```
 
 ## Git Strategy
 
@@ -235,17 +258,6 @@ The vault base path can live in:
 - any local directory you choose
 
 That choice is machine-level configuration, not project configuration.
-
-## Compatibility Commands
-
-These still work:
-
-```bash
-vault-init
-vault-update
-```
-
-They forward to the new CLI and print a short compatibility note.
 
 ## Homebrew and Packaging
 

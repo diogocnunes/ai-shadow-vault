@@ -1,7 +1,0 @@
-{
-  "name": "ai-shadow-vault-laravel",
-  "version": "1.0.0",
-  "description": "Official Laravel skill pack",
-  "core_api": ">=2.1.0 <3.0.0",
-  "capabilities": ["skills"]
-}

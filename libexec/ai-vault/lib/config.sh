@@ -40,7 +40,11 @@ ai_vault_validate_config() {
     local config_file="${1:-$(ai_vault_config_file)}"
     local py
 
-    py="$(ai_vault_python)" || return 1
+    py="$(command -v python3 || true)"
+    if [[ -z "$py" ]]; then
+        ai_vault_export_config_fallback "$config_file" >/dev/null || return 1
+        return 0
+    fi
 
     "$py" - "$config_file" <<'PY'
 import json
@@ -73,6 +77,88 @@ rtk = extras.get("rtk_instructions")
 if not isinstance(rtk, bool):
     raise SystemExit("Invalid config: extras.rtk_instructions must be a boolean.")
 PY
+}
+
+ai_vault_export_config_fallback() {
+    local config_file="$1"
+    local base adapters_csv rtk_enabled
+
+    [[ -f "$config_file" ]] || {
+        ai_vault_error "Missing config: $config_file"
+        return 1
+    }
+
+    base="$(
+        awk '
+            /"vault_base_path"[[:space:]]*:/ {
+                line = $0
+                sub(/^[[:space:]]*"vault_base_path"[[:space:]]*:[[:space:]]*"/, "", line)
+                sub(/".*$/, "", line)
+                print line
+                exit
+            }
+        ' "$config_file" | sed 's/\\"/"/g'
+    )"
+    adapters_csv="$(
+        awk '
+            /"default_adapters"[[:space:]]*:/ { in_array = 1 }
+            in_array {
+                while (match($0, /"[^"]+"/)) {
+                    value = substr($0, RSTART + 1, RLENGTH - 2)
+                    if (value != "default_adapters") {
+                        if (out != "") {
+                            out = out "\n"
+                        }
+                        out = out value
+                    }
+                    $0 = substr($0, RSTART + RLENGTH)
+                }
+                if ($0 ~ /\]/) {
+                    in_array = 0
+                }
+            }
+            END { print out }
+        ' "$config_file"
+    )"
+    rtk_enabled="$(
+        awk '
+            /"rtk_instructions"[[:space:]]*:/ {
+                line = $0
+                sub(/^[[:space:]]*"rtk_instructions"[[:space:]]*:[[:space:]]*/, "", line)
+                sub(/[[:space:],}].*$/, "", line)
+                print line
+                exit
+            }
+        ' "$config_file"
+    )"
+
+    if [[ -z "$base" || -z "$adapters_csv" ]]; then
+        ai_vault_error "Invalid config: unable to parse $config_file without python3."
+        return 1
+    fi
+
+    case "$rtk_enabled" in
+        true) rtk_enabled="1" ;;
+        false) rtk_enabled="0" ;;
+        *)
+            ai_vault_error "Invalid config: extras.rtk_instructions must be a boolean."
+            return 1
+            ;;
+    esac
+
+    while IFS= read -r adapter; do
+        case "$adapter" in
+            CLAUDE.md|AGENTS.md|GEMINI.md) ;;
+            *)
+                ai_vault_error "Invalid config: unsupported adapter '$adapter'."
+                return 1
+                ;;
+        esac
+    done < <(printf '%s\n' "$adapters_csv")
+
+    printf 'AI_VAULT_CONFIG_BASE_PATH=%q\n' "$base"
+    printf 'AI_VAULT_CONFIG_ADAPTERS=%q\n' "$adapters_csv"
+    printf 'AI_VAULT_CONFIG_RTK_INSTRUCTIONS=%q\n' "$rtk_enabled"
 }
 
 ai_vault_write_config() {
@@ -110,7 +196,11 @@ ai_vault_export_config() {
     local config_file="${1:-$(ai_vault_config_file)}"
     local py
 
-    py="$(ai_vault_python)" || return 1
+    py="$(command -v python3 || true)"
+    if [[ -z "$py" ]]; then
+        ai_vault_export_config_fallback "$config_file"
+        return
+    fi
 
     "$py" - "$config_file" <<'PY'
 import json

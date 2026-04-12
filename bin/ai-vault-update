@@ -1,7 +1,0 @@
-#!/bin/bash
-
-set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIBEXEC_DIR="$(cd "$SCRIPT_DIR/../libexec/ai-vault" && pwd)"
-exec "$LIBEXEC_DIR/bin/ai-vault-update" "$@"

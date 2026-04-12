@@ -40,15 +40,6 @@ brew install ai-vault
 ai-vault
 ```
 
-Se estiveres a correr a partir do source durante desenvolvimento:
-
-```bash
-git clone https://github.com/diogocnunes/ai-shadow-vault.git ~/.ai-shadow-vault
-echo 'source ~/.ai-shadow-vault/scripts/shell_integration.zsh' >> ~/.zshrc
-source ~/.zshrc
-ai-vault
-```
-
 ## Primeira Execução
 
 Corre:
@@ -169,14 +160,46 @@ Adapters suportados:
 Todos os adapters são renderizados a partir do mesmo modelo interno de instruções para manter tudo alinhado e sem drift.
 
 Factos do repositório que podem alterar o output:
+- versão de PHP em `composer.json`
+- framework backend em `composer.json`
+- Laravel Nova em `composer.json`
+- Filament em `composer.json`
+- Vue em `package.json`
+- Quasar em `package.json`
+- PrimeVue em `package.json`
 - Pest em `composer.json`
 - Playwright em `package.json`
-- Laravel em `composer.json`
 - RTK disponível via `command -v rtk`
 
 As instruções RTK só entram quando:
 - o RTK está disponível naquele ambiente
 - a config global tem RTK ativo
+
+Os adapters gerados também podem incluir uma secção curta `Stack Snapshot`, derivada dos manifests do repositório.
+É factual e leve, não um inventário completo de dependências.
+
+Exemplo:
+
+```md
+## Stack Snapshot
+
+Short, factual context derived from repository manifests.
+
+### Backend
+
+- PHP ^8.4
+- Laravel ^12.0
+- Filament ^4.0
+
+### Frontend / UI
+
+- Vue ^3.5
+- PrimeVue ^4.3
+
+### Testing
+
+- Pest ^3.8
+```
 
 ## Estratégia de Git
 
@@ -235,17 +258,6 @@ O caminho base do vault pode viver em:
 - qualquer diretório local que escolhas
 
 Essa decisão é configuração da máquina, não do projeto.
-
-## Comandos de Compatibilidade
-
-Continuam disponíveis:
-
-```bash
-vault-init
-vault-update
-```
-
-Encaminham para a nova CLI e mostram uma nota curta de compatibilidade.
 
 ## Homebrew e Packaging
 

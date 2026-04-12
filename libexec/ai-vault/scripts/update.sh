@@ -28,7 +28,6 @@ case "$(ai_vault_install_mode)" in
         git pull --ff-only origin main -q
 
         ai_vault_success "Update complete."
-        ai_vault_action "Reload your shell with: source ~/.ai-shadow-vault/scripts/shell_integration.zsh"
         ;;
     *)
         ai_vault_warning "This install is not self-updatable."

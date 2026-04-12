@@ -55,6 +55,15 @@ HAS_PACKAGE=0
 USES_PEST=0
 USES_PLAYWRIGHT=0
 USES_LARAVEL=0
+STACK_PHP=""
+STACK_BACKEND_FRAMEWORK=""
+STACK_LARAVEL_NOVA=""
+STACK_FILAMENT=""
+STACK_VUE=""
+STACK_QUASAR=""
+STACK_PRIMEVUE=""
+STACK_PEST=""
+STACK_PLAYWRIGHT=""
 
 add_plan_item() {
     local kind="$1"
@@ -153,6 +162,8 @@ conflict_rename_path() {
 detect_repo_facts() {
     local composer_file="$PROJECT_ROOT/composer.json"
     local package_file="$PROJECT_ROOT/package.json"
+    local parser_file="$TMP_DIR/repo-facts.env"
+    local python_bin=""
 
     if git -C "$PROJECT_ROOT" rev-parse --show-toplevel >/dev/null 2>&1; then
         HAS_GIT=1
@@ -164,20 +175,192 @@ detect_repo_facts() {
 
     if [[ -f "$composer_file" ]]; then
         HAS_COMPOSER=1
-        if grep -q '"pestphp/pest"' "$composer_file"; then
-            USES_PEST=1
-        fi
-        if grep -q '"laravel/framework"' "$composer_file"; then
-            USES_LARAVEL=1
-        fi
     fi
 
     if [[ -f "$package_file" ]]; then
         HAS_PACKAGE=1
-        if grep -Eq '"(@playwright/test|playwright)"' "$package_file"; then
-            USES_PLAYWRIGHT=1
-        fi
     fi
+
+    python_bin="$(command -v python3 || true)"
+    if [[ -z "$python_bin" ]]; then
+        return
+    fi
+
+    if ! COMPOSER_FILE="$composer_file" PACKAGE_FILE="$package_file" "$python_bin" >"$parser_file" <<'PY'
+import json
+import os
+import shlex
+from pathlib import Path
+
+OUTPUT_KEYS = (
+    "STACK_PHP",
+    "STACK_BACKEND_FRAMEWORK",
+    "STACK_LARAVEL_NOVA",
+    "STACK_FILAMENT",
+    "STACK_VUE",
+    "STACK_QUASAR",
+    "STACK_PRIMEVUE",
+    "STACK_PEST",
+    "STACK_PLAYWRIGHT",
+    "USES_PEST",
+    "USES_PLAYWRIGHT",
+    "USES_LARAVEL",
+)
+
+
+def load_json(path_value):
+    if not path_value:
+        return {}
+
+    path = Path(path_value)
+    if not path.is_file():
+        return {}
+
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    return data if isinstance(data, dict) else {}
+
+
+def merged_dependencies(data):
+    merged = {}
+    for key in ("require", "require-dev", "dependencies", "devDependencies"):
+        section = data.get(key)
+        if isinstance(section, dict):
+            for package_name, version in section.items():
+                if isinstance(package_name, str) and isinstance(version, str):
+                    merged[package_name] = version
+    return merged
+
+
+def dependency_version(deps, *package_names):
+    for package_name in package_names:
+        version = deps.get(package_name)
+        if isinstance(version, str) and version.strip():
+            return version.strip()
+    return ""
+
+
+def format_signal(label, value):
+    value = value.strip()
+    return f"{label} {value}".strip() if value else label
+
+
+composer = load_json(os.environ.get("COMPOSER_FILE", ""))
+package = load_json(os.environ.get("PACKAGE_FILE", ""))
+composer_deps = merged_dependencies(composer)
+package_deps = merged_dependencies(package)
+
+values = {key: "" for key in OUTPUT_KEYS}
+
+php_version = dependency_version(composer_deps, "php")
+if php_version:
+    values["STACK_PHP"] = format_signal("PHP", php_version)
+
+if "laravel/framework" in composer_deps:
+    values["STACK_BACKEND_FRAMEWORK"] = format_signal("Laravel", composer_deps["laravel/framework"])
+    values["USES_LARAVEL"] = "1"
+
+nova_version = dependency_version(composer_deps, "laravel/nova")
+if nova_version:
+    values["STACK_LARAVEL_NOVA"] = format_signal("Laravel Nova", nova_version)
+
+filament_version = dependency_version(composer_deps, "filament/filament")
+if filament_version:
+    values["STACK_FILAMENT"] = format_signal("Filament", filament_version)
+elif any(package_name.startswith("filament/") for package_name in composer_deps):
+    values["STACK_FILAMENT"] = "Filament"
+
+pest_version = dependency_version(composer_deps, "pestphp/pest")
+if pest_version:
+    values["STACK_PEST"] = format_signal("Pest", pest_version)
+    values["USES_PEST"] = "1"
+
+vue_version = dependency_version(package_deps, "vue")
+if vue_version:
+    values["STACK_VUE"] = format_signal("Vue", vue_version)
+
+quasar_version = dependency_version(package_deps, "quasar")
+if quasar_version:
+    values["STACK_QUASAR"] = format_signal("Quasar", quasar_version)
+elif any(package_name.startswith("@quasar/") for package_name in package_deps):
+    values["STACK_QUASAR"] = "Quasar"
+
+primevue_version = dependency_version(package_deps, "primevue")
+if primevue_version:
+    values["STACK_PRIMEVUE"] = format_signal("PrimeVue", primevue_version)
+
+playwright_version = dependency_version(package_deps, "@playwright/test", "playwright")
+if playwright_version:
+    values["STACK_PLAYWRIGHT"] = format_signal("Playwright", playwright_version)
+    values["USES_PLAYWRIGHT"] = "1"
+
+for key in OUTPUT_KEYS:
+    print(f"{key}={shlex.quote(values[key])}")
+PY
+    then
+        return
+    fi
+
+    # shellcheck disable=SC1090
+    source "$parser_file"
+    USES_PEST="${USES_PEST:-0}"
+    USES_PLAYWRIGHT="${USES_PLAYWRIGHT:-0}"
+    USES_LARAVEL="${USES_LARAVEL:-0}"
+}
+
+stack_snapshot_has_content() {
+    [[ -n "$STACK_PHP" || -n "$STACK_BACKEND_FRAMEWORK" || -n "$STACK_LARAVEL_NOVA" || -n "$STACK_FILAMENT" || -n "$STACK_VUE" || -n "$STACK_QUASAR" || -n "$STACK_PRIMEVUE" || -n "$STACK_PEST" || -n "$STACK_PLAYWRIGHT" ]]
+}
+
+render_stack_snapshot_group() {
+    local title="$1"
+    shift
+    local items=("$@")
+    local item
+    local has_items=0
+
+    for item in "${items[@]}"; do
+        if [[ -n "$item" ]]; then
+            has_items=1
+            break
+        fi
+    done
+
+    [[ "$has_items" -eq 1 ]] || return 0
+
+    echo "### $title"
+    echo
+    for item in "${items[@]}"; do
+        [[ -n "$item" ]] || continue
+        echo "- $item"
+    done
+    echo
+}
+
+render_shared_stack_snapshot() {
+    stack_snapshot_has_content || return 0
+
+    echo "## Stack Snapshot"
+    echo
+    echo "Short, factual context derived from repository manifests."
+    echo
+    render_stack_snapshot_group "Backend" \
+        "$STACK_PHP" \
+        "$STACK_BACKEND_FRAMEWORK" \
+        "$STACK_LARAVEL_NOVA" \
+        "$STACK_FILAMENT"
+    render_stack_snapshot_group "Frontend / UI" \
+        "$STACK_VUE" \
+        "$STACK_QUASAR" \
+        "$STACK_PRIMEVUE"
+    render_stack_snapshot_group "Testing" \
+        "$STACK_PEST" \
+        "$STACK_PLAYWRIGHT"
+    echo "- Verify manifests before assuming scripts, tools, or project conventions."
 }
 
 render_shared_intro() {
@@ -254,6 +437,10 @@ render_claude_file() {
 EOF
     echo
     render_shared_safety
+    if stack_snapshot_has_content; then
+        echo
+        render_shared_stack_snapshot
+    fi
     if [[ "$HAS_RTK" -eq 1 ]]; then
         echo
         render_rtk_block
@@ -275,6 +462,10 @@ render_agents_file() {
 EOF
     echo
     render_shared_safety
+    if stack_snapshot_has_content; then
+        echo
+        render_shared_stack_snapshot
+    fi
     if [[ "$USES_PEST" -eq 1 || "$USES_PLAYWRIGHT" -eq 1 ]]; then
         echo
         render_shared_testing
@@ -300,6 +491,10 @@ EOF
     fi
     echo
     render_shared_safety
+    if stack_snapshot_has_content; then
+        echo
+        render_shared_stack_snapshot
+    fi
     if [[ "$USES_PEST" -eq 1 || "$USES_PLAYWRIGHT" -eq 1 ]]; then
         echo
         render_shared_testing
