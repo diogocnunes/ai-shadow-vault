@@ -372,6 +372,18 @@ Prefer discovering facts from the codebase instead of assuming them.
 EOF
 }
 
+render_shared_approach() {
+    cat <<'EOF'
+## Approach
+
+- Think before acting. Read existing files before writing code.
+- Prefer editing over rewriting whole files.
+- Keep solutions simple and direct. Avoid over-engineering.
+- Test changes before declaring done.
+- User instructions always override this file.
+EOF
+}
+
 render_shared_safety() {
     cat <<'EOF'
 ## Safety Rules
@@ -429,10 +441,23 @@ render_claude_file() {
     render_shared_intro "Claude Adapter"
     cat <<'EOF'
 
-## Working Style
+## Approach
 
-- Prefer direct repository inspection before asking questions.
-- Keep responses concise and focused on the current task.
+- Think before acting. Read existing files before writing code.
+- Be concise in output and thorough in reasoning.
+- Prefer editing over rewriting whole files.
+- Keep solutions simple and direct. Avoid over-engineering.
+- Test changes before declaring done.
+- User instructions always override this file.
+- If the client supports it, suggest running `/cost` when a session runs long.
+- Recommend a new session when switching to an unrelated task.
+
+## Output
+
+- Return code first when code is requested; explain only when non-obvious.
+- Skip boilerplate unless explicitly requested.
+- Avoid sycophantic openers, closers, and filler.
+- Use plain copy-paste safe output (no decorative Unicode).
 - When a rule is ambiguous, choose the safer and less destructive option.
 EOF
     echo
@@ -461,6 +486,8 @@ render_agents_file() {
 - Keep edits small and easy to review.
 EOF
     echo
+    render_shared_approach
+    echo
     render_shared_safety
     if stack_snapshot_has_content; then
         echo
@@ -485,6 +512,8 @@ render_gemini_file() {
 - Prefer broad inspection, architecture review, and cross-file reasoning.
 - Keep operational advice short and leave detailed execution rules to the repository state and task prompt.
 EOF
+    echo
+    render_shared_approach
     if [[ "$HAS_RTK" -eq 1 ]]; then
         echo
         render_rtk_block
