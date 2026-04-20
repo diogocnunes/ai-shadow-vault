@@ -115,6 +115,16 @@ Layout do vault externo:
   CLAUDE.md
   GEMINI.md
   docs/
+    index.md
+    core/
+      autoload-policy.md
+      quick-start.md
+      common-mistakes.md
+      architecture-map.md
+    learnings/
+      generic/
+      laravel/
+      node/
   plans/
 ```
 
@@ -131,6 +141,7 @@ GEMINI.md -> external/GEMINI.md
 ```
 
 Só os adapters ativos na config global são gerados e ligados.
+O `AGENTS.md` é gerado como entrypoint canónico; `CLAUDE.md` e `GEMINI.md` ficam como adapters finos por provider.
 
 ## Identidade Estável do Projeto
 
@@ -175,8 +186,8 @@ As instruções RTK só entram quando:
 - o RTK está disponível naquele ambiente
 - a config global tem RTK ativo
 
-Os adapters gerados também podem incluir uma secção curta `Stack Snapshot`, derivada dos manifests do repositório.
-É factual e leve, não um inventário completo de dependências.
+O output gerado pode incluir uma secção curta `Stack Snapshot` (quando detetável), derivada dos manifests do repositório.
+Mantém-se factual e leve, e serve para orientar a seleção on-demand de learnings por stack.
 
 Exemplo:
 

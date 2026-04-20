@@ -115,6 +115,16 @@ External vault layout:
   CLAUDE.md
   GEMINI.md
   docs/
+    index.md
+    core/
+      autoload-policy.md
+      quick-start.md
+      common-mistakes.md
+      architecture-map.md
+    learnings/
+      generic/
+      laravel/
+      node/
   plans/
 ```
 
@@ -131,6 +141,7 @@ GEMINI.md -> external/GEMINI.md
 ```
 
 Only the adapters enabled in global config are generated and linked.
+`AGENTS.md` is rendered as the canonical entrypoint; `CLAUDE.md` and `GEMINI.md` are thin provider adapters.
 
 ## Stable Project Identity
 
@@ -175,8 +186,8 @@ RTK instructions are included only when:
 - RTK is available now
 - the global config enables RTK instructions
 
-Generated adapters can also include a short `Stack Snapshot` section derived from repository manifests.
-It is factual and lightweight, not a full dependency inventory.
+Generated output includes a short `Stack Snapshot` (when detectable) derived from repository manifests.
+It stays factual and lightweight, and informs stack-aware on-demand learning selection.
 
 Example:
 

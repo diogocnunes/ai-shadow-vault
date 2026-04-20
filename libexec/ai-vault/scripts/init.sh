@@ -31,6 +31,7 @@ EXTERNAL_PLANS_DIR="$VAULT_DIR/plans"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
+TMP_DOCS_DIR="$TMP_DIR/docs"
 
 ADAPTER_NAMES=()
 while IFS= read -r line; do
@@ -64,6 +65,19 @@ STACK_QUASAR=""
 STACK_PRIMEVUE=""
 STACK_PEST=""
 STACK_PLAYWRIGHT=""
+
+MANAGED_DOC_FILES=(
+    "index.md"
+    "core/autoload-policy.md"
+    "core/quick-start.md"
+    "core/common-mistakes.md"
+    "core/architecture-map.md"
+    "learnings/generic/testing-strategy.md"
+    "learnings/generic/domain-glossary.md"
+    "learnings/laravel/filament-actions.md"
+    "learnings/laravel/policies-permissions.md"
+    "learnings/node/frontend-delivery.md"
+)
 
 add_plan_item() {
     local kind="$1"
@@ -437,31 +451,45 @@ EOF
     fi
 }
 
+render_entrypoint_reference() {
+    cat <<'EOF'
+## Canonical Entrypoint
+
+- `AGENTS.md` is the canonical and mandatory entrypoint for this repository.
+- `CLAUDE.md` and `GEMINI.md` are provider adapters and must not redefine workflow or safety policy.
+- Load order and auto-load boundaries are defined in `.ai/docs/core/autoload-policy.md`.
+EOF
+}
+
+render_stack_learning_targets() {
+    echo "## Stack-Aware Learning Targets"
+    echo
+    echo '- Always load `.ai/docs/learnings/generic/*` selectively by task.'
+    if [[ "$USES_LARAVEL" -eq 1 ]]; then
+        echo '- Laravel stack detected from `composer.json`; allow `.ai/docs/learnings/laravel/*` on demand.'
+    else
+        echo '- Laravel stack not detected; skip `.ai/docs/learnings/laravel/*` unless explicitly requested.'
+    fi
+    if [[ "$HAS_PACKAGE" -eq 1 ]]; then
+        echo '- Frontend stack signals detected from `package.json`; allow `.ai/docs/learnings/node/*` on demand.'
+    else
+        echo '- No `package.json` detected; skip `.ai/docs/learnings/node/*` unless explicitly requested.'
+    fi
+    echo "- Never auto-load all learnings at once; read one file at a time based on the current task."
+}
+
 render_claude_file() {
     render_shared_intro "Claude Adapter"
     cat <<'EOF'
 
-## Approach
+## Provider Scope
 
-- Think before acting. Read existing files before writing code.
-- Be concise in output and thorough in reasoning.
-- Prefer editing over rewriting whole files.
-- Keep solutions simple and direct. Avoid over-engineering.
-- Test changes before declaring done.
-- User instructions always override this file.
-- If the client supports it, suggest running `/cost` when a session runs long.
-- Recommend a new session when switching to an unrelated task.
-
-## Output
-
-- Return code first when code is requested; explain only when non-obvious.
-- Skip boilerplate unless explicitly requested.
-- Avoid sycophantic openers, closers, and filler.
-- Use plain copy-paste safe output (no decorative Unicode).
-- When a rule is ambiguous, choose the safer and less destructive option.
+- This file is a thin provider adapter for Claude.
+- Follow `AGENTS.md` as the canonical operational source.
+- Apply any Claude-specific output style only after respecting canonical workflow and safety.
 EOF
     echo
-    render_shared_safety
+    render_entrypoint_reference
     if stack_snapshot_has_content; then
         echo
         render_shared_stack_snapshot
@@ -470,29 +498,42 @@ EOF
         echo
         render_rtk_block
     fi
-    echo
-    render_shared_testing
-    echo
-    render_shared_repo_notes
 }
 
 render_agents_file() {
-    render_shared_intro "Agent Adapter"
+    render_shared_intro "Agent Entrypoint"
     cat <<'EOF'
 
-## Workflow
+## Mission
 
-- Explore first, then change only what is necessary.
-- Keep edits small and easy to review.
+- Keep context minimal, deterministic, and task-focused.
+- Use this file as the canonical startup contract for all providers.
 EOF
     echo
-    render_shared_approach
+    render_entrypoint_reference
+    echo
+    cat <<'EOF'
+## Load Protocol
+
+1. Read `AGENTS.md`.
+2. Read `.ai/docs/core/autoload-policy.md`.
+3. Read `.ai/docs/core/quick-start.md`.
+4. Read `.ai/docs/core/common-mistakes.md`.
+5. Read `.ai/docs/core/architecture-map.md`.
+6. Read `.ai/docs/index.md`.
+
+Conditional load:
+- Load only learning files required for the task and matching detected stack signals.
+- Prefer one learning file at a time and re-evaluate before loading another.
+EOF
     echo
     render_shared_safety
     if stack_snapshot_has_content; then
         echo
         render_shared_stack_snapshot
     fi
+    echo
+    render_stack_learning_targets
     if [[ "$USES_PEST" -eq 1 || "$USES_PLAYWRIGHT" -eq 1 ]]; then
         echo
         render_shared_testing
@@ -507,13 +548,14 @@ render_gemini_file() {
     render_shared_intro "Gemini Adapter"
     cat <<'EOF'
 
-## Focus
+## Provider Scope
 
-- Prefer broad inspection, architecture review, and cross-file reasoning.
-- Keep operational advice short and leave detailed execution rules to the repository state and task prompt.
+- This file is a thin provider adapter for Gemini.
+- Follow `AGENTS.md` as the canonical operational source.
+- Keep Gemini-specific guidance focused on analysis style, not policy duplication.
 EOF
     echo
-    render_shared_approach
+    render_entrypoint_reference
     if [[ "$HAS_RTK" -eq 1 ]]; then
         echo
         render_rtk_block
@@ -539,6 +581,180 @@ render_adapters() {
             GEMINI.md) render_gemini_file >"$TMP_DIR/$adapter" ;;
         esac
     done
+}
+
+render_docs_index() {
+    cat <<'EOF'
+# AI Docs Index
+
+## Core (autoload)
+- `core/autoload-policy.md`
+- `core/quick-start.md`
+- `core/common-mistakes.md`
+- `core/architecture-map.md`
+
+## Learnings (on-demand)
+- `learnings/generic/*`: cross-stack guidance
+- `learnings/laravel/*`: Laravel and Filament specifics
+- `learnings/node/*`: Node/frontend specifics
+
+Read only what is needed for the current task.
+EOF
+}
+
+render_core_autoload_policy() {
+    cat <<'EOF'
+# Autoload Policy
+
+## Load Order
+1. `AGENTS.md`
+2. `.ai/docs/core/autoload-policy.md`
+3. `.ai/docs/core/quick-start.md`
+4. `.ai/docs/core/common-mistakes.md`
+5. `.ai/docs/core/architecture-map.md`
+6. `.ai/docs/index.md`
+
+## Core Autoload
+- The load order above is the full default auto-load set.
+- Do not auto-load learning files by default.
+
+## Conditional Load
+- Select learning files by task scope and detected stack.
+- Load one learning file at a time.
+- Re-check task scope before loading additional files.
+
+## Never Auto-Load
+- `.ai/plans/sessions/**`
+- `.ai/plans/completions/**`
+- `.ai/plans/archive/**`
+- `.ai/docs/archive/**`
+- Temporary notes, debug dumps, and generated transcripts.
+
+## Decision Examples
+- Need Filament bulk action rule: load `.ai/docs/learnings/laravel/filament-actions.md`.
+- Need generic test strategy: load `.ai/docs/learnings/generic/testing-strategy.md`.
+- Need frontend build context: load `.ai/docs/learnings/node/frontend-delivery.md` only when `package.json` is relevant.
+EOF
+}
+
+render_core_quick_start() {
+    cat <<'EOF'
+# Quick Start
+
+1. Confirm task goal and acceptance criteria.
+2. Inspect repository facts before assumptions.
+3. Apply minimal changes aligned with existing conventions.
+4. Run narrow tests relevant to changed behavior.
+5. Report outcomes and remaining risks clearly.
+EOF
+}
+
+render_core_common_mistakes() {
+    cat <<'EOF'
+# Common Mistakes
+
+- Loading all learnings at once instead of task-scoped files.
+- Treating provider adapters as canonical policy instead of `AGENTS.md`.
+- Assuming stack features without checking `composer.json` / `package.json`.
+- Mixing historical notes into active context.
+- Running broad rewrites where localized edits are enough.
+EOF
+}
+
+render_core_architecture_map() {
+    cat <<'EOF'
+# Architecture Map
+
+- `AGENTS.md`: canonical runtime contract for all agents.
+- `CLAUDE.md` and `GEMINI.md`: thin provider adapters.
+- `.ai/docs/core/*`: always-loaded baseline.
+- `.ai/docs/learnings/*`: thematic, stack-aware, on-demand.
+- `.ai/plans/sessions|completions|archive`: historical records, never auto-loaded.
+EOF
+}
+
+render_learning_generic_testing() {
+    cat <<'EOF'
+# Testing Strategy (Generic)
+
+## Objective
+Choose the narrowest test scope that validates the changed behavior.
+
+## Include
+- Unit/service tests for isolated logic.
+- Feature/integration tests for user-facing behavior.
+- Targeted regression checks for bug fixes.
+
+## Exclude
+- Full-suite runs when a narrow suite is sufficient.
+- Tool-specific commands that are not present in project manifests.
+EOF
+}
+
+render_learning_generic_domain_glossary() {
+    cat <<'EOF'
+# Domain Glossary (Generic)
+
+Use this file for stable business vocabulary shared across stacks.
+
+Keep entries concise:
+- Term
+- Meaning
+- Source of truth (module, model, or policy)
+EOF
+}
+
+render_learning_laravel_filament() {
+    cat <<'EOF'
+# Filament Resources and Actions
+
+Read when tasks involve Resources, Pages, Actions, Bulk Actions, or Widgets.
+
+Focus:
+- Authorization checks in actions and bulk actions.
+- Query efficiency for tables and filters.
+- Avoiding duplicate business rules between UI actions and backend services.
+EOF
+}
+
+render_learning_laravel_policies() {
+    cat <<'EOF'
+# Laravel Policies and Permissions
+
+Read when tasks touch authorization flows.
+
+Focus:
+- Central policy ownership.
+- Consistent checks across controllers, jobs, and admin actions.
+- Preventing bypass via direct service calls.
+EOF
+}
+
+render_learning_node_frontend() {
+    cat <<'EOF'
+# Frontend Delivery (Node)
+
+Read when tasks involve frontend build, tooling, or runtime packages.
+
+Focus:
+- Validate scripts and versions from `package.json` before assumptions.
+- Keep build/test changes aligned with existing tooling.
+- Avoid introducing parallel frontend pipelines.
+EOF
+}
+
+render_managed_docs() {
+    mkdir -p "$TMP_DOCS_DIR/core" "$TMP_DOCS_DIR/learnings/generic" "$TMP_DOCS_DIR/learnings/laravel" "$TMP_DOCS_DIR/learnings/node"
+    render_docs_index >"$TMP_DOCS_DIR/index.md"
+    render_core_autoload_policy >"$TMP_DOCS_DIR/core/autoload-policy.md"
+    render_core_quick_start >"$TMP_DOCS_DIR/core/quick-start.md"
+    render_core_common_mistakes >"$TMP_DOCS_DIR/core/common-mistakes.md"
+    render_core_architecture_map >"$TMP_DOCS_DIR/core/architecture-map.md"
+    render_learning_generic_testing >"$TMP_DOCS_DIR/learnings/generic/testing-strategy.md"
+    render_learning_generic_domain_glossary >"$TMP_DOCS_DIR/learnings/generic/domain-glossary.md"
+    render_learning_laravel_filament >"$TMP_DOCS_DIR/learnings/laravel/filament-actions.md"
+    render_learning_laravel_policies >"$TMP_DOCS_DIR/learnings/laravel/policies-permissions.md"
+    render_learning_node_frontend >"$TMP_DOCS_DIR/learnings/node/frontend-delivery.md"
 }
 
 plan_adapter_content_changes() {
@@ -710,6 +926,26 @@ plan_git_exclude() {
     fi
 }
 
+plan_managed_docs() {
+    local relative_path source_path target_path
+    for relative_path in "${MANAGED_DOC_FILES[@]}"; do
+        source_path="$TMP_DOCS_DIR/$relative_path"
+        target_path="$EXTERNAL_DOCS_DIR/$relative_path"
+
+        if [[ ! -e "$target_path" ]]; then
+            add_plan_item create "Create managed doc: $target_path"
+            continue
+        fi
+
+        if [[ -f "$target_path" ]]; then
+            continue
+        fi
+
+        add_plan_item repair "Replace non-file managed doc path: $target_path"
+        mark_confirmation_needed
+    done
+}
+
 show_summary_section() {
     local symbol="$1"
     local title="$2"
@@ -799,6 +1035,18 @@ write_adapter_if_needed() {
     cp "$source" "$target"
 }
 
+write_file_if_missing() {
+    local target="$1"
+    local source="$2"
+
+    mkdir -p "$(dirname "$target")"
+    if [[ -e "$target" ]]; then
+        return
+    fi
+
+    cp "$source" "$target"
+}
+
 ensure_symlink_path() {
     local target="$1"
     local source="$2"
@@ -874,6 +1122,10 @@ apply_changes() {
         ensure_symlink_path "$project_path" "$external_path"
     done
 
+    for name in "${MANAGED_DOC_FILES[@]}"; do
+        write_file_if_missing "$EXTERNAL_DOCS_DIR/$name" "$TMP_DOCS_DIR/$name"
+    done
+
     for name in "${ADAPTER_NAMES[@]}"; do
         external_path="$VAULT_DIR/$name"
         write_adapter_if_needed "$external_path" "$TMP_DIR/$name"
@@ -899,6 +1151,8 @@ plan_project_adapter_links
 plan_disabled_adapters
 plan_git_exclude
 render_adapters
+render_managed_docs
+plan_managed_docs
 plan_adapter_content_changes
 print_summary
 require_confirmation_if_needed
