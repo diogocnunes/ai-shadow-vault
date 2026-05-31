@@ -5,12 +5,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
 source "$SCRIPT_DIR/../lib/config.sh"
+source "$SCRIPT_DIR/../lib/plugin-detect.sh"
 source "$SCRIPT_DIR/../lib/ui.sh"
 
 ai_vault_require_tty "ai-vault install"
 
 CURRENT_BASE_PATH="$(ai_vault_default_base_path)"
 CURRENT_RTK_ENABLED=0
+CURRENT_CAVEMAN_ENABLED=0
+CURRENT_SUPERPOWERS_ENABLED=0
+CURRENT_CONTEXT_MODE_ENABLED=0
+CURRENT_USE_SUPERPOWERS_DOCS=0
 CURRENT_ADAPTERS=$'CLAUDE.md\nAGENTS.md\nGEMINI.md'
 
 if command -v rtk >/dev/null 2>&1; then
@@ -28,6 +33,10 @@ if ai_vault_config_exists; then
     ai_vault_load_config
     CURRENT_BASE_PATH="$AI_VAULT_CONFIG_BASE_PATH"
     CURRENT_RTK_ENABLED="$AI_VAULT_CONFIG_RTK_INSTRUCTIONS"
+    CURRENT_CAVEMAN_ENABLED="${AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS:-0}"
+    CURRENT_SUPERPOWERS_ENABLED="${AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS:-0}"
+    CURRENT_CONTEXT_MODE_ENABLED="${AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS:-0}"
+    CURRENT_USE_SUPERPOWERS_DOCS="${AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS:-0}"
     CURRENT_ADAPTERS="$AI_VAULT_CONFIG_ADAPTERS"
 fi
 
@@ -107,6 +116,35 @@ fi
 echo
 RTK_AVAILABLE=0
 command -v rtk >/dev/null 2>&1 && RTK_AVAILABLE=1
+
+# Contract with plugin-detect.sh:
+# ADAPTER_NAMES drives detect_all_plugins loop.
+# HAS_* per-adapter/plugin variables must be declared (init 0) before calling detect_all_plugins.
+ADAPTER_NAMES=("${ADAPTERS[@]}")
+HAS_CAVEMAN_CLAUDE=0
+HAS_CAVEMAN_AGENTS=0
+HAS_CAVEMAN_GEMINI=0
+HAS_SUPERPOWERS_CLAUDE=0
+HAS_SUPERPOWERS_AGENTS=0
+HAS_SUPERPOWERS_GEMINI=0
+HAS_CONTEXT_MODE_CLAUDE=0
+HAS_CONTEXT_MODE_AGENTS=0
+HAS_CONTEXT_MODE_GEMINI=0
+HAS_SUPERPOWERS_ANY=0
+detect_all_plugins
+
+CAVEMAN_AVAILABLE=0
+SUPERPOWERS_AVAILABLE=0
+CONTEXT_MODE_AVAILABLE=0
+if [[ "$HAS_CAVEMAN_CLAUDE" -eq 1 || "$HAS_CAVEMAN_AGENTS" -eq 1 || "$HAS_CAVEMAN_GEMINI" -eq 1 ]]; then
+    CAVEMAN_AVAILABLE=1
+fi
+if [[ "$HAS_SUPERPOWERS_CLAUDE" -eq 1 || "$HAS_SUPERPOWERS_AGENTS" -eq 1 || "$HAS_SUPERPOWERS_GEMINI" -eq 1 ]]; then
+    SUPERPOWERS_AVAILABLE=1
+fi
+if [[ "$HAS_CONTEXT_MODE_CLAUDE" -eq 1 || "$HAS_CONTEXT_MODE_AGENTS" -eq 1 || "$HAS_CONTEXT_MODE_GEMINI" -eq 1 ]]; then
+    CONTEXT_MODE_AVAILABLE=1
+fi
 RTK_ENABLED=0
 if [[ "$RTK_AVAILABLE" -eq 1 ]]; then
     if ai_vault_prompt_yes_no "Include RTK instructions when RTK is available?" "$CURRENT_RTK_ENABLED"; then
@@ -114,6 +152,38 @@ if [[ "$RTK_AVAILABLE" -eq 1 ]]; then
     fi
 else
     ai_vault_warning "RTK not detected. RTK instructions will stay disabled."
+fi
+CAVEMAN_ENABLED=0
+if [[ "$CAVEMAN_AVAILABLE" -eq 1 ]]; then
+    if ai_vault_prompt_yes_no "Include caveman instructions when detected?" "$CURRENT_CAVEMAN_ENABLED"; then
+        CAVEMAN_ENABLED=1
+    fi
+else
+    ai_vault_warning "Caveman plugin not detected in enabled adapters. Caveman instructions will stay disabled."
+fi
+SUPERPOWERS_ENABLED=0
+if [[ "$SUPERPOWERS_AVAILABLE" -eq 1 ]]; then
+    if ai_vault_prompt_yes_no "Include superpowers instructions when detected?" "$CURRENT_SUPERPOWERS_ENABLED"; then
+        SUPERPOWERS_ENABLED=1
+    fi
+else
+    ai_vault_warning "Superpowers plugin not detected in enabled adapters. Superpowers instructions will stay disabled."
+fi
+CONTEXT_MODE_ENABLED=0
+if [[ "$CONTEXT_MODE_AVAILABLE" -eq 1 ]]; then
+    if ai_vault_prompt_yes_no "Include context-mode instructions when detected?" "$CURRENT_CONTEXT_MODE_ENABLED"; then
+        CONTEXT_MODE_ENABLED=1
+    fi
+else
+    ai_vault_warning "Context-mode plugin not detected in enabled adapters. Context-mode instructions will stay disabled."
+fi
+USE_SUPERPOWERS_DOCS=0
+if [[ "$SUPERPOWERS_ENABLED" -eq 1 ]]; then
+    if ai_vault_prompt_yes_no "Use docs/superpowers/ for specs and plans when superpowers is detected?" "$CURRENT_USE_SUPERPOWERS_DOCS"; then
+        USE_SUPERPOWERS_DOCS=1
+    fi
+else
+    ai_vault_warning "Superpowers instructions are disabled. Superpowers docs usage will stay disabled."
 fi
 
 echo
@@ -125,6 +195,26 @@ if [[ "$RTK_ENABLED" -eq 1 ]]; then
 else
     echo "  RTK instructions: disabled"
 fi
+if [[ "$CAVEMAN_ENABLED" -eq 1 ]]; then
+    echo "  Caveman instructions: enabled"
+else
+    echo "  Caveman instructions: disabled"
+fi
+if [[ "$SUPERPOWERS_ENABLED" -eq 1 ]]; then
+    echo "  Superpowers instructions: enabled"
+else
+    echo "  Superpowers instructions: disabled"
+fi
+if [[ "$CONTEXT_MODE_ENABLED" -eq 1 ]]; then
+    echo "  Context Mode instructions: enabled"
+else
+    echo "  Context Mode instructions: disabled"
+fi
+if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+    echo "  Use Superpowers docs: enabled"
+else
+    echo "  Use Superpowers docs: disabled"
+fi
 
 if ! ai_vault_prompt_yes_no "Write global config?" 1; then
     ai_vault_error "Aborted."
@@ -132,7 +222,7 @@ if ! ai_vault_prompt_yes_no "Write global config?" 1; then
 fi
 
 adapters_csv="$(IFS=,; echo "${ADAPTERS[*]}")"
-ai_vault_write_config "$VAULT_BASE_PATH" "$adapters_csv" "$RTK_ENABLED"
+ai_vault_write_config "$VAULT_BASE_PATH" "$adapters_csv" "$RTK_ENABLED" "$CAVEMAN_ENABLED" "$SUPERPOWERS_ENABLED" "$CONTEXT_MODE_ENABLED" "$USE_SUPERPOWERS_DOCS"
 
 echo
 ai_vault_success "Setup complete"

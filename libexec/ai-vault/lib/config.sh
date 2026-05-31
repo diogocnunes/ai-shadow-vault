@@ -76,12 +76,37 @@ if not isinstance(extras, dict):
 rtk = extras.get("rtk_instructions")
 if not isinstance(rtk, bool):
     raise SystemExit("Invalid config: extras.rtk_instructions must be a boolean.")
+
+for key in (
+    "caveman_instructions",
+    "superpowers_instructions",
+    "context_mode_instructions",
+    "use_superpowers_docs",
+):
+    value = extras.get(key, False)
+    if not isinstance(value, bool):
+        raise SystemExit(f"Invalid config: extras.{key} must be a boolean.")
 PY
+}
+
+_ai_vault_parse_bool_key() {
+    local file="$1"
+    local key="$2"
+    awk -v key="$key" '
+        match($0, "\"" key "\"[[:space:]]*:[[:space:]]*") {
+            line = $0
+            sub("^[[:space:]]*\"" key "\"[[:space:]]*:[[:space:]]*", "", line)
+            sub(/[[:space:],}].*$/, "", line)
+            print line
+            exit
+        }
+    ' "$file"
 }
 
 ai_vault_export_config_fallback() {
     local config_file="$1"
-    local base adapters_csv rtk_enabled
+    local base adapters_csv
+    local rtk_enabled caveman_enabled superpowers_enabled context_mode_enabled use_superpowers_docs
 
     [[ -f "$config_file" ]] || {
         ai_vault_error "Missing config: $config_file"
@@ -120,17 +145,11 @@ ai_vault_export_config_fallback() {
             END { print out }
         ' "$config_file"
     )"
-    rtk_enabled="$(
-        awk '
-            /"rtk_instructions"[[:space:]]*:/ {
-                line = $0
-                sub(/^[[:space:]]*"rtk_instructions"[[:space:]]*:[[:space:]]*/, "", line)
-                sub(/[[:space:],}].*$/, "", line)
-                print line
-                exit
-            }
-        ' "$config_file"
-    )"
+    rtk_enabled="$(_ai_vault_parse_bool_key "$config_file" "rtk_instructions")"
+    caveman_enabled="$(_ai_vault_parse_bool_key "$config_file" "caveman_instructions")"
+    superpowers_enabled="$(_ai_vault_parse_bool_key "$config_file" "superpowers_instructions")"
+    context_mode_enabled="$(_ai_vault_parse_bool_key "$config_file" "context_mode_instructions")"
+    use_superpowers_docs="$(_ai_vault_parse_bool_key "$config_file" "use_superpowers_docs")"
 
     if [[ -z "$base" || -z "$adapters_csv" ]]; then
         ai_vault_error "Invalid config: unable to parse $config_file without python3."
@@ -140,8 +159,41 @@ ai_vault_export_config_fallback() {
     case "$rtk_enabled" in
         true) rtk_enabled="1" ;;
         false) rtk_enabled="0" ;;
+        "") rtk_enabled="0" ;;
         *)
             ai_vault_error "Invalid config: extras.rtk_instructions must be a boolean."
+            return 1
+            ;;
+    esac
+    case "$caveman_enabled" in
+        true) caveman_enabled="1" ;;
+        false|"") caveman_enabled="0" ;;
+        *)
+            ai_vault_error "Invalid config: extras.caveman_instructions must be a boolean."
+            return 1
+            ;;
+    esac
+    case "$superpowers_enabled" in
+        true) superpowers_enabled="1" ;;
+        false|"") superpowers_enabled="0" ;;
+        *)
+            ai_vault_error "Invalid config: extras.superpowers_instructions must be a boolean."
+            return 1
+            ;;
+    esac
+    case "$context_mode_enabled" in
+        true) context_mode_enabled="1" ;;
+        false|"") context_mode_enabled="0" ;;
+        *)
+            ai_vault_error "Invalid config: extras.context_mode_instructions must be a boolean."
+            return 1
+            ;;
+    esac
+    case "$use_superpowers_docs" in
+        true) use_superpowers_docs="1" ;;
+        false|"") use_superpowers_docs="0" ;;
+        *)
+            ai_vault_error "Invalid config: extras.use_superpowers_docs must be a boolean."
             return 1
             ;;
     esac
@@ -159,12 +211,20 @@ ai_vault_export_config_fallback() {
     printf 'AI_VAULT_CONFIG_BASE_PATH=%q\n' "$base"
     printf 'AI_VAULT_CONFIG_ADAPTERS=%q\n' "$adapters_csv"
     printf 'AI_VAULT_CONFIG_RTK_INSTRUCTIONS=%q\n' "$rtk_enabled"
+    printf 'AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS=%q\n' "$caveman_enabled"
+    printf 'AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS=%q\n' "$superpowers_enabled"
+    printf 'AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS=%q\n' "$context_mode_enabled"
+    printf 'AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS=%q\n' "$use_superpowers_docs"
 }
 
 ai_vault_write_config() {
     local base_path="$1"
     local adapters_csv="$2"
     local rtk_enabled="$3"
+    local caveman_enabled="$4"
+    local superpowers_enabled="$5"
+    local context_mode_enabled="$6"
+    local use_superpowers_docs="$7"
     local config_dir config_file py
 
     config_dir="$(ai_vault_config_dir)"
@@ -173,7 +233,7 @@ ai_vault_write_config() {
 
     mkdir -p "$config_dir"
 
-    BASE_PATH="$base_path" ADAPTERS_CSV="$adapters_csv" RTK_ENABLED="$rtk_enabled" CONFIG_FILE="$config_file" "$py" <<'PY'
+    BASE_PATH="$base_path" ADAPTERS_CSV="$adapters_csv" RTK_ENABLED="$rtk_enabled" CAVEMAN_ENABLED="$caveman_enabled" SUPERPOWERS_ENABLED="$superpowers_enabled" CONTEXT_MODE_ENABLED="$context_mode_enabled" USE_SUPERPOWERS_DOCS="$use_superpowers_docs" CONFIG_FILE="$config_file" "$py" <<'PY'
 import json
 import os
 
@@ -183,6 +243,10 @@ payload = {
     "default_adapters": adapters,
     "extras": {
         "rtk_instructions": os.environ["RTK_ENABLED"] == "1",
+        "caveman_instructions": os.environ["CAVEMAN_ENABLED"] == "1",
+        "superpowers_instructions": os.environ["SUPERPOWERS_ENABLED"] == "1",
+        "context_mode_instructions": os.environ["CONTEXT_MODE_ENABLED"] == "1",
+        "use_superpowers_docs": os.environ["USE_SUPERPOWERS_DOCS"] == "1",
     },
 }
 
@@ -213,11 +277,20 @@ with open(sys.argv[1], "r", encoding="utf-8") as fh:
 
 base = os.path.expanduser(data["vault_base_path"])
 adapters = "\n".join(data["default_adapters"])
-rtk = "1" if data["extras"]["rtk_instructions"] else "0"
+extras = data.get("extras", {})
+rtk = "1" if extras.get("rtk_instructions", False) else "0"
+caveman = "1" if extras.get("caveman_instructions", False) else "0"
+superpowers = "1" if extras.get("superpowers_instructions", False) else "0"
+context_mode = "1" if extras.get("context_mode_instructions", False) else "0"
+use_superpowers_docs = "1" if extras.get("use_superpowers_docs", False) else "0"
 
 print(f"AI_VAULT_CONFIG_BASE_PATH={shlex.quote(base)}")
 print(f"AI_VAULT_CONFIG_ADAPTERS={shlex.quote(adapters)}")
 print(f"AI_VAULT_CONFIG_RTK_INSTRUCTIONS={shlex.quote(rtk)}")
+print(f"AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS={shlex.quote(caveman)}")
+print(f"AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS={shlex.quote(superpowers)}")
+print(f"AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS={shlex.quote(context_mode)}")
+print(f"AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS={shlex.quote(use_superpowers_docs)}")
 PY
 }
 

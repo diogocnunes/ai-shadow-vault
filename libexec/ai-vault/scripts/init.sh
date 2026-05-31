@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/../lib/common.sh"
 source "$SCRIPT_DIR/../lib/config.sh"
+source "$SCRIPT_DIR/../lib/plugin-detect.sh"
 source "$SCRIPT_DIR/../lib/resolver.sh"
 
 if [[ "$#" -ne 0 ]]; then
@@ -28,6 +29,9 @@ VAULT_DIR="$(vault_resolve_project_vault "$PROJECT_ROOT" "$AI_VAULT_CONFIG_BASE_
 PROJECT_AI_DIR="$PROJECT_ROOT/.ai"
 EXTERNAL_DOCS_DIR="$VAULT_DIR/docs"
 EXTERNAL_PLANS_DIR="$VAULT_DIR/plans"
+SUPERPOWERS_DOCS_ROOT="$PROJECT_ROOT/docs/superpowers"
+SUPERPOWERS_SPECS_DIR="$SUPERPOWERS_DOCS_ROOT/specs"
+SUPERPOWERS_PLANS_DIR="$SUPERPOWERS_DOCS_ROOT/plans"
 
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
@@ -51,6 +55,19 @@ REQUIRES_CONFIRMATION=0
 
 HAS_GIT=0
 HAS_RTK=0
+HAS_CAVEMAN_CLAUDE=0
+HAS_CAVEMAN_AGENTS=0
+HAS_CAVEMAN_GEMINI=0
+HAS_SUPERPOWERS_CLAUDE=0
+HAS_SUPERPOWERS_AGENTS=0
+HAS_SUPERPOWERS_GEMINI=0
+HAS_CONTEXT_MODE_CLAUDE=0
+HAS_CONTEXT_MODE_AGENTS=0
+HAS_CONTEXT_MODE_GEMINI=0
+HAS_SUPERPOWERS_ANY=0
+USE_SUPERPOWERS_DOCS=0
+DID_REVERSE_MIGRATION=0
+PERSIST_USE_SUPERPOWERS_DOCS=0
 HAS_COMPOSER=0
 HAS_PACKAGE=0
 USES_PEST=0
@@ -183,7 +200,7 @@ detect_repo_facts() {
         HAS_GIT=1
     fi
 
-    if [[ "$AI_VAULT_CONFIG_RTK_INSTRUCTIONS" == "1" ]] && command -v rtk >/dev/null 2>&1; then
+    if command -v rtk >/dev/null 2>&1; then
         HAS_RTK=1
     fi
 
@@ -441,13 +458,91 @@ render_shared_repo_notes() {
     echo "- Prefer localized changes over broad rewrites unless the task explicitly requires them."
 }
 
-render_rtk_block() {
-    if [[ "$HAS_RTK" -eq 1 ]]; then
-        cat <<'EOF'
-## Tooling
+adapter_plugin_state() {
+    local adapter="$1"
+    local plugin="$2"
 
-RTK is installed in this environment. Use RTK wrappers (`rtk ls`, `rtk read`, `rtk grep`, `rtk git`, etc. ) instead of raw commands whenever an RTK equivalent exists.
-EOF
+    case "$adapter:$plugin" in
+        CLAUDE.md:caveman) [[ "$HAS_CAVEMAN_CLAUDE" -eq 1 ]] && return 0 ;;
+        CLAUDE.md:superpowers) [[ "$HAS_SUPERPOWERS_CLAUDE" -eq 1 ]] && return 0 ;;
+        CLAUDE.md:context-mode) [[ "$HAS_CONTEXT_MODE_CLAUDE" -eq 1 ]] && return 0 ;;
+        AGENTS.md:caveman) [[ "$HAS_CAVEMAN_AGENTS" -eq 1 ]] && return 0 ;;
+        AGENTS.md:superpowers) [[ "$HAS_SUPERPOWERS_AGENTS" -eq 1 ]] && return 0 ;;
+        AGENTS.md:context-mode) [[ "$HAS_CONTEXT_MODE_AGENTS" -eq 1 ]] && return 0 ;;
+        GEMINI.md:caveman) [[ "$HAS_CAVEMAN_GEMINI" -eq 1 ]] && return 0 ;;
+        GEMINI.md:superpowers) [[ "$HAS_SUPERPOWERS_GEMINI" -eq 1 ]] && return 0 ;;
+        GEMINI.md:context-mode) [[ "$HAS_CONTEXT_MODE_GEMINI" -eq 1 ]] && return 0 ;;
+        CLAUDE.md:rtk|AGENTS.md:rtk|GEMINI.md:rtk) [[ "$HAS_RTK" -eq 1 ]] && return 0 ;;
+    esac
+    return 1
+}
+
+render_plugins_block() {
+    local adapter="$1"
+    local rendered=0
+
+    if adapter_plugin_state "$adapter" "caveman" && [[ "$AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS" == "1" ]]; then
+        if [[ "$rendered" -eq 0 ]]; then
+            echo "## Plugins"
+            echo
+            rendered=1
+        fi
+        echo "- **MANDATORY:** Talk like caveman."
+    fi
+    if adapter_plugin_state "$adapter" "superpowers" && [[ "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" == "1" ]]; then
+        if [[ "$rendered" -eq 0 ]]; then
+            echo "## Plugins"
+            echo
+            rendered=1
+        fi
+        echo "- **MANDATORY:** @use superpowers. Activate the subagents and skills you deem necessary to complete the task."
+    fi
+    if adapter_plugin_state "$adapter" "rtk" && [[ "$AI_VAULT_CONFIG_RTK_INSTRUCTIONS" == "1" ]]; then
+        if [[ "$rendered" -eq 0 ]]; then
+            echo "## Plugins"
+            echo
+            rendered=1
+        fi
+        echo "- **MANDATORY:** RTK is installed in this environment. Use RTK wrappers (\`rtk ls\`, \`rtk read\`, \`rtk grep\`, \`rtk git\`, etc.) instead of raw commands whenever an RTK equivalent exists."
+    fi
+    if adapter_plugin_state "$adapter" "context-mode" && [[ "$AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS" == "1" ]]; then
+        if [[ "$rendered" -eq 0 ]]; then
+            echo "## Plugins"
+            echo
+            rendered=1
+        fi
+        echo "- **MANDATORY:** context-mode is active in this environment. Prefer context-mode MCP tools (\`ctx_batch_execute\`, \`ctx_execute\`, \`ctx_execute_file\`, \`ctx_search\`, \`ctx_index\`, \`ctx_fetch_and_index\`) over raw Bash/Read for data-gathering tasks. Use \`ctx_search\` for follow-up lookups instead of re-reading files."
+    fi
+}
+
+prompt_superpowers_docs() {
+    local stored_value="${AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS:-}"
+    local answer=""
+    local next_value=0
+
+    if [[ "$HAS_SUPERPOWERS_ANY" -ne 1 ]]; then
+        USE_SUPERPOWERS_DOCS=0
+        return
+    fi
+    if [[ "$stored_value" == "1" ]]; then
+        USE_SUPERPOWERS_DOCS=1
+        return
+    fi
+    if [[ ! -t 0 ]]; then
+        USE_SUPERPOWERS_DOCS=0
+        return
+    fi
+    printf '%s Superpowers detected. Use docs/superpowers/ for specs and plans instead of .ai/docs and .ai/plans? [Y/n]: ' "$AI_VAULT_ACTION_SYMBOL"
+    read -r answer
+    answer="${answer//$'\r'/}"
+    if [[ -z "$answer" || "$answer" =~ ^([yY]|[yY][eE][sS])$ ]]; then
+        USE_SUPERPOWERS_DOCS=1
+    else
+        USE_SUPERPOWERS_DOCS=0
+    fi
+
+    if [[ "$USE_SUPERPOWERS_DOCS" != "$stored_value" ]]; then
+        PERSIST_USE_SUPERPOWERS_DOCS=1
     fi
 }
 
@@ -479,6 +574,7 @@ render_stack_learning_targets() {
 }
 
 render_claude_file() {
+    local plugin_block=""
     render_shared_intro "Claude Adapter"
     cat <<'EOF'
 
@@ -494,13 +590,15 @@ EOF
         echo
         render_shared_stack_snapshot
     fi
-    if [[ "$HAS_RTK" -eq 1 ]]; then
+    plugin_block="$(render_plugins_block "CLAUDE.md")"
+    if [[ -n "$plugin_block" ]]; then
         echo
-        render_rtk_block
+        printf '%s\n' "$plugin_block"
     fi
 }
 
 render_agents_file() {
+    local plugin_block=""
     render_shared_intro "Agent Entrypoint"
     cat <<'EOF'
 
@@ -538,13 +636,15 @@ EOF
         echo
         render_shared_testing
     fi
-    if [[ "$HAS_RTK" -eq 1 ]]; then
+    plugin_block="$(render_plugins_block "AGENTS.md")"
+    if [[ -n "$plugin_block" ]]; then
         echo
-        render_rtk_block
+        printf '%s\n' "$plugin_block"
     fi
 }
 
 render_gemini_file() {
+    local plugin_block=""
     render_shared_intro "Gemini Adapter"
     cat <<'EOF'
 
@@ -556,9 +656,10 @@ render_gemini_file() {
 EOF
     echo
     render_entrypoint_reference
-    if [[ "$HAS_RTK" -eq 1 ]]; then
+    plugin_block="$(render_plugins_block "GEMINI.md")"
+    if [[ -n "$plugin_block" ]]; then
         echo
-        render_rtk_block
+        printf '%s\n' "$plugin_block"
     fi
     echo
     render_shared_safety
@@ -846,6 +947,13 @@ plan_ai_links() {
     for name in docs plans; do
         project_path="$PROJECT_AI_DIR/$name"
         external_path="$VAULT_DIR/$name"
+        if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+            if [[ "$name" == "docs" ]]; then
+                external_path="$SUPERPOWERS_SPECS_DIR"
+            else
+                external_path="$SUPERPOWERS_PLANS_DIR"
+            fi
+        fi
 
         if [[ ! -e "$project_path" && ! -L "$project_path" ]]; then
             add_plan_item create "Create symlink: $project_path -> $external_path"
@@ -871,6 +979,36 @@ plan_ai_links() {
         add_plan_item conflict "Replace non-directory .ai path: $project_path"
         mark_confirmation_needed
     done
+}
+
+plan_ai_dynamic_subdirs() {
+    local ai_dir_path dir_name dynamic_target
+
+    if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+        while IFS= read -r -d '' ai_dir_path; do
+            dir_name="$(basename "$ai_dir_path")"
+            [[ "$dir_name" == "docs" || "$dir_name" == "plans" ]] && continue
+            dynamic_target="$SUPERPOWERS_DOCS_ROOT/$dir_name"
+            if [[ -d "$ai_dir_path" && ! -L "$ai_dir_path" ]]; then
+                add_plan_item migrate "Migrate dynamic .ai directory: $ai_dir_path -> $dynamic_target"
+                mark_confirmation_needed
+                continue
+            fi
+            if [[ -L "$PROJECT_AI_DIR/$dir_name" ]] && ! symlink_points_to "$PROJECT_AI_DIR/$dir_name" "$dynamic_target"; then
+                add_plan_item repair "Repair dynamic .ai symlink: $PROJECT_AI_DIR/$dir_name -> $dynamic_target"
+                mark_confirmation_needed
+            fi
+        done < <(find "$PROJECT_AI_DIR" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -print0 2>/dev/null || true)
+    else
+        while IFS= read -r -d '' ai_dir_path; do
+            dir_name="$(basename "$ai_dir_path")"
+            [[ "$dir_name" == "specs" || "$dir_name" == "plans" ]] && continue
+            if [[ -L "$PROJECT_AI_DIR/$dir_name" ]] && symlink_points_to "$PROJECT_AI_DIR/$dir_name" "$SUPERPOWERS_DOCS_ROOT/$dir_name"; then
+                add_plan_item migrate "Revert dynamic .ai symlink target: $PROJECT_AI_DIR/$dir_name -> $VAULT_DIR/$dir_name"
+                mark_confirmation_needed
+            fi
+        done < <(find "$SUPERPOWERS_DOCS_ROOT" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null || true)
+    fi
 }
 
 build_git_exclude_candidate() {
@@ -900,6 +1038,9 @@ build_git_exclude_candidate() {
         for adapter in "${ADAPTER_NAMES[@]}"; do
             echo "/$adapter"
         done
+        if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+            echo "/docs/superpowers/"
+        fi
         echo "# <<< ai-shadow-vault <<<"
     } >"$destination_file"
 }
@@ -1104,23 +1245,77 @@ update_git_exclude() {
 }
 
 apply_changes() {
-    local name project_path external_path
+    local name project_path external_path standard_external_path superpowers_target dir_name ai_dir_path dynamic_target old_target adapters_csv
 
     mkdir -p "$VAULT_DIR"
     mkdir -p "$EXTERNAL_DOCS_DIR" "$EXTERNAL_PLANS_DIR"
+    if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+        mkdir -p "$SUPERPOWERS_SPECS_DIR" "$SUPERPOWERS_PLANS_DIR"
+    fi
 
     ensure_directory_path "$PROJECT_AI_DIR"
 
     for name in docs plans; do
         project_path="$PROJECT_AI_DIR/$name"
-        external_path="$VAULT_DIR/$name"
+        standard_external_path="$VAULT_DIR/$name"
+        external_path="$standard_external_path"
+        if [[ "$name" == "docs" ]]; then
+            superpowers_target="$SUPERPOWERS_SPECS_DIR"
+        else
+            superpowers_target="$SUPERPOWERS_PLANS_DIR"
+        fi
+        if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+            external_path="$superpowers_target"
+        fi
 
         mkdir -p "$external_path"
         if [[ -d "$project_path" && ! -L "$project_path" ]]; then
             migrate_directory_contents "$project_path" "$external_path"
+        elif [[ -L "$project_path" && "$USE_SUPERPOWERS_DOCS" -eq 1 ]] && symlink_points_to "$project_path" "$standard_external_path"; then
+            if [[ -d "$standard_external_path" ]]; then
+                migrate_directory_contents "$standard_external_path" "$external_path"
+            fi
+        elif [[ -L "$project_path" && "$USE_SUPERPOWERS_DOCS" -eq 0 ]] && symlink_points_to "$project_path" "$superpowers_target"; then
+            mkdir -p "$standard_external_path"
+            migrate_directory_contents "$superpowers_target" "$standard_external_path"
+            DID_REVERSE_MIGRATION=1
+        elif [[ "$USE_SUPERPOWERS_DOCS" -eq 0 && -d "$superpowers_target" && -n "$(find "$superpowers_target" -mindepth 1 -print -quit)" ]]; then
+            mkdir -p "$standard_external_path"
+            migrate_directory_contents "$superpowers_target" "$standard_external_path"
+            DID_REVERSE_MIGRATION=1
         fi
         ensure_symlink_path "$project_path" "$external_path"
     done
+
+    if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+        while IFS= read -r -d '' ai_dir_path; do
+            dir_name="$(basename "$ai_dir_path")"
+            [[ "$dir_name" == "docs" || "$dir_name" == "plans" ]] && continue
+            dynamic_target="$SUPERPOWERS_DOCS_ROOT/$dir_name"
+            mkdir -p "$dynamic_target"
+            if [[ -d "$ai_dir_path" && ! -L "$ai_dir_path" ]]; then
+                migrate_directory_contents "$ai_dir_path" "$dynamic_target"
+            elif [[ -L "$ai_dir_path" ]] && ! symlink_points_to "$ai_dir_path" "$dynamic_target"; then
+                old_target="$(vault_realpath "$ai_dir_path")"
+                if [[ -d "$old_target" && "$(vault_realpath "$dynamic_target")" != "$old_target" ]]; then
+                    migrate_directory_contents "$old_target" "$dynamic_target"
+                fi
+            fi
+            ensure_symlink_path "$ai_dir_path" "$dynamic_target"
+        done < <(find "$PROJECT_AI_DIR" -mindepth 1 -maxdepth 1 \( -type d -o -type l \) -print0 2>/dev/null || true)
+    else
+        while IFS= read -r -d '' ai_dir_path; do
+            dir_name="$(basename "$ai_dir_path")"
+            [[ "$dir_name" == "specs" || "$dir_name" == "plans" ]] && continue
+            dynamic_target="$VAULT_DIR/$dir_name"
+            if [[ -L "$PROJECT_AI_DIR/$dir_name" ]] && symlink_points_to "$PROJECT_AI_DIR/$dir_name" "$SUPERPOWERS_DOCS_ROOT/$dir_name"; then
+                mkdir -p "$dynamic_target"
+                migrate_directory_contents "$SUPERPOWERS_DOCS_ROOT/$dir_name" "$dynamic_target"
+                ensure_symlink_path "$PROJECT_AI_DIR/$dir_name" "$dynamic_target"
+                DID_REVERSE_MIGRATION=1
+            fi
+        done < <(find "$SUPERPOWERS_DOCS_ROOT" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null || true)
+    fi
 
     for name in "${MANAGED_DOC_FILES[@]}"; do
         write_file_if_missing "$EXTERNAL_DOCS_DIR/$name" "$TMP_DOCS_DIR/$name"
@@ -1142,11 +1337,30 @@ apply_changes() {
     done
 
     update_git_exclude
+
+    if [[ "$PERSIST_USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
+        adapters_csv="$(printf '%s\n' "$AI_VAULT_CONFIG_ADAPTERS" | tr '\n' ',' | sed 's/,$//')"
+        ai_vault_write_config \
+            "$AI_VAULT_CONFIG_BASE_PATH" \
+            "$adapters_csv" \
+            "$AI_VAULT_CONFIG_RTK_INSTRUCTIONS" \
+            "$AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS" \
+            "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" \
+            "$AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS" \
+            "$USE_SUPERPOWERS_DOCS"
+        AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS="$USE_SUPERPOWERS_DOCS"
+    fi
+
 }
 
 detect_repo_facts
+detect_all_plugins
+if [[ "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" == "1" ]]; then
+    prompt_superpowers_docs
+fi
 plan_ai_root
 plan_ai_links
+plan_ai_dynamic_subdirs
 plan_project_adapter_links
 plan_disabled_adapters
 plan_git_exclude
@@ -1162,5 +1376,9 @@ if [[ "$HAS_CHANGES" -eq 0 ]]; then
 fi
 
 apply_changes
+
+if [[ "$USE_SUPERPOWERS_DOCS" -eq 0 && "$DID_REVERSE_MIGRATION" -eq 1 && -d "$SUPERPOWERS_DOCS_ROOT" ]]; then
+    printf '%s Reverted to standard vault paths. docs/superpowers/ left in place - remove manually if no longer needed.\n' "$AI_VAULT_WARNING_SYMBOL"
+fi
 
 printf '%s Initialization complete.\n' "$AI_VAULT_SUCCESS_SYMBOL"

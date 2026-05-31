@@ -28,6 +28,11 @@ assert_not_contains() {
 
 write_config() {
     local home_dir="$1"
+    local rtk="${2:-false}"
+    local caveman="${3:-false}"
+    local superpowers="${4:-false}"
+    local context_mode="${5:-false}"
+    local use_superpowers_docs="${6:-false}"
 
     mkdir -p "$home_dir/.config/ai-shadow-vault"
     cat >"$home_dir/.config/ai-shadow-vault/config.json" <<JSON
@@ -35,7 +40,11 @@ write_config() {
   "vault_base_path": "$home_dir/.ai-shadow-vault-data",
   "default_adapters": ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
   "extras": {
-    "rtk_instructions": false
+    "rtk_instructions": $rtk,
+    "caveman_instructions": $caveman,
+    "superpowers_instructions": $superpowers,
+    "context_mode_instructions": $context_mode,
+    "use_superpowers_docs": $use_superpowers_docs
   }
 }
 JSON
@@ -47,19 +56,23 @@ run_init() {
     HOME="$home_dir" "$ROOT_DIR/bin/ai-vault" init >/dev/null
 }
 
+resolve_path() {
+    local target="$1"
+    (
+        cd "$target" >/dev/null 2>&1 && pwd -P
+    )
+}
+
 build_path_without_python() {
     local fake_bin="$1"
     local command_name target
 
     mkdir -p "$fake_bin"
-    for command_name in awk basename cat cmp cp cut date diff dirname find git head ln mkdir mktemp mv pwd rm sed shasum touch tr; do
+    for command_name in awk basename cat cmp cp cut date diff dirname find git grep head ln mkdir mktemp mv pwd rm sed shasum touch tr; do
         target="$(command -v "$command_name")"
         ln -sf "$target" "$fake_bin/$command_name"
     done
 
-    if command -v realpath >/dev/null 2>&1; then
-        ln -sf "$(command -v realpath)" "$fake_bin/realpath"
-    fi
 }
 
 PROJECT_DIR="$WORK_DIR/project"
@@ -123,6 +136,7 @@ assert_not_contains "/cost" "$CLAUDE_FILE"
 assert_contains "## Canonical Entrypoint" "$GEMINI_FILE"
 assert_contains "Follow \`AGENTS.md\` as the canonical operational source." "$GEMINI_FILE"
 assert_not_contains "/cost" "$GEMINI_FILE"
+assert_not_contains "## Plugins" "$AGENTS_FILE"
 
 DOCS_DIR="$PROJECT_DIR/.ai/docs"
 assert_contains "# AI Docs Index" "$DOCS_DIR/index.md"
@@ -167,5 +181,87 @@ build_path_without_python "$FAKE_BIN"
 HOME="$BROKEN_HOME_DIR" PATH="$FAKE_BIN" "$ROOT_DIR/bin/ai-vault" init >/dev/null
 
 assert_not_contains "## Stack Snapshot" "$BROKEN_PROJECT_DIR/AGENTS.md"
+
+PLUGIN_HOME_DIR="$WORK_DIR/home-plugins"
+PLUGIN_PROJECT_DIR="$WORK_DIR/project-plugins"
+mkdir -p "$PLUGIN_HOME_DIR" "$PLUGIN_PROJECT_DIR"
+write_config "$PLUGIN_HOME_DIR" false false true true true
+
+mkdir -p "$PLUGIN_HOME_DIR/.codex/plugins/cache/openai-curated/superpowers/test/.codex-plugin"
+cat >"$PLUGIN_HOME_DIR/.codex/plugins/cache/openai-curated/superpowers/test/.codex-plugin/plugin.json" <<'JSON'
+{ "name": "superpowers", "version": "1.0.0" }
+JSON
+mkdir -p "$PLUGIN_HOME_DIR/.config/opencode"
+cat >"$PLUGIN_HOME_DIR/.config/opencode/opencode.json" <<'JSON'
+{ "plugin": ["context-mode", "superpowers@git+https://example.org/superpowers.git"] }
+JSON
+
+cat >"$PLUGIN_PROJECT_DIR/composer.json" <<'JSON'
+{ "require": { "php": "^8.4" } }
+JSON
+
+cd "$PLUGIN_PROJECT_DIR"
+git init >/dev/null 2>&1
+run_init "$PLUGIN_HOME_DIR"
+assert_contains "## Plugins" "$PLUGIN_PROJECT_DIR/AGENTS.md"
+assert_contains "**MANDATORY:** @use superpowers. Activate the subagents and skills you deem necessary to complete the task." "$PLUGIN_PROJECT_DIR/AGENTS.md"
+assert_contains "**MANDATORY:** context-mode is active in this environment." "$PLUGIN_PROJECT_DIR/AGENTS.md"
+assert_not_contains "**MANDATORY:** Talk like caveman." "$PLUGIN_PROJECT_DIR/AGENTS.md"
+
+if [[ "$(resolve_path "$PLUGIN_PROJECT_DIR/.ai/docs")" != "$(resolve_path "$PLUGIN_PROJECT_DIR/docs/superpowers/specs")" ]]; then
+    echo "Expected .ai/docs to point to docs/superpowers/specs" >&2
+    exit 1
+fi
+if [[ "$(resolve_path "$PLUGIN_PROJECT_DIR/.ai/plans")" != "$(resolve_path "$PLUGIN_PROJECT_DIR/docs/superpowers/plans")" ]]; then
+    echo "Expected .ai/plans to point to docs/superpowers/plans" >&2
+    exit 1
+fi
+assert_contains "/docs/superpowers/" "$PLUGIN_PROJECT_DIR/.git/info/exclude"
+
+PLUGIN_OFF_HOME_DIR="$WORK_DIR/home-plugins-off"
+PLUGIN_OFF_PROJECT_DIR="$WORK_DIR/project-plugins-off"
+mkdir -p "$PLUGIN_OFF_HOME_DIR" "$PLUGIN_OFF_PROJECT_DIR"
+write_config "$PLUGIN_OFF_HOME_DIR" false false false false false
+mkdir -p "$PLUGIN_OFF_HOME_DIR/.config/opencode"
+cat >"$PLUGIN_OFF_HOME_DIR/.config/opencode/opencode.json" <<'JSON'
+{
+  "plugin": [
+    "context-mode",
+    "superpowers@git+https://example.org/superpowers.git"
+  ]
+}
+JSON
+cat >"$PLUGIN_OFF_PROJECT_DIR/composer.json" <<'JSON'
+{ "require": { "php": "^8.4" } }
+JSON
+cd "$PLUGIN_OFF_PROJECT_DIR"
+run_init "$PLUGIN_OFF_HOME_DIR"
+assert_not_contains "## Plugins" "$PLUGIN_OFF_PROJECT_DIR/AGENTS.md"
+
+CLAUDE_NS_HOME_DIR="$WORK_DIR/home-claude-ns"
+CLAUDE_NS_PROJECT_DIR="$WORK_DIR/project-claude-ns"
+mkdir -p "$CLAUDE_NS_HOME_DIR" "$CLAUDE_NS_PROJECT_DIR"
+write_config "$CLAUDE_NS_HOME_DIR" false true true false false
+mkdir -p "$CLAUDE_NS_HOME_DIR/.claude/plugins"
+cat >"$CLAUDE_NS_HOME_DIR/.claude/plugins/installed_plugins.json" <<'JSON'
+{
+  "plugins": {
+    "caveman@anthropic-marketplace": {"version": "1.0.0"},
+    "superpowers@marketplace": {"version": "2.0.0"},
+    "my-caveman-fork@marketplace": {"version": "0.1.0"}
+  }
+}
+JSON
+cat >"$CLAUDE_NS_PROJECT_DIR/composer.json" <<'JSON'
+{ "require": { "php": "^8.4" } }
+JSON
+cd "$CLAUDE_NS_PROJECT_DIR"
+git init >/dev/null 2>&1
+run_init "$CLAUDE_NS_HOME_DIR"
+assert_contains "## Plugins" "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
+assert_contains "**MANDATORY:** Talk like caveman." "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
+assert_contains "**MANDATORY:** @use superpowers. Activate the subagents and skills you deem necessary to complete the task." "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
+assert_not_contains "**MANDATORY:** context-mode is active in this environment." "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
+assert_not_contains "Talk like my-caveman-fork" "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
 
 echo "test-init-stack-snapshot.sh: ok"

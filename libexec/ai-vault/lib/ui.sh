@@ -104,6 +104,10 @@ ai_vault_print_install_panel() {
         printf '  %s Vault storage path\n' "$(ai_vault_accent '•')"
         printf '  %s Default adapters\n' "$(ai_vault_accent '•')"
         printf '  %s Optional RTK instructions\n' "$(ai_vault_accent '•')"
+        printf '  %s Optional Caveman instructions\n' "$(ai_vault_accent '•')"
+        printf '  %s Optional Superpowers instructions\n' "$(ai_vault_accent '•')"
+        printf '  %s Optional Context Mode instructions\n' "$(ai_vault_accent '•')"
+        printf '  %s Optional Superpowers docs usage\n' "$(ai_vault_accent '•')"
         return
     fi
 
@@ -112,6 +116,10 @@ ai_vault_print_install_panel() {
     printf '%s\n' "$(ai_vault_accent '│ › Vault storage path                                        │')"
     printf '%s\n' "$(ai_vault_accent '│ › Default adapters                                          │')"
     printf '%s\n' "$(ai_vault_accent '│ › Optional RTK instructions                                 │')"
+    printf '%s\n' "$(ai_vault_accent '│ › Optional Caveman instructions                             │')"
+    printf '%s\n' "$(ai_vault_accent '│ › Optional Superpowers instructions                         │')"
+    printf '%s\n' "$(ai_vault_accent '│ › Optional Context Mode instructions                        │')"
+    printf '%s\n' "$(ai_vault_accent '│ › Optional Superpowers docs usage                           │')"
     printf '%s\n' "$(ai_vault_accent '└──────────────────────────────────────────────────────────────┘')"
 }
 
