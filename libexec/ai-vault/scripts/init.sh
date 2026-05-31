@@ -21,6 +21,19 @@ fi
 
 ai_vault_load_config
 
+CONFIG_FILE_PATH="$(ai_vault_config_file)"
+MISSING_CONFIG_FIELDS=()
+for _field in caveman_instructions superpowers_instructions context_mode_instructions use_superpowers_docs; do
+    if ! grep -qE "\"$_field\"[[:space:]]*:" "$CONFIG_FILE_PATH"; then
+        MISSING_CONFIG_FIELDS+=("$_field")
+    fi
+done
+if (( ${#MISSING_CONFIG_FIELDS[@]} > 0 )); then
+    ai_vault_warning "Config schema outdated. Missing fields: $(IFS=', '; printf '%s' "${MISSING_CONFIG_FIELDS[*]}")"
+    ai_vault_warning "Run 'ai-vault install' to enable new plugin toggles."
+fi
+unset _field
+
 PROJECT_ROOT="$(vault_resolve_project_root "$PWD")"
 IDENTITY_ROOT="$(vault_resolve_identity_root "$PROJECT_ROOT")"
 IDENTITY_HASH="$(vault_resolve_identity_hash "$PROJECT_ROOT")"

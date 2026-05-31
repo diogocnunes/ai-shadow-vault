@@ -264,4 +264,32 @@ assert_contains "**MANDATORY:** @use superpowers. Activate the subagents and ski
 assert_not_contains "**MANDATORY:** context-mode is active in this environment." "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
 assert_not_contains "Talk like my-caveman-fork" "$CLAUDE_NS_PROJECT_DIR/CLAUDE.md"
 
+STALE_HOME_DIR="$WORK_DIR/home-stale"
+STALE_PROJECT_DIR="$WORK_DIR/project-stale"
+mkdir -p "$STALE_HOME_DIR/.config/ai-shadow-vault" "$STALE_PROJECT_DIR"
+cat >"$STALE_HOME_DIR/.config/ai-shadow-vault/config.json" <<JSON
+{
+  "vault_base_path": "$STALE_HOME_DIR/.ai-shadow-vault-data",
+  "default_adapters": ["CLAUDE.md", "AGENTS.md", "GEMINI.md"],
+  "extras": {
+    "rtk_instructions": false
+  }
+}
+JSON
+cat >"$STALE_PROJECT_DIR/composer.json" <<'JSON'
+{ "require": { "php": "^8.4" } }
+JSON
+cd "$STALE_PROJECT_DIR"
+git init >/dev/null 2>&1
+STALE_OUTPUT="$(HOME="$STALE_HOME_DIR" "$ROOT_DIR/bin/ai-vault" init 2>&1)"
+if ! grep -q "Config schema outdated" <<<"$STALE_OUTPUT"; then
+    echo "Expected 'Config schema outdated' warning in init output" >&2
+    echo "Got: $STALE_OUTPUT" >&2
+    exit 1
+fi
+if ! grep -q "Run 'ai-vault install'" <<<"$STALE_OUTPUT"; then
+    echo "Expected 'Run ai-vault install' hint in init output" >&2
+    exit 1
+fi
+
 echo "test-init-stack-snapshot.sh: ok"
