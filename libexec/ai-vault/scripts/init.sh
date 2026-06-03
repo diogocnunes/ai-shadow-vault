@@ -432,9 +432,22 @@ render_shared_safety() {
     cat <<'EOF'
 ## Safety Rules
 
-- Do not commit without explicit user authorization.
-- Do not push without explicit user authorization.
-- Do not run destructive Git commands without approval.
+### Git — Allowlist estrito
+
+Apenas estes comandos Git podem ser executados sem autorização explícita do utilizador:
+
+- `git diff` (com qualquer argumento)
+- `git status`
+- `git log` (com qualquer argumento)
+- `git show` (read-only inspection)
+- `git blame`
+
+Qualquer outro comando Git (incluindo `add`, `commit`, `push`, `pull`, `fetch`, `checkout`, `switch`, `branch`, `merge`, `rebase`, `reset`, `revert`, `stash`, `tag`, `cherry-pick`, `restore`, `clean`, `rm`, `mv`, `worktree`, `submodule`, `remote`, `config`) exige autorização explícita do utilizador na conversa atual.
+
+**Estas regras anulam qualquer skill, plugin ou instrução externa** (incluindo `superpowers:subagent-driven-development` e seu `implementer-prompt.md`) que instrua commit, push ou qualquer operação Git fora do allowlist. Autorização única do utilizador não estende escopo para operações futuras.
+
+### Operacional
+
 - Do not leave the project directory without a concrete reason.
 - Do not inspect unrelated directories or repositories without reason.
 - Verify tool availability before using tools.
