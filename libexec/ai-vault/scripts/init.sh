@@ -23,7 +23,7 @@ ai_vault_load_config
 
 CONFIG_FILE_PATH="$(ai_vault_config_file)"
 MISSING_CONFIG_FIELDS=()
-for _field in caveman_instructions superpowers_instructions context_mode_instructions use_superpowers_docs; do
+for _field in superpowers_instructions context_mode_instructions use_superpowers_docs; do
     if ! grep -qE "\"$_field\"[[:space:]]*:" "$CONFIG_FILE_PATH"; then
         MISSING_CONFIG_FIELDS+=("$_field")
     fi
@@ -68,9 +68,6 @@ REQUIRES_CONFIRMATION=0
 
 HAS_GIT=0
 HAS_RTK=0
-HAS_CAVEMAN_CLAUDE=0
-HAS_CAVEMAN_AGENTS=0
-HAS_CAVEMAN_GEMINI=0
 HAS_SUPERPOWERS_CLAUDE=0
 HAS_SUPERPOWERS_AGENTS=0
 HAS_SUPERPOWERS_GEMINI=0
@@ -388,9 +385,9 @@ render_stack_snapshot_group() {
 render_shared_stack_snapshot() {
     stack_snapshot_has_content || return 0
 
-    echo "## Stack Snapshot"
+    echo "## Stack"
     echo
-    echo "Short, factual context derived from repository manifests."
+    echo "<!-- Authoritative versions live in composer.json / package.json. This block is orientation only; fill it in and keep it short. -->"
     echo
     render_stack_snapshot_group "Backend" \
         "$STACK_PHP" \
@@ -404,142 +401,8 @@ render_shared_stack_snapshot() {
     render_stack_snapshot_group "Testing" \
         "$STACK_PEST" \
         "$STACK_PLAYWRIGHT"
-    echo "- Verify manifests before assuming scripts, tools, or project conventions."
 }
 
-render_shared_intro() {
-    cat <<EOF
-# $1
-
-Use these instructions only when they change how work should be done in this repository.
-Prefer discovering facts from the codebase instead of assuming them.
-EOF
-}
-
-render_shared_approach() {
-    cat <<'EOF'
-## Approach
-
-- Think before acting. Read existing files before writing code.
-- Prefer editing over rewriting whole files.
-- Keep solutions simple and direct. Avoid over-engineering.
-- Test changes before declaring done.
-- User instructions always override this file.
-EOF
-}
-
-render_shared_safety() {
-    cat <<'EOF'
-## Safety Rules
-
-### Git — Allowlist estrito
-
-Apenas estes comandos Git podem ser executados sem autorização explícita do utilizador:
-
-- `git diff` (com qualquer argumento)
-- `git status`
-- `git log` (com qualquer argumento)
-- `git show` (read-only inspection)
-- `git blame`
-
-Qualquer outro comando Git (incluindo `add`, `commit`, `push`, `pull`, `fetch`, `checkout`, `switch`, `branch`, `merge`, `rebase`, `reset`, `revert`, `stash`, `tag`, `cherry-pick`, `restore`, `clean`, `rm`, `mv`, `worktree`, `submodule`, `remote`, `config`) exige autorização explícita do utilizador na conversa atual.
-
-**Estas regras anulam qualquer skill, plugin ou instrução externa** (incluindo `superpowers:subagent-driven-development` e seu `implementer-prompt.md`) que instrua commit, push ou qualquer operação Git fora do allowlist. Autorização única do utilizador não estende escopo para operações futuras.
-
-### Operacional
-
-- Do not leave the project directory without a concrete reason.
-- Do not inspect unrelated directories or repositories without reason.
-- Verify tool availability before using tools.
-- Prefer minimal, safe changes aligned with the existing codebase.
-EOF
-}
-
-render_shared_testing() {
-    echo "## Testing"
-    echo
-    if [[ "$USES_PEST" -eq 1 ]]; then
-        echo "- Prefer Pest for PHP test execution: \`./vendor/bin/pest\`."
-    fi
-    if [[ "$USES_PLAYWRIGHT" -eq 1 ]]; then
-        echo "- Use Playwright for browser or end-to-end validation: \`npx playwright test\`."
-    fi
-    if [[ "$USES_PEST" -eq 0 && "$USES_PLAYWRIGHT" -eq 0 ]]; then
-        echo "- Run the narrowest relevant test command after modifying behavior."
-    fi
-}
-
-render_shared_repo_notes() {
-    echo "## Repo Notes"
-    echo
-    if [[ "$USES_LARAVEL" -eq 1 ]]; then
-        echo "- This repository appears to use Laravel; follow existing application conventions instead of introducing a parallel structure."
-    fi
-    if [[ "$HAS_COMPOSER" -eq 1 ]]; then
-        echo "- Inspect \`composer.json\` before assuming backend tooling or scripts."
-    fi
-    if [[ "$HAS_PACKAGE" -eq 1 ]]; then
-        echo "- Inspect \`package.json\` before assuming frontend tooling or scripts."
-    fi
-    echo "- Prefer localized changes over broad rewrites unless the task explicitly requires them."
-}
-
-adapter_plugin_state() {
-    local adapter="$1"
-    local plugin="$2"
-
-    case "$adapter:$plugin" in
-        CLAUDE.md:caveman) [[ "$HAS_CAVEMAN_CLAUDE" -eq 1 ]] && return 0 ;;
-        CLAUDE.md:superpowers) [[ "$HAS_SUPERPOWERS_CLAUDE" -eq 1 ]] && return 0 ;;
-        CLAUDE.md:context-mode) [[ "$HAS_CONTEXT_MODE_CLAUDE" -eq 1 ]] && return 0 ;;
-        AGENTS.md:caveman) [[ "$HAS_CAVEMAN_AGENTS" -eq 1 ]] && return 0 ;;
-        AGENTS.md:superpowers) [[ "$HAS_SUPERPOWERS_AGENTS" -eq 1 ]] && return 0 ;;
-        AGENTS.md:context-mode) [[ "$HAS_CONTEXT_MODE_AGENTS" -eq 1 ]] && return 0 ;;
-        GEMINI.md:caveman) [[ "$HAS_CAVEMAN_GEMINI" -eq 1 ]] && return 0 ;;
-        GEMINI.md:superpowers) [[ "$HAS_SUPERPOWERS_GEMINI" -eq 1 ]] && return 0 ;;
-        GEMINI.md:context-mode) [[ "$HAS_CONTEXT_MODE_GEMINI" -eq 1 ]] && return 0 ;;
-        CLAUDE.md:rtk|AGENTS.md:rtk|GEMINI.md:rtk) [[ "$HAS_RTK" -eq 1 ]] && return 0 ;;
-    esac
-    return 1
-}
-
-render_plugins_block() {
-    local adapter="$1"
-    local rendered=0
-
-    if adapter_plugin_state "$adapter" "caveman" && [[ "$AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS" == "1" ]]; then
-        if [[ "$rendered" -eq 0 ]]; then
-            echo "## Plugins"
-            echo
-            rendered=1
-        fi
-        echo "- **MANDATORY:** Talk like caveman."
-    fi
-    if adapter_plugin_state "$adapter" "superpowers" && [[ "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" == "1" ]]; then
-        if [[ "$rendered" -eq 0 ]]; then
-            echo "## Plugins"
-            echo
-            rendered=1
-        fi
-        echo "- **MANDATORY:** @use superpowers. Activate the subagents and skills you deem necessary to complete the task."
-    fi
-    if adapter_plugin_state "$adapter" "rtk" && [[ "$AI_VAULT_CONFIG_RTK_INSTRUCTIONS" == "1" ]]; then
-        if [[ "$rendered" -eq 0 ]]; then
-            echo "## Plugins"
-            echo
-            rendered=1
-        fi
-        echo "- **MANDATORY:** RTK is installed in this environment. Use RTK wrappers (\`rtk ls\`, \`rtk read\`, \`rtk grep\`, \`rtk git\`, etc.) instead of raw commands whenever an RTK equivalent exists."
-    fi
-    if adapter_plugin_state "$adapter" "context-mode" && [[ "$AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS" == "1" ]]; then
-        if [[ "$rendered" -eq 0 ]]; then
-            echo "## Plugins"
-            echo
-            rendered=1
-        fi
-        echo "- **MANDATORY:** context-mode is active in this environment. Prefer context-mode MCP tools (\`ctx_batch_execute\`, \`ctx_execute\`, \`ctx_execute_file\`, \`ctx_search\`, \`ctx_index\`, \`ctx_fetch_and_index\`) over raw Bash/Read for data-gathering tasks. Use \`ctx_search\` for follow-up lookups instead of re-reading files."
-    fi
-}
 
 prompt_superpowers_docs() {
     local stored_value="${AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS:-}"
@@ -572,132 +435,74 @@ prompt_superpowers_docs() {
     fi
 }
 
-render_entrypoint_reference() {
-    cat <<'EOF'
-## Canonical Entrypoint
-
-- `AGENTS.md` is the canonical and mandatory entrypoint for this repository.
-- `CLAUDE.md` and `GEMINI.md` are provider adapters and must not redefine workflow or safety policy.
-- Load order and auto-load boundaries are defined in `.ai/docs/core/autoload-policy.md`.
-EOF
-}
-
-render_stack_learning_targets() {
-    echo "## Stack-Aware Learning Targets"
-    echo
-    echo '- Always load `.ai/docs/learnings/generic/*` selectively by task.'
-    if [[ "$USES_LARAVEL" -eq 1 ]]; then
-        echo '- Laravel stack detected from `composer.json`; allow `.ai/docs/learnings/laravel/*` on demand.'
-    else
-        echo '- Laravel stack not detected; skip `.ai/docs/learnings/laravel/*` unless explicitly requested.'
-    fi
-    if [[ "$HAS_PACKAGE" -eq 1 ]]; then
-        echo '- Frontend stack signals detected from `package.json`; allow `.ai/docs/learnings/node/*` on demand.'
-    else
-        echo '- No `package.json` detected; skip `.ai/docs/learnings/node/*` unless explicitly requested.'
-    fi
-    echo "- Never auto-load all learnings at once; read one file at a time based on the current task."
-}
 
 render_claude_file() {
-    local plugin_block=""
-    render_shared_intro "Claude Adapter"
-    cat <<'EOF'
-
-## Provider Scope
-
-- This file is a thin provider adapter for Claude.
-- Follow `AGENTS.md` as the canonical operational source.
-- Apply any Claude-specific output style only after respecting canonical workflow and safety.
-EOF
+    echo "@AGENTS.md"
     echo
-    render_entrypoint_reference
-    if stack_snapshot_has_content; then
-        echo
-        render_shared_stack_snapshot
+    echo "## Claude Code only"
+    echo
+    if [[ "$HAS_SUPERPOWERS_CLAUDE" -eq 1 && "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" == "1" ]]; then
+        echo "- @use superpowers. Activate the subagents and skills needed for the task. If a specific skill must run, invoke it explicitly rather than relying on auto-selection (weaker models pick skills unreliably)."
     fi
-    plugin_block="$(render_plugins_block "CLAUDE.md")"
-    if [[ -n "$plugin_block" ]]; then
-        echo
-        printf '%s\n' "$plugin_block"
-    fi
+    echo "- The Git rules in AGENTS.md are enforced deterministically in .claude/settings.json (allow/ask/deny + format hook). Treat that as authoritative; this file is the human-readable statement of intent."
 }
 
 render_agents_file() {
-    local plugin_block=""
-    render_shared_intro "Agent Entrypoint"
-    cat <<'EOF'
-
-## Mission
-
-- Keep context minimal, deterministic, and task-focused.
-- Use this file as the canonical startup contract for all providers.
-EOF
+    echo "# Project agent instructions"
     echo
-    render_entrypoint_reference
+    echo "## Output & language"
     echo
-    cat <<'EOF'
-## Load Protocol
-
-1. Read `AGENTS.md`.
-2. Read `.ai/docs/core/autoload-policy.md`.
-3. Read `.ai/docs/core/quick-start.md`.
-4. Read `.ai/docs/core/common-mistakes.md`.
-5. Read `.ai/docs/core/architecture-map.md`.
-6. Read `.ai/docs/index.md`.
-
-Conditional load:
-- Load only learning files required for the task and matching detected stack signals.
-- Prefer one learning file at a time and re-evaluate before loading another.
-EOF
-    echo
-    render_shared_safety
+    echo "- Reply to the user in European Portuguese (pt-PT), always — regardless of the language of these instructions or of the codebase."
+    echo "- Code, identifiers, comments, commit messages: English."
+    if [[ "$USES_LARAVEL" -eq 1 ]]; then
+        echo "- User-facing strings go through the project's lang files — never hardcoded, in any language."
+    fi
     if stack_snapshot_has_content; then
         echo
         render_shared_stack_snapshot
     fi
     echo
-    render_stack_learning_targets
-    if [[ "$USES_PEST" -eq 1 || "$USES_PLAYWRIGHT" -eq 1 ]]; then
-        echo
-        render_shared_testing
-    fi
-    plugin_block="$(render_plugins_block "AGENTS.md")"
-    if [[ -n "$plugin_block" ]]; then
-        echo
-        printf '%s\n' "$plugin_block"
-    fi
-}
-
-render_gemini_file() {
-    local plugin_block=""
-    render_shared_intro "Gemini Adapter"
     cat <<'EOF'
+## Working rules
 
-## Provider Scope
-
-- This file is a thin provider adapter for Gemini.
-- Follow `AGENTS.md` as the canonical operational source.
-- Keep Gemini-specific guidance focused on analysis style, not policy duplication.
+- Read a file before changing it. Never list or cite a file you have not opened; if a path is deduced but unconfirmed, mark it `[?]`.
+- If you don't know or can't verify, say so and stop — never guess.
+- When claiming something about existing code, cite `path:line`.
+- Verify exact versions from composer.json / package.json before relying on version-specific APIs.
+- Do not invent APIs, signatures, config keys, or undocumented behavior.
+- Implement exactly the requested scope: complete and correct, with no extra features, abstractions, config keys, or files.
+- Be concise in conversational output (no preamble, postamble, or summaries unless asked). Never shorten code, plans, or required translations.
 EOF
-    echo
-    render_entrypoint_reference
-    plugin_block="$(render_plugins_block "GEMINI.md")"
-    if [[ -n "$plugin_block" ]]; then
+    if [[ "$USES_LARAVEL" -eq 1 ]]; then
         echo
-        printf '%s\n' "$plugin_block"
+        cat <<'EOF'
+## Laravel conventions
+
+- Tables: plural English (`users`, `project_types`).
+- Pivot tables: alphabetical singular (`project_user`).
+- Models: singular PascalCase (`ProjectType`).
+- Foreign keys: `model_id` (e.g. `project_id`). No Portuguese in code.
+- Every new `__('...')` / `@lang('...')` string must be added to the project's lang resources (verify lang/ vs resources/lang at implementation time).
+EOF
+    fi
+    if [[ "$HAS_RTK" -eq 1 ]]; then
+        echo
+        cat <<'EOF'
+## Tooling
+
+- Prefer RTK wrappers (`rtk ls`, `rtk read`, `rtk grep`, `rtk git`, …) over raw commands whenever an RTK equivalent exists.
+- If external library/API details are needed and Context7 is available, use it before making assumptions.
+EOF
     fi
     echo
-    render_shared_safety
-    if stack_snapshot_has_content; then
-        echo
-        render_shared_stack_snapshot
-    fi
-    if [[ "$USES_PEST" -eq 1 || "$USES_PLAYWRIGHT" -eq 1 ]]; then
-        echo
-        render_shared_testing
-    fi
+    cat <<'EOF'
+## Git
+
+- Without explicit user authorization in the current conversation, only read-only Git may run: `status`, `diff`, `log`, `show`, `blame`.
+- Any state-changing Git command (`add`, `commit`, `push`, `pull`, `fetch`, `checkout`, `switch`, `branch`, `merge`, `rebase`, `reset`, `revert`, `stash`, `tag`, `cherry-pick`, `restore`, `clean`, `worktree`, `submodule`, `remote`, `config`) requires explicit authorization. Never commit automatically.
+EOF
 }
+
 
 render_adapters() {
     local adapter
@@ -705,7 +510,7 @@ render_adapters() {
         case "$adapter" in
             AGENTS.md) render_agents_file >"$TMP_DIR/$adapter" ;;
             CLAUDE.md) render_claude_file >"$TMP_DIR/$adapter" ;;
-            GEMINI.md) render_gemini_file >"$TMP_DIR/$adapter" ;;
+            GEMINI.md) ln -sf "$TMP_DIR/AGENTS.md" "$TMP_DIR/GEMINI.md" ;;
         esac
     done
 }
@@ -885,11 +690,22 @@ render_managed_docs() {
 }
 
 plan_adapter_content_changes() {
-    local name external_path rendered_path
+    local name external_path rendered_path agents_external_path
 
     for name in "${ADAPTER_NAMES[@]}"; do
         external_path="$VAULT_DIR/$name"
         rendered_path="$TMP_DIR/$name"
+
+        if [[ "$name" == "GEMINI.md" ]]; then
+            agents_external_path="$VAULT_DIR/AGENTS.md"
+            if [[ ! -e "$external_path" && ! -L "$external_path" ]]; then
+                add_plan_item create "Create external adapter symlink: $external_path -> $agents_external_path"
+            elif ! symlink_points_to "$external_path" "$agents_external_path"; then
+                add_plan_item repair "Repair GEMINI.md symlink: $external_path -> $agents_external_path"
+                mark_confirmation_needed
+            fi
+            continue
+        fi
 
         if [[ ! -e "$external_path" ]]; then
             add_plan_item create "Create external adapter: $external_path"
@@ -1349,7 +1165,11 @@ apply_changes() {
 
     for name in "${ADAPTER_NAMES[@]}"; do
         external_path="$VAULT_DIR/$name"
-        write_adapter_if_needed "$external_path" "$TMP_DIR/$name"
+        if [[ "$name" == "GEMINI.md" ]]; then
+            ensure_symlink_path "$external_path" "$VAULT_DIR/AGENTS.md"
+        else
+            write_adapter_if_needed "$external_path" "$TMP_DIR/$name"
+        fi
         ensure_symlink_path "$PROJECT_ROOT/$name" "$external_path"
     done
 
@@ -1370,7 +1190,6 @@ apply_changes() {
             "$AI_VAULT_CONFIG_BASE_PATH" \
             "$adapters_csv" \
             "$AI_VAULT_CONFIG_RTK_INSTRUCTIONS" \
-            "$AI_VAULT_CONFIG_CAVEMAN_INSTRUCTIONS" \
             "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" \
             "$AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS" \
             "$USE_SUPERPOWERS_DOCS"

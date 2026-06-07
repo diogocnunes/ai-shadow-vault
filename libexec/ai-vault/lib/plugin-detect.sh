@@ -3,7 +3,6 @@
 detect_plugins_from_names() {
     local names="$1"
     local prefix="$2"
-    local has_caveman=0
     local has_superpowers=0
     local has_context_mode=0
     local line normalized
@@ -11,12 +10,10 @@ detect_plugins_from_names() {
     while IFS= read -r line; do
         [[ -n "$line" ]] || continue
         normalized="$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')"
-        [[ "$normalized" == "caveman" || "$normalized" == *":caveman" ]] && has_caveman=1
         [[ "$normalized" == "superpowers" || "$normalized" == *":superpowers" ]] && has_superpowers=1
         [[ "$normalized" == "context-mode" || "$normalized" == *":context-mode" || "$normalized" == "context_mode" || "$normalized" == *":context_mode" ]] && has_context_mode=1
     done < <(printf '%s\n' "$names")
 
-    printf '%s_HAS_CAVEMAN=%s\n' "$prefix" "$has_caveman"
     printf '%s_HAS_SUPERPOWERS=%s\n' "$prefix" "$has_superpowers"
     printf '%s_HAS_CONTEXT_MODE=%s\n' "$prefix" "$has_context_mode"
 }
@@ -26,7 +23,7 @@ detect_claude_plugins() {
     local py names
 
     [[ -f "$plugins_file" ]] || {
-        printf 'CLAUDE_HAS_CAVEMAN=0\nCLAUDE_HAS_SUPERPOWERS=0\nCLAUDE_HAS_CONTEXT_MODE=0\n'
+        printf 'CLAUDE_HAS_SUPERPOWERS=0\nCLAUDE_HAS_CONTEXT_MODE=0\n'
         return
     }
 
@@ -106,7 +103,7 @@ detect_opencode_plugins() {
     local py names
 
     [[ -f "$config_file" ]] || {
-        printf 'OPENCODE_HAS_CAVEMAN=0\nOPENCODE_HAS_SUPERPOWERS=0\nOPENCODE_HAS_CONTEXT_MODE=0\n'
+        printf 'OPENCODE_HAS_SUPERPOWERS=0\nOPENCODE_HAS_CONTEXT_MODE=0\n'
         return
     }
 
@@ -196,53 +193,48 @@ PY
 _parse_detected_plugins() {
     local prefix="$1"
     local output="$2"
-    local has_caveman=0 has_superpowers=0 has_context_mode=0
+    local has_superpowers=0 has_context_mode=0
     local key value
 
     while IFS='=' read -r key value; do
         [[ -z "$key" ]] && continue
         case "$key" in
-            "${prefix}_HAS_CAVEMAN") has_caveman="$value" ;;
             "${prefix}_HAS_SUPERPOWERS") has_superpowers="$value" ;;
             "${prefix}_HAS_CONTEXT_MODE") has_context_mode="$value" ;;
         esac
     done <<< "$output"
 
-    printf '%s %s %s\n' "$has_caveman" "$has_superpowers" "$has_context_mode"
+    printf '%s %s\n' "$has_superpowers" "$has_context_mode"
 }
 
 detect_plugins_for_adapter() {
     local adapter_name="$1"
-    local out has_caveman has_superpowers has_context_mode
+    local out has_superpowers has_context_mode
 
     case "$adapter_name" in
         CLAUDE.md)
             out="$(detect_claude_plugins)"
-            read -r has_caveman has_superpowers has_context_mode <<< "$(_parse_detected_plugins "CLAUDE" "$out")"
-            HAS_CAVEMAN_CLAUDE="${has_caveman:-0}"
+            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "CLAUDE" "$out")"
             HAS_SUPERPOWERS_CLAUDE="${has_superpowers:-0}"
             HAS_CONTEXT_MODE_CLAUDE="${has_context_mode:-0}"
             true
             ;;
         AGENTS.md)
             out="$(detect_codex_plugins)"
-            read -r has_caveman has_superpowers has_context_mode <<< "$(_parse_detected_plugins "CODEX" "$out")"
-            local codex_caveman="${has_caveman:-0}" codex_superpowers="${has_superpowers:-0}" codex_context_mode="${has_context_mode:-0}"
+            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "CODEX" "$out")"
+            local codex_superpowers="${has_superpowers:-0}" codex_context_mode="${has_context_mode:-0}"
 
             out="$(detect_opencode_plugins)"
-            read -r has_caveman has_superpowers has_context_mode <<< "$(_parse_detected_plugins "OPENCODE" "$out")"
-            HAS_CAVEMAN_AGENTS=0
+            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "OPENCODE" "$out")"
             HAS_SUPERPOWERS_AGENTS=0
             HAS_CONTEXT_MODE_AGENTS=0
-            [[ "$codex_caveman" -eq 1 || "${has_caveman:-0}" -eq 1 ]] && HAS_CAVEMAN_AGENTS=1
             [[ "$codex_superpowers" -eq 1 || "${has_superpowers:-0}" -eq 1 ]] && HAS_SUPERPOWERS_AGENTS=1
             [[ "$codex_context_mode" -eq 1 || "${has_context_mode:-0}" -eq 1 ]] && HAS_CONTEXT_MODE_AGENTS=1
             true
             ;;
         GEMINI.md)
             out="$(detect_gemini_plugins)"
-            read -r has_caveman has_superpowers has_context_mode <<< "$(_parse_detected_plugins "GEMINI" "$out")"
-            HAS_CAVEMAN_GEMINI="${has_caveman:-0}"
+            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "GEMINI" "$out")"
             HAS_SUPERPOWERS_GEMINI="${has_superpowers:-0}"
             HAS_CONTEXT_MODE_GEMINI="${has_context_mode:-0}"
             true
