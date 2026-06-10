@@ -5,6 +5,7 @@ detect_plugins_from_names() {
     local prefix="$2"
     local has_superpowers=0
     local has_context_mode=0
+    local has_adhd=0
     local line normalized
 
     while IFS= read -r line; do
@@ -12,10 +13,12 @@ detect_plugins_from_names() {
         normalized="$(printf '%s' "$line" | tr '[:upper:]' '[:lower:]')"
         [[ "$normalized" == "superpowers" || "$normalized" == *":superpowers" ]] && has_superpowers=1
         [[ "$normalized" == "context-mode" || "$normalized" == *":context-mode" || "$normalized" == "context_mode" || "$normalized" == *":context_mode" ]] && has_context_mode=1
+        [[ "$normalized" == "i-have-adhd" || "$normalized" == *":i-have-adhd" ]] && has_adhd=1
     done < <(printf '%s\n' "$names")
 
     printf '%s_HAS_SUPERPOWERS=%s\n' "$prefix" "$has_superpowers"
     printf '%s_HAS_CONTEXT_MODE=%s\n' "$prefix" "$has_context_mode"
+    printf '%s_HAS_ADHD=%s\n' "$prefix" "$has_adhd"
 }
 
 detect_claude_plugins() {
@@ -193,7 +196,7 @@ PY
 _parse_detected_plugins() {
     local prefix="$1"
     local output="$2"
-    local has_superpowers=0 has_context_mode=0
+    local has_superpowers=0 has_context_mode=0 has_adhd=0
     local key value
 
     while IFS='=' read -r key value; do
@@ -201,42 +204,46 @@ _parse_detected_plugins() {
         case "$key" in
             "${prefix}_HAS_SUPERPOWERS") has_superpowers="$value" ;;
             "${prefix}_HAS_CONTEXT_MODE") has_context_mode="$value" ;;
+            "${prefix}_HAS_ADHD") has_adhd="$value" ;;
         esac
     done <<< "$output"
 
-    printf '%s %s\n' "$has_superpowers" "$has_context_mode"
+    printf '%s %s %s\n' "$has_superpowers" "$has_context_mode" "$has_adhd"
 }
 
 detect_plugins_for_adapter() {
     local adapter_name="$1"
-    local out has_superpowers has_context_mode
+    local out has_superpowers has_context_mode has_adhd
 
     case "$adapter_name" in
         CLAUDE.md)
             out="$(detect_claude_plugins)"
-            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "CLAUDE" "$out")"
+            read -r has_superpowers has_context_mode has_adhd <<< "$(_parse_detected_plugins "CLAUDE" "$out")"
             HAS_SUPERPOWERS_CLAUDE="${has_superpowers:-0}"
             HAS_CONTEXT_MODE_CLAUDE="${has_context_mode:-0}"
+            HAS_ADHD_CLAUDE="${has_adhd:-0}"
             true
             ;;
         AGENTS.md)
             out="$(detect_codex_plugins)"
-            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "CODEX" "$out")"
+            read -r has_superpowers has_context_mode has_adhd <<< "$(_parse_detected_plugins "CODEX" "$out")"
             local codex_superpowers="${has_superpowers:-0}" codex_context_mode="${has_context_mode:-0}"
 
             out="$(detect_opencode_plugins)"
-            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "OPENCODE" "$out")"
+            read -r has_superpowers has_context_mode has_adhd <<< "$(_parse_detected_plugins "OPENCODE" "$out")"
             HAS_SUPERPOWERS_AGENTS=0
             HAS_CONTEXT_MODE_AGENTS=0
+            HAS_ADHD_AGENTS=0
             [[ "$codex_superpowers" -eq 1 || "${has_superpowers:-0}" -eq 1 ]] && HAS_SUPERPOWERS_AGENTS=1
             [[ "$codex_context_mode" -eq 1 || "${has_context_mode:-0}" -eq 1 ]] && HAS_CONTEXT_MODE_AGENTS=1
             true
             ;;
         GEMINI.md)
             out="$(detect_gemini_plugins)"
-            read -r has_superpowers has_context_mode <<< "$(_parse_detected_plugins "GEMINI" "$out")"
+            read -r has_superpowers has_context_mode has_adhd <<< "$(_parse_detected_plugins "GEMINI" "$out")"
             HAS_SUPERPOWERS_GEMINI="${has_superpowers:-0}"
             HAS_CONTEXT_MODE_GEMINI="${has_context_mode:-0}"
+            HAS_ADHD_GEMINI=0
             true
             ;;
     esac

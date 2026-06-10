@@ -15,6 +15,7 @@ CURRENT_RTK_ENABLED=0
 CURRENT_SUPERPOWERS_ENABLED=0
 CURRENT_CONTEXT_MODE_ENABLED=0
 CURRENT_USE_SUPERPOWERS_DOCS=0
+CURRENT_ADHD_ENABLED=0
 CURRENT_ADAPTERS=$'CLAUDE.md\nAGENTS.md\nGEMINI.md'
 
 if command -v rtk >/dev/null 2>&1; then
@@ -35,6 +36,7 @@ if ai_vault_config_exists; then
     CURRENT_SUPERPOWERS_ENABLED="${AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS:-0}"
     CURRENT_CONTEXT_MODE_ENABLED="${AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS:-0}"
     CURRENT_USE_SUPERPOWERS_DOCS="${AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS:-0}"
+    CURRENT_ADHD_ENABLED="${AI_VAULT_CONFIG_ADHD_INSTRUCTIONS:-0}"
     CURRENT_ADAPTERS="$AI_VAULT_CONFIG_ADAPTERS"
 fi
 
@@ -125,16 +127,23 @@ HAS_SUPERPOWERS_GEMINI=0
 HAS_CONTEXT_MODE_CLAUDE=0
 HAS_CONTEXT_MODE_AGENTS=0
 HAS_CONTEXT_MODE_GEMINI=0
+HAS_ADHD_CLAUDE=0
+HAS_ADHD_AGENTS=0
+HAS_ADHD_GEMINI=0
 HAS_SUPERPOWERS_ANY=0
 detect_all_plugins
 
 SUPERPOWERS_AVAILABLE=0
 CONTEXT_MODE_AVAILABLE=0
+ADHD_AVAILABLE=0
 if [[ "$HAS_SUPERPOWERS_CLAUDE" -eq 1 || "$HAS_SUPERPOWERS_AGENTS" -eq 1 || "$HAS_SUPERPOWERS_GEMINI" -eq 1 ]]; then
     SUPERPOWERS_AVAILABLE=1
 fi
 if [[ "$HAS_CONTEXT_MODE_CLAUDE" -eq 1 || "$HAS_CONTEXT_MODE_AGENTS" -eq 1 || "$HAS_CONTEXT_MODE_GEMINI" -eq 1 ]]; then
     CONTEXT_MODE_AVAILABLE=1
+fi
+if [[ "$HAS_ADHD_CLAUDE" -eq 1 ]]; then
+    ADHD_AVAILABLE=1
 fi
 RTK_ENABLED=0
 if [[ "$RTK_AVAILABLE" -eq 1 ]]; then
@@ -159,6 +168,14 @@ if [[ "$CONTEXT_MODE_AVAILABLE" -eq 1 ]]; then
     fi
 else
     ai_vault_warning "Context-mode plugin not detected in enabled adapters. Context-mode instructions will stay disabled."
+fi
+ADHD_ENABLED=0
+if [[ "$ADHD_AVAILABLE" -eq 1 ]]; then
+    if ai_vault_prompt_yes_no "Include i-have-adhd instructions when detected?" "$CURRENT_ADHD_ENABLED"; then
+        ADHD_ENABLED=1
+    fi
+else
+    ai_vault_warning "i-have-adhd plugin not detected in enabled adapters. i-have-adhd instructions will stay disabled."
 fi
 USE_SUPERPOWERS_DOCS=0
 if [[ "$SUPERPOWERS_ENABLED" -eq 1 ]]; then
@@ -188,6 +205,11 @@ if [[ "$CONTEXT_MODE_ENABLED" -eq 1 ]]; then
 else
     echo "  Context Mode instructions: disabled"
 fi
+if [[ "$ADHD_ENABLED" -eq 1 ]]; then
+    echo "  i-have-adhd instructions: enabled"
+else
+    echo "  i-have-adhd instructions: disabled"
+fi
 if [[ "$USE_SUPERPOWERS_DOCS" -eq 1 ]]; then
     echo "  Use Superpowers docs: enabled"
 else
@@ -200,7 +222,7 @@ if ! ai_vault_prompt_yes_no "Write global config?" 1; then
 fi
 
 adapters_csv="$(IFS=,; echo "${ADAPTERS[*]}")"
-ai_vault_write_config "$VAULT_BASE_PATH" "$adapters_csv" "$RTK_ENABLED" "$SUPERPOWERS_ENABLED" "$CONTEXT_MODE_ENABLED" "$USE_SUPERPOWERS_DOCS"
+ai_vault_write_config "$VAULT_BASE_PATH" "$adapters_csv" "$RTK_ENABLED" "$SUPERPOWERS_ENABLED" "$CONTEXT_MODE_ENABLED" "$USE_SUPERPOWERS_DOCS" "$ADHD_ENABLED"
 
 echo
 ai_vault_success "Setup complete"

@@ -81,6 +81,7 @@ for key in (
     "superpowers_instructions",
     "context_mode_instructions",
     "use_superpowers_docs",
+    "adhd_instructions",
 ):
     value = extras.get(key, False)
     if not isinstance(value, bool):
@@ -105,7 +106,7 @@ _ai_vault_parse_bool_key() {
 ai_vault_export_config_fallback() {
     local config_file="$1"
     local base adapters_csv
-    local rtk_enabled superpowers_enabled context_mode_enabled use_superpowers_docs
+    local rtk_enabled superpowers_enabled context_mode_enabled use_superpowers_docs adhd_enabled
 
     [[ -f "$config_file" ]] || {
         ai_vault_error "Missing config: $config_file"
@@ -148,6 +149,7 @@ ai_vault_export_config_fallback() {
     superpowers_enabled="$(_ai_vault_parse_bool_key "$config_file" "superpowers_instructions")"
     context_mode_enabled="$(_ai_vault_parse_bool_key "$config_file" "context_mode_instructions")"
     use_superpowers_docs="$(_ai_vault_parse_bool_key "$config_file" "use_superpowers_docs")"
+    adhd_enabled="$(_ai_vault_parse_bool_key "$config_file" "adhd_instructions")"
 
     if [[ -z "$base" || -z "$adapters_csv" ]]; then
         ai_vault_error "Invalid config: unable to parse $config_file without python3."
@@ -187,6 +189,14 @@ ai_vault_export_config_fallback() {
             return 1
             ;;
     esac
+    case "$adhd_enabled" in
+        true) adhd_enabled="1" ;;
+        false|"") adhd_enabled="0" ;;
+        *)
+            ai_vault_error "Invalid config: extras.adhd_instructions must be a boolean."
+            return 1
+            ;;
+    esac
 
     while IFS= read -r adapter; do
         case "$adapter" in
@@ -204,6 +214,7 @@ ai_vault_export_config_fallback() {
     printf 'AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS=%q\n' "$superpowers_enabled"
     printf 'AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS=%q\n' "$context_mode_enabled"
     printf 'AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS=%q\n' "$use_superpowers_docs"
+    printf 'AI_VAULT_CONFIG_ADHD_INSTRUCTIONS=%q\n' "$adhd_enabled"
 }
 
 ai_vault_write_config() {
@@ -213,6 +224,7 @@ ai_vault_write_config() {
     local superpowers_enabled="$4"
     local context_mode_enabled="$5"
     local use_superpowers_docs="$6"
+    local adhd_enabled="${7:-0}"
     local config_dir config_file py
 
     config_dir="$(ai_vault_config_dir)"
@@ -221,7 +233,7 @@ ai_vault_write_config() {
 
     mkdir -p "$config_dir"
 
-    BASE_PATH="$base_path" ADAPTERS_CSV="$adapters_csv" RTK_ENABLED="$rtk_enabled" SUPERPOWERS_ENABLED="$superpowers_enabled" CONTEXT_MODE_ENABLED="$context_mode_enabled" USE_SUPERPOWERS_DOCS="$use_superpowers_docs" CONFIG_FILE="$config_file" "$py" <<'PY'
+    BASE_PATH="$base_path" ADAPTERS_CSV="$adapters_csv" RTK_ENABLED="$rtk_enabled" SUPERPOWERS_ENABLED="$superpowers_enabled" CONTEXT_MODE_ENABLED="$context_mode_enabled" USE_SUPERPOWERS_DOCS="$use_superpowers_docs" ADHD_ENABLED="$adhd_enabled" CONFIG_FILE="$config_file" "$py" <<'PY'
 import json
 import os
 
@@ -234,6 +246,7 @@ payload = {
         "superpowers_instructions": os.environ["SUPERPOWERS_ENABLED"] == "1",
         "context_mode_instructions": os.environ["CONTEXT_MODE_ENABLED"] == "1",
         "use_superpowers_docs": os.environ["USE_SUPERPOWERS_DOCS"] == "1",
+        "adhd_instructions": os.environ["ADHD_ENABLED"] == "1",
     },
 }
 
@@ -269,6 +282,7 @@ rtk = "1" if extras.get("rtk_instructions", False) else "0"
 superpowers = "1" if extras.get("superpowers_instructions", False) else "0"
 context_mode = "1" if extras.get("context_mode_instructions", False) else "0"
 use_superpowers_docs = "1" if extras.get("use_superpowers_docs", False) else "0"
+adhd = "1" if extras.get("adhd_instructions", False) else "0"
 
 print(f"AI_VAULT_CONFIG_BASE_PATH={shlex.quote(base)}")
 print(f"AI_VAULT_CONFIG_ADAPTERS={shlex.quote(adapters)}")
@@ -276,6 +290,7 @@ print(f"AI_VAULT_CONFIG_RTK_INSTRUCTIONS={shlex.quote(rtk)}")
 print(f"AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS={shlex.quote(superpowers)}")
 print(f"AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS={shlex.quote(context_mode)}")
 print(f"AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS={shlex.quote(use_superpowers_docs)}")
+print(f"AI_VAULT_CONFIG_ADHD_INSTRUCTIONS={shlex.quote(adhd)}")
 PY
 }
 

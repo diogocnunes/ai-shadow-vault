@@ -23,7 +23,7 @@ ai_vault_load_config
 
 CONFIG_FILE_PATH="$(ai_vault_config_file)"
 MISSING_CONFIG_FIELDS=()
-for _field in superpowers_instructions context_mode_instructions use_superpowers_docs; do
+for _field in superpowers_instructions context_mode_instructions use_superpowers_docs adhd_instructions; do
     if ! grep -qE "\"$_field\"[[:space:]]*:" "$CONFIG_FILE_PATH"; then
         MISSING_CONFIG_FIELDS+=("$_field")
     fi
@@ -74,6 +74,9 @@ HAS_SUPERPOWERS_GEMINI=0
 HAS_CONTEXT_MODE_CLAUDE=0
 HAS_CONTEXT_MODE_AGENTS=0
 HAS_CONTEXT_MODE_GEMINI=0
+HAS_ADHD_CLAUDE=0
+HAS_ADHD_AGENTS=0
+HAS_ADHD_GEMINI=0
 HAS_SUPERPOWERS_ANY=0
 USE_SUPERPOWERS_DOCS=0
 DID_REVERSE_MIGRATION=0
@@ -443,6 +446,9 @@ render_claude_file() {
     echo
     if [[ "$HAS_SUPERPOWERS_CLAUDE" -eq 1 && "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" == "1" ]]; then
         echo "- @use superpowers. Activate the subagents and skills needed for the task. If a specific skill must run, invoke it explicitly rather than relying on auto-selection (weaker models pick skills unreliably)."
+    fi
+    if [[ "$HAS_ADHD_CLAUDE" -eq 1 && "$AI_VAULT_CONFIG_ADHD_INSTRUCTIONS" == "1" ]]; then
+        echo "- @use i-have-adhd. Shape every reply ADHD-friendly: lead with the next concrete action, number multi-step work, restate task state each turn, cap lists at five, no preamble or closers. Structure only — does not override the pt-PT output rule. Invoke the skill explicitly rather than relying on auto-selection."
     fi
     echo "- The Git rules in AGENTS.md are enforced deterministically in .claude/settings.json (allow/ask/deny + format hook). Treat that as authoritative; this file is the human-readable statement of intent."
 }
@@ -1192,7 +1198,8 @@ apply_changes() {
             "$AI_VAULT_CONFIG_RTK_INSTRUCTIONS" \
             "$AI_VAULT_CONFIG_SUPERPOWERS_INSTRUCTIONS" \
             "$AI_VAULT_CONFIG_CONTEXT_MODE_INSTRUCTIONS" \
-            "$USE_SUPERPOWERS_DOCS"
+            "$USE_SUPERPOWERS_DOCS" \
+            "$AI_VAULT_CONFIG_ADHD_INSTRUCTIONS"
         AI_VAULT_CONFIG_USE_SUPERPOWERS_DOCS="$USE_SUPERPOWERS_DOCS"
     fi
 

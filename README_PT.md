@@ -52,6 +52,9 @@ Na primeira execução, o AI Shadow Vault abre um setup curto e interativo onde 
 - caminho base do vault
 - adapters por defeito
 - toggle de instruções RTK
+- toggle de instruções superpowers (quando o plugin é detetado)
+- toggle de instruções context-mode (quando o plugin é detetado)
+- toggle de instruções i-have-adhd (quando o plugin é detetado)
 
 A config global fica em:
 
@@ -181,10 +184,17 @@ Factos do repositório que podem alterar o output:
 - Pest em `composer.json`
 - Playwright em `package.json`
 - RTK disponível via `command -v rtk`
+- plugin superpowers via `~/.claude/plugins/installed_plugins.json`
+- plugin context-mode via `~/.claude/plugins/installed_plugins.json`
+- plugin i-have-adhd via `~/.claude/plugins/installed_plugins.json`
 
 As instruções RTK só entram quando:
 - o RTK está disponível naquele ambiente
 - a config global tem RTK ativo
+
+As instruções superpowers, context-mode e i-have-adhd só entram quando:
+- o plugin respetivo é detetado no momento do `ai-vault init`
+- a config global tem o toggle correspondente ativo
 
 O output gerado pode incluir uma secção curta `Stack Snapshot` (quando detetável), derivada dos manifests do repositório.
 Mantém-se factual e leve, e serve para orientar a seleção on-demand de learnings por stack.
