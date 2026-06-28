@@ -450,7 +450,7 @@ render_claude_file() {
     if [[ "$HAS_ADHD_CLAUDE" -eq 1 && "$AI_VAULT_CONFIG_ADHD_INSTRUCTIONS" == "1" ]]; then
         echo "- @use i-have-adhd. Shape every reply ADHD-friendly: lead with the next concrete action, number multi-step work, restate task state each turn, cap lists at five, no preamble or closers. Structure only — does not override the pt-PT output rule. Invoke the skill explicitly rather than relying on auto-selection."
     fi
-    echo "- The Git rules in AGENTS.md are enforced deterministically in .claude/settings.json (allow/ask/deny + format hook). Treat that as authoritative; this file is the human-readable statement of intent."
+    echo "- The Git workflow in AGENTS.md is enforced deterministically where possible in ~/.claude/settings.json through permissions and a PreToolUse guard. The guard is authoritative for protected-branch pushes and commit-message checks; AGENTS.md remains authoritative for workflow decisions that require repository context."
 }
 
 render_agents_file() {
@@ -504,8 +504,28 @@ EOF
     cat <<'EOF'
 ## Git
 
-- Without explicit user authorization in the current conversation, only read-only Git may run: `status`, `diff`, `log`, `show`, `blame`.
-- Any state-changing Git command (`add`, `commit`, `push`, `pull`, `fetch`, `checkout`, `switch`, `branch`, `merge`, `rebase`, `reset`, `revert`, `stash`, `tag`, `cherry-pick`, `restore`, `clean`, `worktree`, `submodule`, `remote`, `config`) requires explicit authorization. Never commit automatically.
+### Branches and worktrees
+
+- Protected branches are `main`, `develop`, `stage`, `release/*`, and `hotfix/*`. Never push directly to them.
+- When starting on `main`, `develop`, or `stage`, create a sibling worktree from the current `HEAD` and work on a new branch named `<username>/task-<number>-<slug>`.
+- Create the branch and worktree atomically with `rtk git worktree add -b "<username>/task-<number>-<slug>" "../<repo>-task-<number>-<slug>" HEAD`.
+- Derive `<username>` from `git config gitlab.pdmfc.com.username`, lowercase it, transliterate it to ASCII, and remove every character outside `[a-z0-9]`. If the result is empty or `gitlab.pdmfc.com.username` is missing, stop, report the problem, and ask the user to configure it in `~/.gitconfig` for global scope or `<repo>/.git/config` for repository scope. Never edit either file automatically.
+- Use the task number from the plan. If none is provided, use `000`. Derive `<slug>` from the plan title as lowercase ASCII kebab-case.
+- On any other branch, including `release/*` and `hotfix/*`, keep the current branch. Because `release/*` and `hotfix/*` are protected, stop before publication and ask the user for a non-protected branch.
+- If `HEAD` is detached, a protected branch has uncommitted changes, or the target branch/worktree already exists or conflicts, stop, preserve all changes, report the current branch, `git status`, and the exact conflict, and ask the user to resolve it manually. Never stash, reset, overwrite, clean, or remove a worktree automatically.
+- Worktree cleanup is the user's responsibility.
+
+### Commit and delivery workflow
+
+- A user declaring the task finished, or applicable checks becoming green, only moves the task into review. It never authorizes an immediate commit.
+- Review the uncommitted working tree first. Commit only after the review is green and, when `pestphp/pest` is installed, Pest is green.
+- Stage only files belonging to the task. Never use a broad add when unrelated changes exist.
+- Use Conventional Commits with a non-empty, single-line subject, no trailing period, subject and body lines no longer than 72 characters, optional multiline body, and one of: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`. Subject capitalization is not enforced, matching is case-insensitive, and merge commits are exempt.
+- The commit must contain `#<task-number>`; use `#000` when the plan has no task number. Prefer `<type>(<optional-scope>): <subject> #<number>`.
+- Never include `Co-authored-by`, `Generated-by`, or any statement that AI, a bot, or an agent created the commit.
+- Before pushing, inspect the actual commit message and trailers. Do not push an invalid commit.
+- Push only a non-protected task branch with `rtk git push -u <remote> HEAD`; do not use implicit, wildcard, mirror, force, or explicit destination refspec pushes. Then create a GitHub Pull Request with `gh pr create` or a GitLab Merge Request with `glab mr create`, according to the remote provider. Target the plan's `Base branch`, defaulting to `develop` when absent. Never merge automatically.
+- If the provider CLI or authentication is unavailable, report the delivery blocker without bypassing branch protection.
 EOF
 }
 
